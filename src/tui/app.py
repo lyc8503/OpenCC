@@ -7,14 +7,18 @@ import asyncio
 from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.widgets import Static, Input, Markdown
-from textual.containers import VerticalScroll, Vertical
+from textual.containers import VerticalScroll, Vertical, Horizontal
 from textual.binding import Binding
 from textual.reactive import reactive
 from textual.message import Message
 
-from .core.agent import Agent, AgentState
-from .core.types import AgentConfig, Message as AgentMessage, ContentBlock
-from . import tools
+from ..core.agent import Agent, AgentState
+from ..core.types import AgentConfig, Message as AgentMessage, ContentBlock
+from .. import tools  # Import tools module to register all tools
+from ..tools import *  # Import all tools to ensure they are registered
+from .commands import CommandRegistry
+from .commands.builtin import *  # Register all builtin commands
+from .widgets import ModelSelector, PermissionModeSelector, HelpOverlay, CommandResult, InlineQuestion
 
 
 class ThinkingBlock(Static):
@@ -153,6 +157,9 @@ class WelcomePanel(Static):
     config_model = reactive("")
     config_dir = reactive("")
 
+    # Version string - should match the actual version
+    VERSION = "v0.1.0"
+
     def __init__(self, config_model: str = "", config_dir: str = "", **kwargs):
         super().__init__(**kwargs)
         self.config_model = config_model
@@ -184,6 +191,7 @@ class WelcomePanel(Static):
             "    ▘▘ ▝▝    ",
         ]
 
+        # Left side with version header
         left_lines = [
             "Welcome back!",
             "",
@@ -191,13 +199,13 @@ class WelcomePanel(Static):
             logo[1],
             logo[2],
             "",
-            self.config_model,
+            f"{self.config_model} · API Usage Billing",
             f"~/{self.config_dir}",
         ]
 
         right_lines = [
             "Tips for getting started",
-            "Run /init to create config",
+            "Run /init to create a CLAUDE.md file with instructions",
             "─" * min(mid - 2, 30),
             "Recent activity",
             "No recent activity",
@@ -207,7 +215,9 @@ class WelcomePanel(Static):
         ]
 
         lines = []
-        lines.append("╭" + "─" * (w - 2) + "╮")
+        # Header with version
+        title = f"Open Agent {self.VERSION}"
+        lines.append("╭───" + title + "─" * max(0, w - len(title) - 5) + "╮")
 
         for i in range(len(left_lines)):
             left = left_lines[i] if i < len(left_lines) else ""
@@ -221,6 +231,119 @@ class WelcomePanel(Static):
         return "\n".join(lines)
 
 
+class CommandAutocomplete(Static):
+    """Command autocomplete dropdown - shows below input when typing /."""
+
+    DEFAULT_CSS = """
+    CommandAutocomplete {
+        width: 100%;
+        height: auto;
+        max-height: 8;
+        background: $surface;
+        padding: 0 1;
+        border-top: solid $accent;
+    }
+
+    CommandAutocomplete .cmd-item {
+        height: 1;
+    }
+
+    CommandAutocomplete .cmd-item.selected {
+        background: $accent;
+        color: $text;
+    }
+    """
+
+    # All available commands
+    COMMANDS = [
+        ("/help", "Show available commands"),
+        ("/clear", "Clear conversation history"),
+        ("/model", "Switch AI model"),
+        ("/theme", "Change color theme"),
+        ("/config", "Show configuration"),
+        ("/cost", "Show token usage"),
+        ("/export", "Export conversation"),
+        ("/compact", "Compact conversation"),
+        ("/rewind", "Rewind to previous state"),
+        ("/status", "Show session status"),
+        ("/doctor", "Run diagnostics"),
+        ("/rename", "Rename session"),
+        ("/btw", "Ask side question"),
+        ("/vim", "Toggle vim mode"),
+        ("/usage", "Show usage statistics"),
+        ("/exit", "Exit the application"),
+        ("/effort", "Set effort level"),
+        ("/fast", "Toggle fast mode"),
+        ("/plan", "Enable plan mode"),
+    ]
+
+    _selected = reactive(0)
+
+    def __init__(self, prefix: str = "", **kwargs):
+        super().__init__(**kwargs)
+        self._prefix = prefix
+        self._matches = self._get_matches(prefix)
+
+    def _get_matches(self, prefix: str) -> list:
+        """Get commands matching the prefix."""
+        if not prefix:
+            return self.COMMANDS[:5]  # Show top 5 by default
+        return [(cmd, desc) for cmd, desc in self.COMMANDS if cmd.startswith(prefix)][:5]
+
+    def update_prefix(self, prefix: str):
+        """Update the prefix and refresh matches."""
+        self._prefix = prefix
+        self._matches = self._get_matches(prefix)
+        self._selected = 0
+        self.refresh()
+
+    def render(self) -> str:
+        if not self._matches:
+            return ""
+
+        lines = []
+        for i, (cmd, desc) in enumerate(self._matches):
+            marker = "→" if i == self._selected else " "
+            # Highlight matching part
+            lines.append(f"{marker} {cmd:<12} {desc}")
+        return "\n".join(lines)
+
+    def handle_key(self, key: str) -> bool:
+        """Handle a key press. Returns True if handled."""
+        if key == "up":
+            self._selected = max(0, self._selected - 1)
+            self.refresh()
+            return True
+        elif key == "down":
+            self._selected = min(len(self._matches) - 1, self._selected + 1)
+            self.refresh()
+            return True
+        elif key == "enter":
+            self._select()
+            return True
+        elif key == "escape":
+            self.remove_class("visible")
+            return True
+        return False
+
+    def _select(self):
+        """Select the current command."""
+        if self._matches:
+            cmd, _ = self._matches[self._selected]
+            # Set input value to the selected command
+            input_widget = self.app.query_one(Input)
+            input_widget.value = cmd + " "
+            input_widget.focus()
+            # Hide the autocomplete
+            self.remove_class("visible")
+
+    def get_selected_command(self) -> str | None:
+        """Get the currently selected command."""
+        if self._matches:
+            return self._matches[self._selected][0]
+        return None
+
+
 class Separator(Static):
     """Horizontal separator."""
     def render(self) -> str:
@@ -231,17 +354,27 @@ class StatusBar(Static):
     """Bottom status bar."""
     _message = reactive("")
     _is_warning = reactive(False)
+    _model = reactive("")
+    _permission_mode = reactive("default")
 
     def set_message(self, message: str, is_warning: bool = False):
         """Set a temporary message."""
         self._message = message
         self._is_warning = is_warning
         self.refresh()
+        # Auto-clear after 3 seconds
+        self.set_timer(3.0, self.clear_message)
 
     def clear_message(self):
         """Clear temporary message."""
         self._message = ""
         self._is_warning = False
+        self.refresh()
+
+    def update_status(self, model: str, permission_mode: str):
+        """Update status bar with current settings."""
+        self._model = model
+        self._permission_mode = permission_mode
         self.refresh()
 
     def render(self) -> str:
@@ -251,8 +384,10 @@ class StatusBar(Static):
             padding = max(1, w - len(left) - 2)
             return f" {'⚠ ' if self._is_warning else ''}{left}{' ' * padding}"
         else:
-            left = "T: toggle thinking | Shift+drag: select text"
-            right = "◐ medium"
+            # Claude Code style: left side with model and API info
+            left = f"{self._model or 'unknown'} · API Usage Billing"
+            # Right side: show status indicators
+            right = "◐ medium · /effort"
             padding = max(1, w - len(left) - len(right) - 2)
             return f" {left}{' ' * padding}{right}"
 
@@ -347,13 +482,73 @@ class OpenAgentTUI(App):
         height: auto;
     }
 
+    #popup-container {
+        display: none;
+        height: auto;
+        max-height: 15;
+        background: $surface;
+        border-top: solid $accent;
+    }
+
+    #popup-container.visible {
+        display: block;
+    }
+
+    /* Hide input elements when bottom-area has popup-visible class */
+    #bottom-area.popup-visible > #input-line,
+    #bottom-area.popup-visible > #command-autocomplete,
+    #bottom-area.popup-visible > .separator,
+    #bottom-area.popup-visible > #status {
+        display: none;
+    }
+
+    #input-line {
+        height: 1;
+        padding: 0 1;
+        layout: horizontal;
+    }
+
+    #input-prompt-symbol {
+        width: 2;
+        color: $text;
+    }
+
+    #command-autocomplete {
+        display: none;
+        height: auto;
+        max-height: 8;
+        background: $surface;
+        padding: 0 1;
+    }
+
+    #command-autocomplete.visible {
+        display: block;
+    }
+
     Input {
         width: 1fr;
+        background: $surface;
+        border: none;
+        padding: 0;
+    }
+
+    Input:focus {
+        border: none;
+    }
+
+    Input .input-placeholder {
+        color: $text-muted;
     }
 
     #status {
         height: 1;
         background: $surface-darken-1;
+        color: $text-muted;
+    }
+
+    /* Command result styling */
+    .command-result {
+        margin: 1 0;
         color: $text-muted;
     }
 
@@ -371,7 +566,17 @@ class OpenAgentTUI(App):
     BINDINGS = [
         Binding("ctrl+c", "handle_interrupt", "Interrupt/Quit", priority=True),
         Binding("t", "toggle_thinking", "Toggle Thinking"),
+        Binding("alt+p", "switch_model", "Switch Model"),
+        Binding("shift+tab", "toggle_permission", "Toggle Permission"),
+        Binding("ctrl+l", "clear_screen", "Clear Screen"),
+        Binding("ctrl+o", "toggle_verbose", "Toggle Verbose"),
+        Binding("ctrl+r", "history_search", "History Search"),
+        Binding("up", "history_prev", "Previous Command"),
+        Binding("down", "history_next", "Next Command"),
     ]
+
+    # Permission modes
+    _permission_modes = ["default", "acceptEdits", "plan", "bypassPermissions"]
 
     def __init__(self, config: AgentConfig):
         super().__init__()
@@ -381,6 +586,18 @@ class OpenAgentTUI(App):
         self._cancel_requested = False
         self._exit_requested = False
         self._thinking_blocks: list[ThinkingBlock] = []
+        # Command history
+        self._command_history: list[str] = []
+        self._history_index: int = -1
+        # Permission mode
+        self._current_permission_index = 0
+        # Model selection
+        self._available_models = ["glm-5", "claude-sonnet-4-6", "gpt-4o", "deepseek-chat"]
+        # Session state
+        self._session_name = ""
+        self._verbose_mode = False
+        # Inline question state (for AskUserQuestion tool)
+        self._inline_question: InlineQuestion | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="main-container"):
@@ -392,15 +609,127 @@ class OpenAgentTUI(App):
             yield Separator(classes="separator")
             yield ChatArea(id="chat")
             yield ThinkingIndicator(id="thinking")
-            yield Separator(classes="separator")
 
         with Vertical(id="bottom-area"):
-            yield Input(placeholder="Type a message...", id="input")
+            yield Vertical(id="popup-container")
+            yield Separator(classes="separator")
+            with Horizontal(id="input-line"):
+                yield Static("❯ ", id="input-prompt-symbol")
+                yield Input(placeholder="? for shortcuts", id="input")
+            yield CommandAutocomplete(id="command-autocomplete")
+            yield Separator(classes="separator")
             yield StatusBar(id="status")
 
     def on_mount(self) -> None:
         self.agent = Agent(config=self.config)
         self.query_one(Input).focus()
+        # Update status bar with current settings
+        status = self.query_one("#status")
+        status.update_status(self.config.model, self.config.permission_mode)
+
+        # Set up callback for AskUserQuestion tool
+        self._setup_ask_user_question_callback()
+
+    def _setup_ask_user_question_callback(self):
+        """Set up the callback for AskUserQuestion tool."""
+        from ..core.tool import registry
+        from ..tools.ask import AskUserQuestionTool
+
+        tool = registry.get_tool("AskUserQuestion", self.config.working_directory)
+        if tool and isinstance(tool, AskUserQuestionTool):
+            tool.set_callback(self._handle_ask_user_question)
+
+    async def _handle_ask_user_question(self, questions: list[dict]) -> dict:
+        """Handle AskUserQuestion by showing an inline question in chat area."""
+        # Create an event to signal when the question is done
+        self._inline_question = InlineQuestion(questions=questions)
+
+        # Mount the question inline in the chat area (must be done from main thread)
+        chat = self.query_one("#chat")
+        self.call_from_thread(chat.mount, self._inline_question)
+        self.call_from_thread(chat.scroll_end, animate=False)
+
+        # Wait for the result
+        result = await self._inline_question.wait_for_result()
+
+        # Clear the reference after done
+        self._inline_question = None
+
+        return result or {"answers": {}}
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle input changes - show autocomplete for / commands."""
+        text = event.value
+        # Check if we need to show/update command autocomplete
+        if text.startswith("/"):
+            self._show_command_autocomplete(text)
+        else:
+            self._hide_command_autocomplete()
+
+    def _show_command_autocomplete(self, prefix: str):
+        """Show or update command autocomplete panel."""
+        try:
+            autocomplete = self.query_one("#command-autocomplete", CommandAutocomplete)
+            autocomplete.update_prefix(prefix)
+            autocomplete.add_class("visible")
+        except:
+            pass
+
+    def _hide_command_autocomplete(self):
+        """Hide command autocomplete panel."""
+        try:
+            autocomplete = self.query_one("#command-autocomplete", CommandAutocomplete)
+            autocomplete.remove_class("visible")
+        except:
+            pass
+
+    def on_key(self, event) -> None:
+        """Handle key events."""
+        # First, check if there's an active inline question in the chat area
+        if self._inline_question and self._inline_question.is_active():
+            if self._inline_question.handle_key(event.key):
+                event.stop()
+                return
+
+        # Check if popup is visible and handle keys for it
+        try:
+            popup_container = self.query_one("#popup-container")
+            if popup_container.has_class("visible"):
+                # Get the popup widget
+                children = list(popup_container.children)
+                if children:
+                    popup_widget = children[0]
+                    # Handle escape key to close popup
+                    if event.key == "escape":
+                        self.hide_popup()
+                        event.stop()
+                        return
+                    # Handle other keys - call handle_key if available
+                    if hasattr(popup_widget, 'handle_key'):
+                        if popup_widget.handle_key(event.key):
+                            event.stop()
+                            return
+        except:
+            pass
+
+        # Let autocomplete handle keys if it's visible
+        try:
+            autocomplete = self.query_one("#command-autocomplete", CommandAutocomplete)
+            if autocomplete.has_class("visible"):
+                # Pass navigation keys to autocomplete
+                if event.key in ("up", "down", "enter", "escape"):
+                    if autocomplete.handle_key(event.key):
+                        event.stop()
+                        return
+        except:
+            pass
+
+        # Show shortcuts hint when ? is pressed and input is empty
+        input_widget = self.query_one(Input)
+        if event.character == "?" and not input_widget.value:
+            status = self.query_one("#status")
+            status.set_message("Type / for commands, ! for bash mode")
+            event.stop()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
@@ -408,11 +737,104 @@ class OpenAgentTUI(App):
             return
 
         event.input.value = ""
+
+        # Handle slash commands
+        if text.startswith("/"):
+            asyncio.create_task(self._handle_command(text[1:]))
+            return
+
+        # Handle bash mode
+        if text.startswith("!"):
+            self._execute_bash_direct(text[1:])
+            return
+
+        # Add to history
+        self._command_history.append(text)
+        self._history_index = len(self._command_history)
+
+        # Normal message
         chat = self.query_one("#chat")
         chat.mount(Static(f"❯ {text}"))
         chat.scroll_end(animate=False)
 
         self._start_streaming(text)
+
+    async def _handle_command(self, command: str):
+        """Handle a slash command."""
+        # Execute command directly - the command handler will show the result
+        success = await CommandRegistry.execute(self, command)
+        if not success:
+            self.show_command_result(command, "unknown command")
+
+    def _execute_bash_direct(self, command: str):
+        """Execute bash command directly (bash mode)."""
+        import subprocess
+
+        chat = self.query_one("#chat")
+        chat.mount(Static(f"! {command}"))
+        chat.scroll_end(animate=False)
+
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=self.config.working_directory,
+                timeout=30
+            )
+            output = result.stdout if result.stdout else result.stderr
+            chat.mount(Static(f"↳ {output[:500]}{'...' if len(output) > 500 else ''}"))
+        except subprocess.TimeoutExpired:
+            chat.mount(Static("✗ Command timed out (30s)"))
+        except Exception as e:
+            chat.mount(Static(f"✗ Error: {e}"))
+
+        chat.scroll_end(animate=False)
+
+    def show_message(self, message: str):
+        """Display a message in the chat area."""
+        chat = self.query_one("#chat")
+        chat.mount(Static(f"● {message}"))
+        chat.scroll_end(animate=False)
+
+    def show_error(self, error: str):
+        """Display an error message."""
+        chat = self.query_one("#chat")
+        chat.mount(Static(f"✗ {error}", classes="error"))
+        chat.scroll_end(animate=False)
+
+    def show_popup(self, widget) -> None:
+        """Show a popup widget in the popup container (appears above input)."""
+        popup_container = self.query_one("#popup-container")
+        bottom_area = self.query_one("#bottom-area")
+        # Clear any existing popup
+        popup_container.remove_children()
+        # Mount new popup
+        popup_container.mount(widget)
+        popup_container.add_class("visible")
+        bottom_area.add_class("popup-visible")
+        widget.focus()
+
+    def hide_popup(self) -> None:
+        """Hide the current popup and restore input focus."""
+        try:
+            popup_container = self.query_one("#popup-container")
+            bottom_area = self.query_one("#bottom-area")
+            popup_container.remove_children()
+            popup_container.remove_class("visible")
+            bottom_area.remove_class("popup-visible")
+            # Restore focus to input
+            self.query_one(Input).focus()
+        except:
+            pass
+
+    def show_command_result(self, command: str, result: str = "") -> None:
+        """Show a brief one-line command result in chat with margin."""
+        chat = self.query_one("#chat")
+        result_widget = CommandResult(command, result)
+        chat.mount(result_widget)
+        chat.scroll_end(animate=False)
 
     def _start_streaming(self, prompt: str):
         """Start streaming response."""
@@ -461,6 +883,56 @@ class OpenAgentTUI(App):
         for block in self._thinking_blocks:
             block.toggle()
 
+    def action_switch_model(self):
+        """Show model selector popup."""
+        selector = ModelSelector(current_model=self.config.model)
+        self.show_popup(selector)
+
+    def action_toggle_permission(self):
+        """Show permission mode selector popup."""
+        selector = PermissionModeSelector(current_mode=self.config.permission_mode)
+        self.show_popup(selector)
+
+    def action_clear_screen(self):
+        """Clear the terminal screen."""
+        chat = self.query_one("#chat")
+        chat.remove_children()
+        self.show_message("Screen cleared. Conversation history preserved.")
+
+    def action_toggle_verbose(self):
+        """Toggle verbose output mode."""
+        self._verbose_mode = not self._verbose_mode
+        status = self.query_one("#status")
+        status.set_message(f"Verbose: {'on' if self._verbose_mode else 'off'}")
+
+    def action_history_prev(self):
+        """Go to previous command in history."""
+        if not self._command_history:
+            return
+        if self._history_index > 0:
+            self._history_index -= 1
+            input_widget = self.query_one(Input)
+            input_widget.value = self._command_history[self._history_index]
+
+    def action_history_next(self):
+        """Go to next command in history."""
+        if not self._command_history:
+            return
+        if self._history_index < len(self._command_history) - 1:
+            self._history_index += 1
+            input_widget = self.query_one(Input)
+            input_widget.value = self._command_history[self._history_index]
+        else:
+            self._history_index = len(self._command_history)
+            input_widget = self.query_one(Input)
+            input_widget.value = ""
+
+    def action_history_search(self):
+        """Search through command history."""
+        # For now, just show a message - full implementation would show search UI
+        status = self.query_one("#status")
+        status.set_message(f"History: {len(self._command_history)} commands")
+
     def _run_streaming(self, prompt: str):
         """Run agent with streaming in worker thread."""
         loop = asyncio.new_event_loop()
@@ -493,7 +965,7 @@ class OpenAgentTUI(App):
                 iteration += 1
 
                 # Get tool schemas
-                from .core.tool import registry
+                from ..core.tool import registry
                 tool_schemas = registry.get_all_schemas(self.config.tools)
                 tools_list = [s.to_api_format() for s in tool_schemas] if tool_schemas else None
 

@@ -4,6 +4,7 @@ Write tool - Write files to the filesystem.
 
 from ..core.tool import Tool, registry
 from ..core.types import ToolResult
+from .edit import EditTool
 from pathlib import Path
 
 
@@ -39,14 +40,6 @@ Usage:
         "additionalProperties": False
     }
 
-    def __init__(self, working_directory: str = "."):
-        super().__init__(working_directory)
-        self._read_files: set[str] = set()
-
-    def mark_as_read(self, file_path: str):
-        """Mark a file as having been read."""
-        self._read_files.add(file_path)
-
     async def execute(self, file_path: str, content: str) -> ToolResult:
         """Write the file."""
         path = Path(file_path)
@@ -57,8 +50,8 @@ Usage:
                 is_error=True
             )
 
-        # Check if existing file was read first
-        if path.exists() and file_path not in self._read_files:
+        # Check if existing file was read first (using shared state with EditTool)
+        if path.exists() and not EditTool.is_read(file_path):
             return ToolResult(
                 output="Error: Must read file first before writing to it. Use the Read tool.",
                 is_error=True

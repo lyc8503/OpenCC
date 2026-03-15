@@ -158,11 +158,13 @@ class TestWriteFileOverwrite:
     @pytest.mark.asyncio
     async def test_overwrite_existing_file(self, temp_workspace):
         """Test overwriting an existing file."""
+        from src.tools.edit import EditTool
+
         file_path = temp_workspace / "existing.txt"
         file_path.write_text("Original content")
 
         tool = WriteTool(working_directory=str(temp_workspace))
-        tool.mark_as_read(str(file_path))
+        EditTool.mark_as_read(str(file_path))
         result = await tool.execute(
             file_path=str(file_path),
             content="New content"
@@ -174,11 +176,13 @@ class TestWriteFileOverwrite:
     @pytest.mark.asyncio
     async def test_overwrite_preserves_permissions(self, temp_workspace):
         """Test that overwriting preserves file existence."""
+        from src.tools.edit import EditTool
+
         file_path = temp_workspace / "perms.txt"
         file_path.write_text("Original")
 
         tool = WriteTool(working_directory=str(temp_workspace))
-        tool.mark_as_read(str(file_path))
+        EditTool.mark_as_read(str(file_path))
         await tool.execute(
             file_path=str(file_path),
             content="Overwritten"
