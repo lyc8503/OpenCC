@@ -4,6 +4,7 @@ Read tool - Read files from the filesystem.
 
 from ..core.tool import Tool, registry
 from ..core.types import ToolResult
+from .edit import EditTool
 from pathlib import Path
 import base64
 import mimetypes
@@ -95,10 +96,15 @@ Usage:
 
         # Jupyter notebooks
         if ext == ".ipynb":
-            return await self._read_notebook(path)
+            result = await self._read_notebook(path)
+            EditTool.mark_as_read(file_path)
+            return result
 
         # Text files
-        return await self._read_text(path, offset, limit)
+        result = await self._read_text(path, offset, limit)
+        # Mark as read for EditTool
+        EditTool.mark_as_read(file_path)
+        return result
 
     async def _read_text(self, path: Path, offset: int | None, limit: int | None) -> ToolResult:
         """Read a text file."""
@@ -190,14 +196,16 @@ Usage:
 
             for i, cell in enumerate(nb.get("cells", [])):
                 cell_type = cell.get("cell_type", "unknown")
+                # Get real cell ID, fallback to index+1
+                cell_id = cell.get("id", str(i + 1))
 
                 if cell_type == "markdown":
                     source = "".join(cell.get("source", []))
-                    output_parts.append(f"### Markdown Cell {i + 1}\n{source}")
+                    output_parts.append(f"### Markdown Cell (id: {cell_id})\n{source}")
 
                 elif cell_type == "code":
                     source = "".join(cell.get("source", []))
-                    output_parts.append(f"### Code Cell {i + 1}\n```\n{source}\n```")
+                    output_parts.append(f"### Code Cell (id: {cell_id})\n```\n{source}\n```")
 
                     # Include outputs
                     for output in cell.get("outputs", []):

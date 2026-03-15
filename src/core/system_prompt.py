@@ -23,18 +23,30 @@ def get_git_status(working_dir: str = ".") -> str:
         )
         current_branch = result.stdout.strip() or "HEAD"
 
-        # Get main branch
+        # Get main branch - use local command only, no remote access
         result = subprocess.run(
-            ["git", "remote", "show", "origin"],
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
             capture_output=True,
             text=True,
             cwd=working_dir
         )
-        main_branch = "main"
-        for line in result.stdout.split('\n'):
-            if "HEAD branch:" in line:
-                main_branch = line.split(":")[-1].strip()
-                break
+        if result.returncode == 0 and result.stdout.strip():
+            # Output format: refs/remotes/origin/main
+            main_branch = result.stdout.strip().split("/")[-1]
+        else:
+            # Fallback: check common branch names locally
+            result = subprocess.run(
+                ["git", "branch", "--list", "main", "master"],
+                capture_output=True,
+                text=True,
+                cwd=working_dir
+            )
+            if "main" in result.stdout:
+                main_branch = "main"
+            elif "master" in result.stdout:
+                main_branch = "master"
+            else:
+                main_branch = "main"
 
         # Get status
         result = subprocess.run(

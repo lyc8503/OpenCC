@@ -80,9 +80,30 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
 
             cells = nb.get("cells", [])
 
+            # Helper to find cell by ID or numeric index
+            def find_cell_index(cell_id: str) -> int:
+                """Find cell by real ID or numeric index (1-based)."""
+                # Try as numeric index first (1-based)
+                if cell_id.isdigit():
+                    idx = int(cell_id) - 1
+                    if 0 <= idx < len(cells):
+                        return idx
+                # Try as real cell ID
+                for i, c in enumerate(cells):
+                    if c.get("id") == cell_id:
+                        return i
+                return -1
+
             if edit_mode == "delete" and cell_id:
                 # Delete cell
-                nb["cells"] = [c for c in cells if c.get("id") != cell_id]
+                idx = find_cell_index(cell_id)
+                if idx >= 0:
+                    del cells[idx]
+                else:
+                    return ToolResult(
+                        output=f"Error: Cell with id '{cell_id}' not found",
+                        is_error=True
+                    )
 
             elif edit_mode == "insert":
                 # Insert new cell
@@ -96,14 +117,13 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
 
                 # Find insert position
                 if cell_id:
-                    for i, c in enumerate(cells):
-                        if c.get("id") == cell_id:
-                            cells.insert(i, new_cell)
-                            break
+                    idx = find_cell_index(cell_id)
+                    if idx >= 0:
+                        cells.insert(idx, new_cell)
+                    else:
+                        cells.append(new_cell)
                 else:
                     cells.append(new_cell)
-
-                nb["cells"] = cells
 
             else:  # replace
                 if not cell_id:
@@ -112,23 +132,22 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
                         is_error=True
                     )
 
-                found = False
-                for c in cells:
-                    if c.get("id") == cell_id:
-                        c["cell_type"] = cell_type
-                        c["source"] = new_source.split("\n")
-                        if cell_type == "markdown":
-                            c.pop("outputs", None)
-                        elif cell_type == "code" and "outputs" not in c:
-                            c["outputs"] = []
-                        found = True
-                        break
-
-                if not found:
+                idx = find_cell_index(cell_id)
+                if idx < 0:
                     return ToolResult(
                         output=f"Error: Cell with id '{cell_id}' not found",
                         is_error=True
                     )
+
+                cells[idx]["cell_type"] = cell_type
+                cells[idx]["source"] = new_source.split("\n")
+                if cell_type == "markdown":
+                    cells[idx].pop("outputs", None)
+                elif cell_type == "code" and "outputs" not in cells[idx]:
+                    cells[idx]["outputs"] = []
+
+            # Ensure cells list is updated in notebook
+            nb["cells"] = cells
 
             # Write back
             with open(path, "w") as f:

@@ -48,13 +48,18 @@ Usage:
         "additionalProperties": False
     }
 
-    def __init__(self, working_directory: str = "."):
-        super().__init__(working_directory)
-        self._read_files: set[str] = set()
+    # Class-level shared state for tracking read files
+    _read_files: set[str] = set()
 
-    def mark_as_read(self, file_path: str):
+    @classmethod
+    def mark_as_read(cls, file_path: str):
         """Mark a file as having been read."""
-        self._read_files.add(file_path)
+        cls._read_files.add(file_path)
+
+    @classmethod
+    def is_read(cls, file_path: str) -> bool:
+        """Check if a file has been read."""
+        return file_path in cls._read_files
 
     async def execute(
         self,
@@ -79,7 +84,7 @@ Usage:
             )
 
         # Check if file was read first
-        if file_path not in self._read_files:
+        if not self.is_read(file_path):
             return ToolResult(
                 output="Error: Must read file first before editing. Use the Read tool.",
                 is_error=True

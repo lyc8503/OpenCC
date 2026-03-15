@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Open Agent TUI - Claude Code style interface with Markdown support.
+Open Agent TUI - Claude Code style interface with streaming and thinking support.
 """
 
 import asyncio
@@ -10,27 +10,104 @@ from textual.widgets import Static, Input, Markdown
 from textual.containers import VerticalScroll, Vertical
 from textual.binding import Binding
 from textual.reactive import reactive
+from textual.message import Message
 
 from .core.agent import Agent, AgentState
-from .core.types import AgentConfig, Message as AgentMessage
+from .core.types import AgentConfig, Message as AgentMessage, ContentBlock
 from . import tools
 
 
-class ChatMessage(Static):
-    """A chat message with optional Markdown rendering."""
+class ThinkingBlock(Static):
+    """Collapsible thinking/reasoning block."""
 
-    def __init__(self, content: str, is_user: bool = False, **kwargs):
+    DEFAULT_CSS = """
+    ThinkingBlock {
+        background: $surface-darken-2;
+        color: $text-muted;
+        padding: 0 1;
+        margin: 0 0 1 0;
+        border-left: solid $primary;
+        height: auto;
+    }
+    """
+
+    expanded = reactive(False)
+
+    def __init__(self, content: str = "", **kwargs):
         super().__init__(**kwargs)
         self._content = content
+        self.expanded = False  # Start collapsed
+
+    def add_content(self, text: str):
+        """Add more content to the thinking block."""
+        self._content += text
+        self.refresh()
+
+    def render(self) -> str:
+        char_count = len(self._content)
+        w = self.size.width
+        if self.expanded:
+            sep = "─" * max(10, w - 2)
+            lines = [
+                sep,
+                f"▕ thinking ({char_count} chars)",
+                sep,
+                self._content,
+                "",
+                "[T to collapse]",
+            ]
+            return "\n".join(lines)
+        else:
+            preview = self._content[:60] + "..." if len(self._content) > 60 else self._content
+            return f"▶ thinking ({char_count} chars): {preview} [T to expand]"
+
+    def toggle(self):
+        """Toggle expanded/collapsed state."""
+        self.expanded = not self.expanded
+        self.refresh()
+
+
+class StreamMessage(Static):
+    """A message that can be streamed into."""
+
+    DEFAULT_CSS = """
+    StreamMessage {
+        margin: 0 0 1 0;
+    }
+    """
+
+    def __init__(self, is_user: bool = False, **kwargs):
+        super().__init__(**kwargs)
         self._is_user = is_user
+        self._content = ""
+        self._thinking_content = ""
+        self._thinking_block = None
+        self._markdown = None
 
     def compose(self) -> ComposeResult:
         if self._is_user:
-            # User messages: simple format
             yield Static(f"❯ {self._content}")
         else:
-            # Assistant messages: render as Markdown
-            yield Markdown(self._content)
+            # Thinking block (if any)
+            if self._thinking_content:
+                self._thinking_block = ThinkingBlock(self._thinking_content)
+                yield self._thinking_block
+            # Main content
+            self._markdown = Markdown(self._content)
+            yield self._markdown
+
+    def add_thinking(self, text: str):
+        """Add thinking content."""
+        self._thinking_content += text
+        if self._thinking_block:
+            self._thinking_block.add_content(text)
+
+    def add_content(self, text: str):
+        """Add main content."""
+        self._content += text
+        if self._markdown:
+            # Update markdown content
+            self._markdown.update(self._content)
 
 
 class ToolCallMessage(Static):
@@ -152,16 +229,39 @@ class Separator(Static):
 
 class StatusBar(Static):
     """Bottom status bar."""
+    _message = reactive("")
+    _is_warning = reactive(False)
+
+    def set_message(self, message: str, is_warning: bool = False):
+        """Set a temporary message."""
+        self._message = message
+        self._is_warning = is_warning
+        self.refresh()
+
+    def clear_message(self):
+        """Clear temporary message."""
+        self._message = ""
+        self._is_warning = False
+        self.refresh()
+
     def render(self) -> str:
         w = self.size.width
-        left = "? for shortcuts"
-        right = "◐ medium"
-        padding = max(1, w - len(left) - len(right) - 2)
-        return f" {left}{' ' * padding}{right}"
+        if self._message:
+            left = self._message
+            padding = max(1, w - len(left) - 2)
+            return f" {'⚠ ' if self._is_warning else ''}{left}{' ' * padding}"
+        else:
+            left = "T: toggle thinking | Shift+drag: select text"
+            right = "◐ medium"
+            padding = max(1, w - len(left) - len(right) - 2)
+            return f" {left}{' ' * padding}{right}"
 
 
 class OpenAgentTUI(App):
-    """Open Agent TUI - Claude Code style."""
+    """Open Agent TUI - Claude Code style with streaming."""
+
+    # Enable mouse for scrolling but allow Shift+drag for text selection
+    MOUSE_ESCAPE = True  # Allow Shift+drag to select text
 
     CSS = """
     Screen {
@@ -186,7 +286,7 @@ class OpenAgentTUI(App):
         padding: 0 1;
     }
 
-    ChatMessage {
+    StreamMessage {
         margin: 0 0 1 0;
     }
 
@@ -270,6 +370,7 @@ class OpenAgentTUI(App):
 
     BINDINGS = [
         Binding("ctrl+c", "handle_interrupt", "Interrupt/Quit", priority=True),
+        Binding("t", "toggle_thinking", "Toggle Thinking"),
     ]
 
     def __init__(self, config: AgentConfig):
@@ -278,7 +379,8 @@ class OpenAgentTUI(App):
         self.agent = None
         self._is_busy = False
         self._cancel_requested = False
-        self._exit_requested = False  # Track if exit was requested
+        self._exit_requested = False
+        self._thinking_blocks: list[ThinkingBlock] = []
 
     def compose(self) -> ComposeResult:
         with Vertical(id="main-container"):
@@ -307,23 +409,25 @@ class OpenAgentTUI(App):
 
         event.input.value = ""
         chat = self.query_one("#chat")
-        chat.mount(ChatMessage(text, is_user=True))
+        chat.mount(Static(f"❯ {text}"))
         chat.scroll_end(animate=False)
 
-        self._start_request(text)
+        self._start_streaming(text)
 
-    def _start_request(self, prompt: str):
-        """Start a new agent request."""
+    def _start_streaming(self, prompt: str):
+        """Start streaming response."""
         self._is_busy = True
         self._cancel_requested = False
 
         self.query_one(Input).disabled = True
         self.query_one("#thinking").active = True
 
-        self.run_worker(lambda: self._run_agent_sync(prompt), thread=True, exclusive=True)
+        self.run_worker(lambda: self._run_streaming(prompt), thread=True, exclusive=True)
 
     def _stop_request(self):
-        """Stop the current request."""
+        """Stop the current request and restore input."""
+        if not self._is_busy:
+            return
         self._is_busy = False
         self.query_one("#thinking").active = False
         input_widget = self.query_one(Input)
@@ -333,32 +437,48 @@ class OpenAgentTUI(App):
     def action_handle_interrupt(self):
         """Handle Ctrl+C."""
         if self._is_busy:
-            # Cancel current request
             self._cancel_requested = True
-            chat = self.query_one("#chat")
-            chat.mount(Static("  ⚠ Request cancelled"))
-            chat.scroll_end(animate=False)
+            self._stop_request()
         elif self._exit_requested:
-            # Second Ctrl+C, exit
             self.exit()
         else:
-            # First Ctrl+C, show warning
             self._exit_requested = True
-            chat = self.query_one("#chat")
-            chat.mount(Static("  ⚠ Press Ctrl+C again to exit"))
-            chat.scroll_end(animate=False)
-            # Reset after 2 seconds
+            status = self.query_one("#status")
+            status.set_message("Press Ctrl+C again to exit", is_warning=True)
             self.set_timer(2.0, self._reset_exit_request)
 
     def _reset_exit_request(self):
         """Reset exit request flag."""
         self._exit_requested = False
+        try:
+            status = self.query_one("#status")
+            status.clear_message()
+        except:
+            pass
 
-    def _run_agent_sync(self, prompt: str):
-        """Run agent in worker thread."""
+    def action_toggle_thinking(self):
+        """Toggle all thinking blocks."""
+        for block in self._thinking_blocks:
+            block.toggle()
+
+    def _run_streaming(self, prompt: str):
+        """Run agent with streaming in worker thread."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(self._stream_loop(prompt))
+        finally:
+            loop.close()
+            self.call_from_thread(self._stop_request)
+
+    async def _stream_loop(self, prompt: str):
+        """Async streaming loop."""
         chat = self.query_one("#chat")
+
+        current_message = None
+        current_thinking = ""
+        tool_calls = []
 
         try:
             self.agent.state = AgentState()
@@ -371,20 +491,73 @@ class OpenAgentTUI(App):
                     break
 
                 iteration += 1
-                response = loop.run_until_complete(self.agent._call_llm(system))
+
+                # Get tool schemas
+                from .core.tool import registry
+                tool_schemas = registry.get_all_schemas(self.config.tools)
+                tools_list = [s.to_api_format() for s in tool_schemas] if tool_schemas else None
+
+                response_blocks = []
+                current_text = ""
+                current_thinking = ""
+                thinking_block = None
+
+                async for chunk in self.agent.llm.stream(
+                    system=system,
+                    messages=[m.to_api_format() for m in self.agent.state.messages],
+                    tools=tools_list,
+                    max_tokens=self.config.max_tokens
+                ):
+                    if self._cancel_requested:
+                        break
+
+                    chunk_type = chunk.get("type")
+
+                    if chunk_type == "thinking_delta":
+                        # Thinking content
+                        current_thinking += chunk.get("text", "")
+                        if thinking_block is None:
+                            thinking_block = ThinkingBlock(current_thinking)
+                            self.call_from_thread(chat.mount, thinking_block)
+                            self._thinking_blocks.append(thinking_block)
+                        else:
+                            self.call_from_thread(thinking_block.add_content, chunk.get("text", ""))
+                        self.call_from_thread(chat.scroll_end, animate=False)
+
+                    elif chunk_type == "text_delta":
+                        # Regular text
+                        current_text += chunk.get("text", "")
+                        if current_message is None:
+                            current_message = StreamMessage(is_user=False)
+                            self.call_from_thread(chat.mount, current_message)
+                        self.call_from_thread(current_message.add_content, chunk.get("text", ""))
+                        self.call_from_thread(chat.scroll_end, animate=False)
+
+                    elif chunk_type == "tool_use":
+                        response_blocks.append(ContentBlock(
+                            type="tool_use",
+                            tool_use_id=chunk.get("id"),
+                            tool_name=chunk.get("name"),
+                            tool_input=chunk.get("input", {})
+                        ))
+
+                    elif chunk_type == "error":
+                        self.call_from_thread(chat.mount, Static(f"● Error: {chunk.get('message', 'Unknown error')}"))
 
                 if self._cancel_requested:
                     break
 
-                if not self.agent._has_tool_calls(response):
-                    text = self.agent._extract_text(response)
-                    self.call_from_thread(chat.mount, ChatMessage(text, is_user=False))
-                    self.call_from_thread(chat.scroll_end, animate=False)
+                if current_text:
+                    response_blocks.insert(0, ContentBlock(type="text", text=current_text))
+
+                # No tool calls - we're done
+                if not any(b.type == "tool_use" for b in response_blocks):
                     break
 
-                self.agent.state.messages.append(AgentMessage.assistant(response))
+                # Process tool calls
+                self.agent.state.messages.append(AgentMessage.assistant(response_blocks))
 
-                for block in response:
+                for block in response_blocks:
                     if block.type != "tool_use" or self._cancel_requested:
                         continue
 
@@ -399,7 +572,7 @@ class OpenAgentTUI(App):
                     if self._cancel_requested:
                         break
 
-                    result = loop.run_until_complete(self.agent._execute_tool(name, args, tool_id))
+                    result = await self.agent._execute_tool(name, args, tool_id)
 
                     content = ""
                     is_error = False
@@ -420,18 +593,20 @@ class OpenAgentTUI(App):
                     self.call_from_thread(chat.mount, ToolResultMessage(content, is_error))
                     self.agent.state.messages.append(result)
                     self.call_from_thread(chat.scroll_end, animate=False)
+
+                # Reset for next iteration
+                current_message = None
+                current_thinking = ""
+                thinking_block = None
+
             else:
                 if not self._cancel_requested:
                     self.call_from_thread(chat.mount, Static("● Max iterations."))
 
         except Exception as e:
             import traceback
-            error_msg = f"● Error: {e}\n{traceback.format_exc()}"
             if not self._cancel_requested:
-                self.call_from_thread(chat.mount, Static(error_msg))
-        finally:
-            loop.close()
-            self.call_from_thread(self._stop_request)
+                self.call_from_thread(chat.mount, Static(f"● Error: {e}\n{traceback.format_exc()}"))
 
 
 def run_tui():

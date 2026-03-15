@@ -226,21 +226,33 @@ class OpenAIClient(LLMClient):
             self._client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         return self._client
 
-    async def complete(
-        self,
-        system: str,
-        messages: list[dict],
-        tools: list[dict] | None = None,
-        max_tokens: int = 8192
-    ) -> dict:
-        client = self._get_client()
-
-        # Convert messages to OpenAI format
+    def _format_messages(self, system: str, messages: list[dict]) -> list[dict]:
+        """Convert messages to OpenAI format."""
         formatted_messages = [{"role": "system", "content": system}]
 
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content")
+
+            # Handle tool role messages (tool results)
+            if role == "tool":
+                tool_call_id = msg.get("tool_call_id") or msg.get("tool_use_id")
+                if isinstance(content, list) and content:
+                    block = content[0]
+                    # tool_call_id might be in the block
+                    if not tool_call_id:
+                        tool_call_id = block.get("tool_use_id")
+                    result_content = block.get("tool_result_content") or block.get("content", "")
+                    if isinstance(result_content, list):
+                        result_content = result_content[0].get("text", "") if result_content else ""
+                else:
+                    result_content = str(content) if content else ""
+                formatted_messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "content": str(result_content)
+                })
+                continue
 
             # Handle string content directly
             if isinstance(content, str):
@@ -295,6 +307,20 @@ class OpenAIClient(LLMClient):
 
                 # Add tool results
                 formatted_messages.extend(tool_results_to_add)
+
+        return formatted_messages
+
+    async def complete(
+        self,
+        system: str,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        max_tokens: int = 8192
+    ) -> dict:
+        client = self._get_client()
+
+        # Convert messages to OpenAI format
+        formatted_messages = self._format_messages(system, messages)
 
         # Build tools list
         openai_tools = None
@@ -367,10 +393,11 @@ class OpenAIClient(LLMClient):
         tools: list[dict] | None = None,
         max_tokens: int = 8192
     ) -> AsyncIterator[dict]:
+        """Stream a completion request with thinking support."""
         client = self._get_client()
 
-        formatted_messages = [{"role": "system", "content": system}]
-        formatted_messages.extend(messages)
+        # Use the same message formatting as complete
+        formatted_messages = self._format_messages(system, messages)
 
         kwargs = {
             "model": self.model,
@@ -395,36 +422,60 @@ class OpenAIClient(LLMClient):
         current_tool = None
         current_args = ""
 
-        async for chunk in await client.chat.completions.create(**kwargs):
-            delta = chunk.choices[0].delta
+        try:
+            stream = await client.chat.completions.create(**kwargs)
+            async for chunk in stream:
+                delta = chunk.choices[0].delta
 
-            if delta.content:
-                yield {"type": "text_delta", "text": delta.content}
+                # Handle thinking/reasoning content (for models like DeepSeek)
+                if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                    yield {"type": "thinking_delta", "text": delta.reasoning_content}
 
-            if delta.tool_calls:
-                for tc in delta.tool_calls:
-                    if tc.id:
-                        # New tool call
-                        if current_tool:
-                            yield {
-                                "type": "tool_use",
-                                "id": current_tool["id"],
-                                "name": current_tool["name"],
-                                "input": json.loads(current_args)
-                            }
-                        current_tool = {"id": tc.id, "name": tc.function.name if tc.function else None}
-                        current_args = ""
+                if delta.content:
+                    yield {"type": "text_delta", "text": delta.content}
 
-                    if tc.function and tc.function.arguments:
-                        current_args += tc.function.arguments
+                if delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        if tc.id:
+                            # New tool call
+                            if current_tool:
+                                try:
+                                    yield {
+                                        "type": "tool_use",
+                                        "id": current_tool["id"],
+                                        "name": current_tool["name"],
+                                        "input": json.loads(current_args)
+                                    }
+                                except json.JSONDecodeError:
+                                    yield {
+                                        "type": "tool_use",
+                                        "id": current_tool["id"],
+                                        "name": current_tool["name"],
+                                        "input": {}
+                                    }
+                            current_tool = {"id": tc.id, "name": tc.function.name if tc.function else None}
+                            current_args = ""
 
-        if current_tool:
-            yield {
-                "type": "tool_use",
-                "id": current_tool["id"],
-                "name": current_tool["name"],
-                "input": json.loads(current_args) if current_args else {}
-            }
+                        if tc.function and tc.function.arguments:
+                            current_args += tc.function.arguments
+
+            if current_tool:
+                try:
+                    yield {
+                        "type": "tool_use",
+                        "id": current_tool["id"],
+                        "name": current_tool["name"],
+                        "input": json.loads(current_args) if current_args else {}
+                    }
+                except json.JSONDecodeError:
+                    yield {
+                        "type": "tool_use",
+                        "id": current_tool["id"],
+                        "name": current_tool["name"],
+                        "input": {}
+                    }
+        except Exception as e:
+            yield {"type": "error", "message": str(e)}
 
 
 def create_llm_client(

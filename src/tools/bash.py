@@ -4,6 +4,7 @@ Bash tool - Execute shell commands.
 
 from ..core.tool import Tool, registry
 from ..core.types import ToolResult
+from .todo import TaskOutputTool
 import asyncio
 import subprocess
 import os
@@ -36,8 +37,22 @@ class BashTool(Tool):
         # Handle background execution
         if run_in_background:
             task_id = f"bg_{len(self._background_tasks)}"
+            # Register with TaskOutputTool
+            TaskOutputTool.register_task(task_id, "bash")
+
             task = asyncio.create_task(self._run_command(command, timeout))
             self._background_tasks[task_id] = task
+
+            # Add callback to mark complete when done
+            def on_done(t):
+                try:
+                    result = t.result()
+                    TaskOutputTool.complete_task(task_id, result)
+                except Exception as e:
+                    TaskOutputTool.complete_task(task_id, str(e), is_error=True)
+
+            task.add_done_callback(on_done)
+
             return ToolResult(
                 output=f"Background task started with ID: {task_id}",
                 metadata={"task_id": task_id}
