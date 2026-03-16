@@ -107,6 +107,25 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
     ) -> ToolResult:
         """Ask the user questions."""
 
+        # Validate questions
+        errors = []
+        for i, q in enumerate(questions):
+            # Check header length
+            header = q.get("header", "")
+            if len(header) > 12:
+                errors.append(f"Question {i+1}: header exceeds 12 characters")
+
+            # Check question ends with question mark
+            question = q.get("question", "")
+            if question and not question.rstrip().endswith("?"):
+                errors.append(f"Question {i+1}: question should end with a question mark")
+
+        if errors:
+            return ToolResult(
+                output=f"Validation errors: {'; '.join(errors)}",
+                is_error=True
+            )
+
         if self._callback:
             # Use the callback to get answers
             try:

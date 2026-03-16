@@ -37,7 +37,7 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
                 "default": "code"
             },
             "new_source": {
-                "description": "The new source for the cell",
+                "description": "The new source for the cell (not required for delete mode)",
                 "type": "string"
             },
             "edit_mode": {
@@ -47,14 +47,14 @@ Jupyter notebooks are interactive documents that combine code, text, and visuali
                 "default": "replace"
             }
         },
-        "required": ["notebook_path", "new_source"],
+        "required": ["notebook_path"],
         "additionalProperties": False
     }
 
     async def execute(
         self,
         notebook_path: str,
-        new_source: str,
+        new_source: str | None = None,
         cell_id: str | None = None,
         cell_type: str = "code",
         edit_mode: str = "replace"

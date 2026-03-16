@@ -118,6 +118,31 @@ Usage:
         "scss": "*.scss",
     }
 
+    # Binary file signatures
+    BINARY_SIGNATURES = [
+        b'\x00',  # Null byte
+        b'\xff\xd8\xff',  # JPEG
+        b'\x89PNG',  # PNG
+        b'GIF8',  # GIF
+        b'PK\x03\x04',  # ZIP
+        b'\x1f\x8b',  # GZIP
+    ]
+
+    def _is_binary_file(self, file_path: Path) -> bool:
+        """Check if a file is binary."""
+        try:
+            with open(file_path, "rb") as f:
+                chunk = f.read(8192)
+                # Check for null bytes or binary signatures
+                if b'\x00' in chunk:
+                    return True
+                for sig in self.BINARY_SIGNATURES:
+                    if chunk.startswith(sig):
+                        return True
+                return False
+        except Exception:
+            return True  # Assume binary if can't read
+
     async def execute(
         self,
         pattern: str,
@@ -175,6 +200,10 @@ Usage:
                 if not file_path.is_file():
                     continue
                 if not should_search_file(file_path):
+                    continue
+
+                # Skip binary files
+                if self._is_binary_file(file_path):
                     continue
 
                 try:

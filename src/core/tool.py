@@ -76,6 +76,13 @@ class Tool(ABC):
             if "enum" in prop and value not in prop["enum"]:
                 errors.append(f"Field {key} must be one of {prop['enum']}")
 
+            # Check array constraints
+            if prop_type == "array" and isinstance(value, list):
+                if "minItems" in prop and len(value) < prop["minItems"]:
+                    errors.append(f"Field {key} must have at least {prop['minItems']} items")
+                if "maxItems" in prop and len(value) > prop["maxItems"]:
+                    errors.append(f"Field {key} must have at most {prop['maxItems']} items")
+
         return errors
 
     def _check_type(self, value: Any, expected_type: str | list) -> bool:

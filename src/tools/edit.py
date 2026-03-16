@@ -61,6 +61,14 @@ Usage:
         """Check if a file has been read."""
         return file_path in cls._read_files
 
+    @classmethod
+    def clear_read_state(cls, file_path: str | None = None):
+        """Clear read state for a specific file or all files."""
+        if file_path:
+            cls._read_files.discard(file_path)
+        else:
+            cls._read_files.clear()
+
     async def execute(
         self,
         file_path: str,
