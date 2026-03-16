@@ -1,8 +1,0 @@
-"""
-Run TUI as module: python -m src.tui
-"""
-
-from .app import run_tui
-
-if __name__ == "__main__":
-    run_tui()
