@@ -18,19 +18,13 @@ import {
 } from './types.js';
 import type { Config } from '../config/config.js';
 import * as sdk from './sdk.js';
-import { ClearcutLogger } from './clearcut-logger/clearcut-logger.js';
 
 vi.mock('@opentelemetry/api-logs');
 vi.mock('./sdk.js');
-vi.mock('./clearcut-logger/clearcut-logger.js');
 
 describe('conseca-logger', () => {
   let mockConfig: Config;
   let mockLogger: { emit: ReturnType<typeof vi.fn> };
-  let mockClearcutLogger: {
-    enqueueLogEvent: ReturnType<typeof vi.fn>;
-    createLogEvent: ReturnType<typeof vi.fn>;
-  };
 
   beforeEach(() => {
     mockConfig = {
@@ -47,21 +41,13 @@ describe('conseca-logger', () => {
     };
     vi.mocked(logs.getLogger).mockReturnValue(mockLogger as unknown as Logger);
     vi.mocked(sdk.isTelemetrySdkInitialized).mockReturnValue(true);
-
-    mockClearcutLogger = {
-      enqueueLogEvent: vi.fn(),
-      createLogEvent: vi.fn().mockReturnValue({ event_name: 'test' }),
-    };
-    vi.mocked(ClearcutLogger.getInstance).mockReturnValue(
-      mockClearcutLogger as unknown as ClearcutLogger,
-    );
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should log policy generation event to OTEL and Clearcut', () => {
+  it('should log policy generation event to OTEL', () => {
     const event = new ConsecaPolicyGenerationEvent(
       'user prompt',
       'trusted content',
@@ -80,34 +66,9 @@ describe('conseca-logger', () => {
         }),
       }),
     );
-
-    // Verify Clearcut
-    expect(ClearcutLogger.getInstance).toHaveBeenCalledWith(mockConfig);
-    expect(mockClearcutLogger.createLogEvent).toHaveBeenCalled();
-    expect(mockClearcutLogger.enqueueLogEvent).toHaveBeenCalled();
   });
 
-  it('should log policy generation error to Clearcut', () => {
-    const event = new ConsecaPolicyGenerationEvent(
-      'user prompt',
-      'trusted content',
-      '{}',
-      'some error',
-    );
-
-    logConsecaPolicyGeneration(mockConfig, event);
-
-    expect(mockClearcutLogger.createLogEvent).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.arrayContaining([
-        expect.objectContaining({
-          value: 'some error',
-        }),
-      ]),
-    );
-  });
-
-  it('should log verdict event to OTEL and Clearcut', () => {
+  it('should log verdict event to OTEL', () => {
     const event = new ConsecaVerdictEvent(
       'user prompt',
       'policy',
@@ -128,11 +89,6 @@ describe('conseca-logger', () => {
         }),
       }),
     );
-
-    // Verify Clearcut
-    expect(ClearcutLogger.getInstance).toHaveBeenCalledWith(mockConfig);
-    expect(mockClearcutLogger.createLogEvent).toHaveBeenCalled();
-    expect(mockClearcutLogger.enqueueLogEvent).toHaveBeenCalled();
   });
 
   it('should not log if SDK is not initialized', () => {
