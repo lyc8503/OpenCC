@@ -63,9 +63,21 @@ describe.each([true, false])(
       const { lastFrame, unmount } = await renderWithUiState({
         history: [
           createTodoHistoryItem([
-            { description: 'Pending Task', status: 'pending' },
-            { description: 'In Progress Task', status: 'cancelled' },
-            { description: 'Completed Task', status: 'completed' },
+            {
+              content: 'Pending Task',
+              status: 'pending',
+              activeForm: 'Pending Task',
+            },
+            {
+              content: 'In Progress Task',
+              status: 'cancelled',
+              activeForm: 'In Progress Task',
+            },
+            {
+              content: 'Completed Task',
+              status: 'completed',
+              activeForm: 'Completed Task',
+            },
           ]),
         ],
         showFullTodos,
@@ -78,10 +90,22 @@ describe.each([true, false])(
       const { lastFrame, unmount } = await renderWithUiState({
         history: [
           createTodoHistoryItem([
-            { description: 'Pending Task', status: 'pending' },
-            { description: 'Task 2', status: 'in_progress' },
-            { description: 'In Progress Task', status: 'cancelled' },
-            { description: 'Completed Task', status: 'completed' },
+            {
+              content: 'Pending Task',
+              status: 'pending',
+              activeForm: 'Pending Task',
+            },
+            { content: 'Task 2', status: 'in_progress', activeForm: 'Task 2' },
+            {
+              content: 'In Progress Task',
+              status: 'cancelled',
+              activeForm: 'In Progress Task',
+            },
+            {
+              content: 'Completed Task',
+              status: 'completed',
+              activeForm: 'Completed Task',
+            },
           ]),
         ],
         showFullTodos,
@@ -99,14 +123,16 @@ describe.each([true, false])(
                 history: [
                   createTodoHistoryItem([
                     {
-                      description:
+                      content:
                         'This is a very long description for a pending task that should wrap around multiple lines when the terminal width is constrained.',
                       status: 'in_progress',
+                      activeForm: 'Processing long task',
                     },
                     {
-                      description:
+                      content:
                         'Another completed task with an equally verbose description to test wrapping behavior.',
                       status: 'completed',
+                      activeForm: 'Processing completed task',
                     },
                   ]),
                 ],
@@ -127,12 +153,28 @@ describe.each([true, false])(
       const { lastFrame, unmount } = await renderWithUiState({
         history: [
           createTodoHistoryItem([
-            { description: 'Older Task 1', status: 'completed' },
-            { description: 'Older Task 2', status: 'pending' },
+            {
+              content: 'Older Task 1',
+              status: 'completed',
+              activeForm: 'Older Task 1',
+            },
+            {
+              content: 'Older Task 2',
+              status: 'pending',
+              activeForm: 'Older Task 2',
+            },
           ]),
           createTodoHistoryItem([
-            { description: 'Newer Task 1', status: 'pending' },
-            { description: 'Newer Task 2', status: 'in_progress' },
+            {
+              content: 'Newer Task 1',
+              status: 'pending',
+              activeForm: 'Newer Task 1',
+            },
+            {
+              content: 'Newer Task 2',
+              status: 'in_progress',
+              activeForm: 'Newer Task 2',
+            },
           ]),
         ],
         showFullTodos,
@@ -145,8 +187,8 @@ describe.each([true, false])(
       const { lastFrame, unmount } = await renderWithUiState({
         history: [
           createTodoHistoryItem([
-            { description: 'Task 1', status: 'completed' },
-            { description: 'Task 2', status: 'cancelled' },
+            { content: 'Task 1', status: 'completed', activeForm: 'Task 1' },
+            { content: 'Task 2', status: 'cancelled', activeForm: 'Task 2' },
           ]),
         ],
         showFullTodos,

@@ -7,7 +7,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { PartListUnion, PartUnion } from '@google/genai';
-import type { AnyToolInvocation, Config } from '@google/gemini-cli-core';
+import type { Config } from '@google/gemini-cli-core';
 import {
   debugLogger,
   getErrorMessage,
@@ -15,11 +15,11 @@ import {
   unescapePath,
   resolveToRealPath,
   fileExists,
-  ReadManyFilesTool,
   REFERENCE_CONTENT_START,
   REFERENCE_CONTENT_END,
   CoreToolCallStatus,
 } from '@google/gemini-cli-core';
+import { readManyFiles } from '../../utils/readManyFiles.js';
 import { Buffer } from 'node:buffer';
 import type {
   HistoryItemToolGroup,
@@ -497,7 +497,7 @@ async function readMcpResources(
 }
 
 /**
- * Reads content from local files using the ReadManyFilesTool.
+ * Reads content from local files using glob patterns and ignore file support.
  */
 async function readLocalFiles(
   resolvedFiles: ResolvedFile[],
@@ -513,91 +513,76 @@ async function readLocalFiles(
     return { parts: [] };
   }
 
-  const readManyFilesTool = new ReadManyFilesTool(
-    config,
-    config.getMessageBus(),
-  );
-
   const pathSpecsToRead = resolvedFiles.map((rf) => rf.pathSpec);
   const fileLabelsForDisplay = resolvedFiles.map((rf) => rf.displayLabel);
   const respectFileIgnore = config.getFileFilteringOptions();
 
-  const toolArgs = {
-    include: pathSpecsToRead,
-    file_filtering_options: {
-      respect_git_ignore: respectFileIgnore.respectGitIgnore,
-      respect_gemini_ignore: respectFileIgnore.respectGeminiIgnore,
-    },
-  };
-
-  let invocation: AnyToolInvocation | undefined = undefined;
   try {
-    invocation = readManyFilesTool.build(toolArgs);
-    const result = await invocation.execute(signal);
+    const result = await readManyFiles(
+      {
+        include: pathSpecsToRead,
+        fileFilteringOptions: {
+          respect_git_ignore: respectFileIgnore.respectGitIgnore,
+          respect_gemini_ignore: respectFileIgnore.respectGeminiIgnore,
+        },
+      },
+      config,
+      config.getFileService(),
+      signal,
+    );
+
+    const parts: PartUnion[] = [];
+
+    // Format files similar to original ReadManyFilesTool output
+    for (const file of result.files) {
+      // Try to find the display label for this path (matching original behavior)
+      const resolvedFile = resolvedFiles.find(
+        (rf) =>
+          rf.absolutePath === file.path || rf.pathSpec === file.relativePath,
+      );
+
+      let displayPath = resolvedFile?.displayLabel;
+
+      if (!displayPath) {
+        // Fallback: convert absolute path to relative
+        for (const dir of config.getWorkspaceContext().getDirectories()) {
+          if (file.path.startsWith(dir)) {
+            displayPath = path.relative(dir, file.path);
+            break;
+          }
+        }
+      }
+
+      displayPath = displayPath || file.relativePath;
+
+      parts.push({
+        text: `\nContent from @${displayPath}:\n`,
+      });
+      parts.push({ text: file.content });
+    }
+
     const display: IndividualToolCallDisplay = {
       callId: `client-read-${userMessageTimestamp}`,
-      name: readManyFilesTool.displayName,
-      description: invocation.getDescription(),
+      name: 'ReadManyFiles',
+      description: `Reading ${pathSpecsToRead.length} path spec(s): ${fileLabelsForDisplay.join(', ')}`,
       status: CoreToolCallStatus.Success,
       isClientInitiated: true,
       resultDisplay:
-        result.returnDisplay ||
-        `Successfully read: ${fileLabelsForDisplay.join(', ')}`,
+        result.files.length > 0
+          ? `Successfully read ${result.files.length} file(s)` +
+            (result.skipped.length > 0
+              ? `, skipped ${result.skipped.length}`
+              : '')
+          : `No files were read`,
       confirmationDetails: undefined,
     };
-
-    const parts: PartUnion[] = [];
-    if (Array.isArray(result.llmContent)) {
-      const fileContentRegex = /^--- (.*?) ---\n\n([\s\S]*?)\n\n$/;
-      for (const part of result.llmContent) {
-        if (typeof part === 'string') {
-          const match = fileContentRegex.exec(part);
-          if (match) {
-            const filePathSpecInContent = match[1];
-            const fileActualContent = match[2].trim();
-
-            // Find the display label for this path
-            const resolvedFile = resolvedFiles.find(
-              (rf) =>
-                rf.absolutePath === filePathSpecInContent ||
-                rf.pathSpec === filePathSpecInContent,
-            );
-
-            let displayPath = resolvedFile?.displayLabel;
-
-            if (!displayPath) {
-              // Fallback: if no mapping found, try to convert absolute path to relative
-              for (const dir of config.getWorkspaceContext().getDirectories()) {
-                if (filePathSpecInContent.startsWith(dir)) {
-                  displayPath = path.relative(dir, filePathSpecInContent);
-                  break;
-                }
-              }
-            }
-
-            displayPath = displayPath || filePathSpecInContent;
-
-            parts.push({
-              text: `\nContent from @${displayPath}:\n`,
-            });
-            parts.push({ text: fileActualContent });
-          } else {
-            parts.push({ text: part });
-          }
-        } else {
-          parts.push(part);
-        }
-      }
-    }
 
     return { parts, display };
   } catch (error: unknown) {
     const errorDisplay: IndividualToolCallDisplay = {
       callId: `client-read-${userMessageTimestamp}`,
-      name: readManyFilesTool.displayName,
-      description:
-        invocation?.getDescription() ??
-        'Error attempting to execute tool to read files',
+      name: 'ReadManyFiles',
+      description: 'Error attempting to read files',
       status: CoreToolCallStatus.Error,
       isClientInitiated: true,
       resultDisplay: `Error reading files (${fileLabelsForDisplay.join(', ')}): ${getErrorMessage(error)}`,
@@ -719,8 +704,7 @@ export async function handleAtCommand({
     processedQueryParts.push(...mcpResult.parts);
     processedQueryParts.push(...fileResult.parts);
 
-    // Only add footer if we didn't read local files (because ReadManyFilesTool adds it)
-    // AND we read MCP resources (so we need to close the block).
+    // Only add footer if we read MCP resources (so we need to close the block).
     if (fileResult.parts.length === 0 && mcpResult.parts.length > 0) {
       processedQueryParts.push({ text: REF_CONTENT_FOOTER });
     }

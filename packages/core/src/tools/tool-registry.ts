@@ -26,8 +26,6 @@ import { debugLogger } from '../utils/debugLogger.js';
 import { coreEvents } from '../utils/events.js';
 import {
   DISCOVERED_TOOL_PREFIX,
-  TOOL_LEGACY_ALIASES,
-  getToolAliases,
   WRITE_FILE_TOOL_NAME,
   EDIT_TOOL_NAME,
 } from './tool-names.js';
@@ -521,7 +519,7 @@ export class ToolRegistry {
     const toolMetadata = this.buildToolMetadata();
     const allKnownNames = new Set(this.allKnownTools.keys());
     const excludedTools =
-      this.expandExcludeToolsWithAliases(
+      this.expandExcludeTools(
         this.config.getExcludeTools(toolMetadata, allKnownNames),
       ) ?? new Set([]);
     const activeTools: AnyDeclarativeTool[] = [];
@@ -538,19 +536,13 @@ export class ToolRegistry {
    * For example, if 'search_file_content' is excluded and it's an alias for
    * 'grep_search', both names will be in the returned set.
    */
-  private expandExcludeToolsWithAliases(
+  private expandExcludeTools(
     excludeTools: Set<string> | undefined,
   ): Set<string> | undefined {
     if (!excludeTools || excludeTools.size === 0) {
       return excludeTools;
     }
-    const expanded = new Set<string>();
-    for (const name of excludeTools) {
-      for (const alias of getToolAliases(name)) {
-        expanded.add(alias);
-      }
-    }
-    return expanded;
+    return excludeTools;
   }
 
   /**
@@ -563,7 +555,7 @@ export class ToolRegistry {
     excludeTools?: Set<string>,
   ): boolean {
     excludeTools ??=
-      this.expandExcludeToolsWithAliases(
+      this.expandExcludeTools(
         this.config.getExcludeTools(
           this.buildToolMetadata(),
           new Set(this.allKnownTools.keys()),
@@ -721,18 +713,7 @@ export class ToolRegistry {
    * Get the definition of a specific tool.
    */
   getTool(name: string): AnyDeclarativeTool | undefined {
-    let tool = this.allKnownTools.get(name);
-
-    // If not found, check legacy aliases
-    if (!tool && TOOL_LEGACY_ALIASES[name]) {
-      const currentName = TOOL_LEGACY_ALIASES[name];
-      tool = this.allKnownTools.get(currentName);
-      if (tool) {
-        debugLogger.debug(
-          `Resolved legacy tool name "${name}" to current name "${currentName}"`,
-        );
-      }
-    }
+    const tool = this.allKnownTools.get(name);
 
     if (tool && this.isActiveTool(tool)) {
       return tool;

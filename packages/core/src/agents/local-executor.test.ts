@@ -18,8 +18,8 @@ import { LocalAgentExecutor, type ActivityCallback } from './local-executor.js';
 import { makeFakeConfig } from '../test-utils/config.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
-import { LSTool } from '../tools/ls.js';
-import { LS_TOOL_NAME, READ_FILE_TOOL_NAME } from '../tools/tool-names.js';
+import { GlobTool } from '../tools/glob.js';
+import { GLOB_TOOL_NAME, READ_FILE_TOOL_NAME } from '../tools/tool-names.js';
 import {
   GeminiChat,
   StreamEventType,
@@ -220,7 +220,7 @@ let parentToolRegistry: ToolRegistry;
  */
 
 const createTestDefinition = <TOutput extends z.ZodTypeAny = z.ZodUnknown>(
-  tools: Array<string | MockTool> = [LS_TOOL_NAME],
+  tools: Array<string | MockTool> = [GLOB_TOOL_NAME],
   runConfigOverrides: Partial<LocalAgentDefinition<TOutput>['runConfig']> = {},
   outputConfigMode: 'default' | 'none' = 'default',
   schema: TOutput = z.string() as unknown as TOutput,
@@ -309,7 +309,7 @@ describe('LocalAgentExecutor', () => {
     });
     parentToolRegistry = new ToolRegistry(mockConfig, mockConfig.messageBus);
     parentToolRegistry.registerTool(
-      new LSTool(mockConfig, mockConfig.messageBus),
+      new GlobTool(mockConfig, mockConfig.messageBus),
     );
     parentToolRegistry.registerTool(
       new MockTool({ name: READ_FILE_TOOL_NAME }),
@@ -339,7 +339,7 @@ describe('LocalAgentExecutor', () => {
 
   describe('create (Initialization and Validation)', () => {
     it('should create successfully with allowed tools', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME]);
+      const definition = createTestDefinition([GLOB_TOOL_NAME]);
       const executor = await LocalAgentExecutor.create(
         definition,
         mockConfig,
@@ -360,7 +360,7 @@ describe('LocalAgentExecutor', () => {
 
     it('should create an isolated ToolRegistry for the agent', async () => {
       const definition = createTestDefinition([
-        LS_TOOL_NAME,
+        GLOB_TOOL_NAME,
         READ_FILE_TOOL_NAME,
       ]);
       const executor = await LocalAgentExecutor.create(
@@ -373,7 +373,7 @@ describe('LocalAgentExecutor', () => {
 
       expect(agentRegistry).not.toBe(parentToolRegistry);
       expect(agentRegistry.getAllToolNames()).toEqual(
-        expect.arrayContaining([LS_TOOL_NAME, READ_FILE_TOOL_NAME]),
+        expect.arrayContaining([GLOB_TOOL_NAME, READ_FILE_TOOL_NAME]),
       );
       expect(agentRegistry.getAllToolNames()).toHaveLength(2);
       expect(agentRegistry.getTool(MOCK_TOOL_NOT_ALLOWED.name)).toBeUndefined();
@@ -450,7 +450,7 @@ describe('LocalAgentExecutor', () => {
         'getAllAgentNames',
       ).mockReturnValue([subAgentName]);
 
-      const definition = createTestDefinition([LS_TOOL_NAME, subAgentName]);
+      const definition = createTestDefinition([GLOB_TOOL_NAME, subAgentName]);
       const executor = await LocalAgentExecutor.create(
         definition,
         mockConfig,
@@ -460,7 +460,7 @@ describe('LocalAgentExecutor', () => {
       const agentRegistry = executor['toolRegistry'];
 
       // LS should be present
-      expect(agentRegistry.getTool(LS_TOOL_NAME)).toBeDefined();
+      expect(agentRegistry.getTool(GLOB_TOOL_NAME)).toBeDefined();
       // Subagent should be filtered out
       expect(agentRegistry.getTool(subAgentName)).toBeUndefined();
     });
@@ -468,7 +468,7 @@ describe('LocalAgentExecutor', () => {
     it('should default to ALL tools (except subagents) when toolConfig is undefined', async () => {
       const subAgentName = 'recursive-agent';
       // Register tools in parent registry
-      // LS_TOOL_NAME is already registered in beforeEach
+      // GLOB_TOOL_NAME is already registered in beforeEach
       const otherTool = new MockTool({ name: 'other-tool' });
       parentToolRegistry.registerTool(otherTool);
       parentToolRegistry.registerTool(new MockTool({ name: subAgentName }));
@@ -492,7 +492,7 @@ describe('LocalAgentExecutor', () => {
       const agentRegistry = executor['toolRegistry'];
 
       // Should include standard tools
-      expect(agentRegistry.getTool(LS_TOOL_NAME)).toBeDefined();
+      expect(agentRegistry.getTool(GLOB_TOOL_NAME)).toBeDefined();
       expect(agentRegistry.getTool('other-tool')).toBeDefined();
 
       // Should exclude subagent
@@ -625,7 +625,7 @@ describe('LocalAgentExecutor', () => {
 
       // Turn 1: Model calls ls
       mockModelResponse(
-        [{ name: LS_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
+        [{ name: GLOB_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
         'T1: Listing',
       );
       mockScheduleAgentTools.mockResolvedValueOnce([
@@ -633,7 +633,7 @@ describe('LocalAgentExecutor', () => {
           status: 'success',
           request: {
             callId: 'call1',
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '.' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -646,7 +646,7 @@ describe('LocalAgentExecutor', () => {
             responseParts: [
               {
                 functionResponse: {
-                  name: LS_TOOL_NAME,
+                  name: GLOB_TOOL_NAME,
                   response: { result: 'file1.txt' },
                   id: 'call1',
                 },
@@ -696,7 +696,7 @@ describe('LocalAgentExecutor', () => {
 
       expect(sentTools).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ name: LS_TOOL_NAME }),
+          expect.objectContaining({ name: GLOB_TOOL_NAME }),
           expect.objectContaining({ name: TASK_COMPLETE_TOOL_NAME }),
         ]),
       );
@@ -746,7 +746,7 @@ describe('LocalAgentExecutor', () => {
           expect.objectContaining({
             type: 'TOOL_CALL_END',
             data: expect.objectContaining({
-              name: LS_TOOL_NAME,
+              name: GLOB_TOOL_NAME,
               output: 'file1.txt',
             }),
           }),
@@ -769,7 +769,7 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('should execute successfully when model calls complete_task without output (Happy Path No Output)', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME], {}, 'none');
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {}, 'none');
       const executor = await LocalAgentExecutor.create(
         definition,
         mockConfig,
@@ -777,14 +777,14 @@ describe('LocalAgentExecutor', () => {
       );
 
       mockModelResponse([
-        { name: LS_TOOL_NAME, args: { path: '.' }, id: 'call1' },
+        { name: GLOB_TOOL_NAME, args: { path: '.' }, id: 'call1' },
       ]);
       mockScheduleAgentTools.mockResolvedValueOnce([
         {
           status: 'success',
           request: {
             callId: 'call1',
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '.' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -797,7 +797,7 @@ describe('LocalAgentExecutor', () => {
             responseParts: [
               {
                 functionResponse: {
-                  name: LS_TOOL_NAME,
+                  name: GLOB_TOOL_NAME,
                   response: {},
                   id: 'call1',
                 },
@@ -852,14 +852,14 @@ describe('LocalAgentExecutor', () => {
       );
 
       mockModelResponse([
-        { name: LS_TOOL_NAME, args: { path: '.' }, id: 'call1' },
+        { name: GLOB_TOOL_NAME, args: { path: '.' }, id: 'call1' },
       ]);
       mockScheduleAgentTools.mockResolvedValueOnce([
         {
           status: 'success',
           request: {
             callId: 'call1',
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '.' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -872,7 +872,7 @@ describe('LocalAgentExecutor', () => {
             responseParts: [
               {
                 functionResponse: {
-                  name: LS_TOOL_NAME,
+                  name: GLOB_TOOL_NAME,
                   response: {},
                   id: 'call1',
                 },
@@ -1028,7 +1028,7 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('should execute parallel tool calls and then complete', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME]);
+      const definition = createTestDefinition([GLOB_TOOL_NAME]);
       const executor = await LocalAgentExecutor.create(
         definition,
         mockConfig,
@@ -1036,12 +1036,12 @@ describe('LocalAgentExecutor', () => {
       );
 
       const call1: FunctionCall = {
-        name: LS_TOOL_NAME,
+        name: GLOB_TOOL_NAME,
         args: { path: '/a' },
         id: 'c1',
       };
       const call2: FunctionCall = {
-        name: LS_TOOL_NAME,
+        name: GLOB_TOOL_NAME,
         args: { path: '/b' },
         id: 'c2',
       };
@@ -1130,7 +1130,7 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('SECURITY: should block unauthorized tools and provide explicit failure to model', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME]);
+      const definition = createTestDefinition([GLOB_TOOL_NAME]);
       const executor = await LocalAgentExecutor.create(
         definition,
         mockConfig,
@@ -1307,7 +1307,7 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('should handle a failed tool call and feed the error to the model', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME]);
+      const definition = createTestDefinition([GLOB_TOOL_NAME]);
       const executor = await LocalAgentExecutor.create(
         definition,
         mockConfig,
@@ -1317,14 +1317,14 @@ describe('LocalAgentExecutor', () => {
 
       // Turn 1: Model calls a tool that will fail
       mockModelResponse([
-        { name: LS_TOOL_NAME, args: { path: '/fake' }, id: 'call1' },
+        { name: GLOB_TOOL_NAME, args: { path: '/fake' }, id: 'call1' },
       ]);
       mockScheduleAgentTools.mockResolvedValueOnce([
         {
           status: 'error',
           request: {
             callId: 'call1',
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '/fake' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -1337,7 +1337,7 @@ describe('LocalAgentExecutor', () => {
             responseParts: [
               {
                 functionResponse: {
-                  name: LS_TOOL_NAME,
+                  name: GLOB_TOOL_NAME,
                   response: { error: toolErrorMessage },
                   id: 'call1',
                 },
@@ -1370,7 +1370,7 @@ describe('LocalAgentExecutor', () => {
           type: 'ERROR',
           data: expect.objectContaining({
             context: 'tool_call',
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             error: toolErrorMessage,
           }),
         }),
@@ -1382,7 +1382,7 @@ describe('LocalAgentExecutor', () => {
       expect(parts).toEqual([
         expect.objectContaining({
           functionResponse: expect.objectContaining({
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             id: 'call1',
             response: {
               error: toolErrorMessage,
@@ -1495,13 +1495,13 @@ describe('LocalAgentExecutor', () => {
 
   describe('run (Termination Conditions)', () => {
     const mockWorkResponse = (id: string) => {
-      mockModelResponse([{ name: LS_TOOL_NAME, args: { path: '.' }, id }]);
+      mockModelResponse([{ name: GLOB_TOOL_NAME, args: { path: '.' }, id }]);
       mockScheduleAgentTools.mockResolvedValueOnce([
         {
           status: 'success',
           request: {
             callId: id,
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '.' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -1512,7 +1512,7 @@ describe('LocalAgentExecutor', () => {
             callId: id,
             resultDisplay: 'ok',
             responseParts: [
-              { functionResponse: { name: LS_TOOL_NAME, response: {}, id } },
+              { functionResponse: { name: GLOB_TOOL_NAME, response: {}, id } },
             ],
             error: undefined,
             errorType: undefined,
@@ -1524,7 +1524,7 @@ describe('LocalAgentExecutor', () => {
 
     it('should terminate when max_turns is reached', async () => {
       const MAX = 2;
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTurns: MAX,
       });
       const executor = await LocalAgentExecutor.create(definition, mockConfig);
@@ -1541,7 +1541,7 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('should terminate with TIMEOUT if a model call takes too long', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTimeMinutes: 0.5, // 30 seconds
       });
       const executor = await LocalAgentExecutor.create(
@@ -1602,13 +1602,13 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('should terminate with TIMEOUT if a tool call takes too long', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTimeMinutes: 1,
       });
       const executor = await LocalAgentExecutor.create(definition, mockConfig);
 
       mockModelResponse([
-        { name: LS_TOOL_NAME, args: { path: '.' }, id: 't1' },
+        { name: GLOB_TOOL_NAME, args: { path: '.' }, id: 't1' },
       ]);
 
       // Long running tool
@@ -1667,13 +1667,13 @@ describe('LocalAgentExecutor', () => {
 
   describe('run (Recovery Turns)', () => {
     const mockWorkResponse = (id: string) => {
-      mockModelResponse([{ name: LS_TOOL_NAME, args: { path: '.' }, id }]);
+      mockModelResponse([{ name: GLOB_TOOL_NAME, args: { path: '.' }, id }]);
       mockScheduleAgentTools.mockResolvedValueOnce([
         {
           status: 'success',
           request: {
             callId: id,
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '.' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -1684,7 +1684,7 @@ describe('LocalAgentExecutor', () => {
             callId: id,
             resultDisplay: 'ok',
             responseParts: [
-              { functionResponse: { name: LS_TOOL_NAME, response: {}, id } },
+              { functionResponse: { name: GLOB_TOOL_NAME, response: {}, id } },
             ],
             error: undefined,
             errorType: undefined,
@@ -1696,7 +1696,7 @@ describe('LocalAgentExecutor', () => {
 
     it('should recover successfully if complete_task is called during the grace turn after MAX_TURNS', async () => {
       const MAX = 1;
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTurns: MAX,
       });
       const executor = await LocalAgentExecutor.create(
@@ -1746,7 +1746,7 @@ describe('LocalAgentExecutor', () => {
 
     it('should fail if complete_task is NOT called during the grace turn after MAX_TURNS', async () => {
       const MAX = 1;
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTurns: MAX,
       });
       const executor = await LocalAgentExecutor.create(
@@ -1865,7 +1865,7 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('should recover successfully from a TIMEOUT', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTimeMinutes: 0.5, // 30 seconds
       });
       const executor = await LocalAgentExecutor.create(
@@ -1922,7 +1922,7 @@ describe('LocalAgentExecutor', () => {
     });
 
     it('should fail recovery from a TIMEOUT if the grace period also times out', async () => {
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTimeMinutes: 0.5, // 30 seconds
       });
       const executor = await LocalAgentExecutor.create(
@@ -1987,13 +1987,13 @@ describe('LocalAgentExecutor', () => {
   });
   describe('Telemetry and Logging', () => {
     const mockWorkResponse = (id: string) => {
-      mockModelResponse([{ name: LS_TOOL_NAME, args: { path: '.' }, id }]);
+      mockModelResponse([{ name: GLOB_TOOL_NAME, args: { path: '.' }, id }]);
       mockScheduleAgentTools.mockResolvedValueOnce([
         {
           status: 'success',
           request: {
             callId: id,
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '.' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -2004,7 +2004,7 @@ describe('LocalAgentExecutor', () => {
             callId: id,
             resultDisplay: 'ok',
             responseParts: [
-              { functionResponse: { name: LS_TOOL_NAME, response: {}, id } },
+              { functionResponse: { name: GLOB_TOOL_NAME, response: {}, id } },
             ],
             error: undefined,
             errorType: undefined,
@@ -2020,7 +2020,7 @@ describe('LocalAgentExecutor', () => {
 
     it('should log a RecoveryAttemptEvent when a recoverable error occurs and recovery fails', async () => {
       const MAX = 1;
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTurns: MAX,
       });
       const executor = await LocalAgentExecutor.create(definition, mockConfig);
@@ -2045,7 +2045,7 @@ describe('LocalAgentExecutor', () => {
 
     it('should log a successful RecoveryAttemptEvent when recovery succeeds', async () => {
       const MAX = 1;
-      const definition = createTestDefinition([LS_TOOL_NAME], {
+      const definition = createTestDefinition([GLOB_TOOL_NAME], {
         maxTurns: MAX,
       });
       const executor = await LocalAgentExecutor.create(definition, mockConfig);
@@ -2097,7 +2097,7 @@ describe('LocalAgentExecutor', () => {
 
         // Turn 1: Model calls LS
         mockModelResponse(
-          [{ name: LS_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
+          [{ name: GLOB_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
           'T1: Listing',
         );
 
@@ -2136,7 +2136,7 @@ describe('LocalAgentExecutor', () => {
             status: 'success',
             request: {
               callId: 'call1',
-              name: LS_TOOL_NAME,
+              name: GLOB_TOOL_NAME,
               args: { path: '.' },
               isClientInitiated: false,
               prompt_id: 'p1',
@@ -2149,7 +2149,7 @@ describe('LocalAgentExecutor', () => {
               responseParts: [
                 {
                   functionResponse: {
-                    name: LS_TOOL_NAME,
+                    name: GLOB_TOOL_NAME,
                     response: { result: 'file1.txt' },
                     id: 'call1',
                   },
@@ -2214,7 +2214,7 @@ describe('LocalAgentExecutor', () => {
 
         // Turn 1: Model calls LS
         mockModelResponse(
-          [{ name: LS_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
+          [{ name: GLOB_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
           'T1: Listing',
         );
 
@@ -2255,7 +2255,7 @@ describe('LocalAgentExecutor', () => {
             status: 'success',
             request: {
               callId: 'call1',
-              name: LS_TOOL_NAME,
+              name: GLOB_TOOL_NAME,
               args: { path: '.' },
               isClientInitiated: false,
               prompt_id: 'p1',
@@ -2268,7 +2268,7 @@ describe('LocalAgentExecutor', () => {
               responseParts: [
                 {
                   functionResponse: {
-                    name: LS_TOOL_NAME,
+                    name: GLOB_TOOL_NAME,
                     response: { result: 'file1.txt' },
                     id: 'call1',
                   },
@@ -2313,7 +2313,7 @@ describe('LocalAgentExecutor', () => {
         );
 
         mockModelResponse(
-          [{ name: LS_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
+          [{ name: GLOB_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
           'T1: Listing',
         );
 
@@ -2344,7 +2344,7 @@ describe('LocalAgentExecutor', () => {
             status: 'success',
             request: {
               callId: 'call1',
-              name: LS_TOOL_NAME,
+              name: GLOB_TOOL_NAME,
               args: { path: '.' },
               isClientInitiated: false,
               prompt_id: 'p1',
@@ -2357,7 +2357,7 @@ describe('LocalAgentExecutor', () => {
               responseParts: [
                 {
                   functionResponse: {
-                    name: LS_TOOL_NAME,
+                    name: GLOB_TOOL_NAME,
                     response: { result: 'file1.txt' },
                     id: 'call1',
                   },
@@ -2393,7 +2393,7 @@ describe('LocalAgentExecutor', () => {
         );
 
         mockModelResponse(
-          [{ name: LS_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
+          [{ name: GLOB_TOOL_NAME, args: { path: '.' }, id: 'call1' }],
           'T1: Listing',
         );
 
@@ -2428,7 +2428,7 @@ describe('LocalAgentExecutor', () => {
             status: 'success',
             request: {
               callId: 'call1',
-              name: LS_TOOL_NAME,
+              name: GLOB_TOOL_NAME,
               args: { path: '.' },
               isClientInitiated: false,
               prompt_id: 'p1',
@@ -2441,7 +2441,7 @@ describe('LocalAgentExecutor', () => {
               responseParts: [
                 {
                   functionResponse: {
-                    name: LS_TOOL_NAME,
+                    name: GLOB_TOOL_NAME,
                     response: { result: 'file1.txt' },
                     id: 'call1',
                   },
@@ -2514,13 +2514,13 @@ describe('LocalAgentExecutor', () => {
   });
   describe('Chat Compression', () => {
     const mockWorkResponse = (id: string) => {
-      mockModelResponse([{ name: LS_TOOL_NAME, args: { path: '.' }, id }]);
+      mockModelResponse([{ name: GLOB_TOOL_NAME, args: { path: '.' }, id }]);
       mockScheduleAgentTools.mockResolvedValueOnce([
         {
           status: 'success',
           request: {
             callId: id,
-            name: LS_TOOL_NAME,
+            name: GLOB_TOOL_NAME,
             args: { path: '.' },
             isClientInitiated: false,
             prompt_id: 'test-prompt',
@@ -2531,7 +2531,7 @@ describe('LocalAgentExecutor', () => {
             callId: id,
             resultDisplay: 'ok',
             responseParts: [
-              { functionResponse: { name: LS_TOOL_NAME, response: {}, id } },
+              { functionResponse: { name: GLOB_TOOL_NAME, response: {}, id } },
             ],
             error: undefined,
             errorType: undefined,
@@ -2832,7 +2832,7 @@ describe('LocalAgentExecutor', () => {
       expect(registry.getTool('click')).toBeDefined();
       expect(registry.getTool('navigate_page')).toBeDefined();
       // Should NOT have tools that were not passed
-      expect(registry.getTool(LS_TOOL_NAME)).toBeUndefined();
+      expect(registry.getTool(GLOB_TOOL_NAME)).toBeUndefined();
     });
 
     it('should handle mixed string + DeclarativeTool instances without duplicates', async () => {
@@ -2856,7 +2856,7 @@ describe('LocalAgentExecutor', () => {
         promptConfig: { systemPrompt: 'Achieve: ${goal}.' },
         toolConfig: {
           tools: [
-            LS_TOOL_NAME, // string reference
+            GLOB_TOOL_NAME, // string reference
             instanceTool as unknown as AnyDeclarativeTool, // instance
           ],
         },
@@ -2885,7 +2885,7 @@ describe('LocalAgentExecutor', () => {
       const declarations = getSentFunctionDeclarations();
       const names = declarations.map((d) => d.name);
 
-      expect(names.filter((n) => n === LS_TOOL_NAME)).toHaveLength(1);
+      expect(names.filter((n) => n === GLOB_TOOL_NAME)).toHaveLength(1);
       expect(names.filter((n) => n === 'fill')).toHaveLength(1);
       expect(names.filter((n) => n === TASK_COMPLETE_TOOL_NAME)).toHaveLength(
         1,

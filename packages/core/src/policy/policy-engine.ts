@@ -25,7 +25,6 @@ import {
   splitCommands,
   hasRedirection,
 } from '../utils/shell-utils.js';
-import { getToolAliases } from '../tools/tool-names.js';
 import {
   MCP_TOOL_PREFIX,
   isMcpToolAnnotation,
@@ -423,29 +422,19 @@ export class PolicyEngine {
     let matchedRule: PolicyRule | undefined;
     let decision: PolicyDecision | undefined;
 
-    // We also want to check legacy aliases for the tool name.
-    const toolNamesToTry = toolCall.name ? getToolAliases(toolCall.name) : [];
-
-    const toolCallsToTry: FunctionCall[] = [];
-    for (const name of toolNamesToTry) {
-      toolCallsToTry.push({ ...toolCall, name });
-    }
-
     for (const rule of this.rules) {
       if (this.disableAlwaysAllow && this.isAlwaysAllowRule(rule)) {
         continue;
       }
 
-      const match = toolCallsToTry.some((tc) =>
-        ruleMatches(
-          rule,
-          tc,
-          stringifiedArgs,
-          serverName,
-          this.approvalMode,
-          toolAnnotations,
-          subagent,
-        ),
+      const match = ruleMatches(
+        rule,
+        toolCall,
+        stringifiedArgs,
+        serverName,
+        this.approvalMode,
+        toolAnnotations,
+        subagent,
       );
 
       if (match) {

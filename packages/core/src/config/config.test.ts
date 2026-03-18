@@ -32,7 +32,6 @@ import {
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { setGeminiMdFilename as mockSetGeminiMdFilename } from '../tools/memoryTool.js';
 import {
   DEFAULT_TELEMETRY_TARGET,
   DEFAULT_OTLP_ENDPOINT,
@@ -745,21 +744,6 @@ describe('Server Config (config.ts)', () => {
     const config = new Config(paramsWithoutMemory);
 
     expect(config.getUserMemory()).toBe('');
-  });
-
-  it('Config constructor should call setGeminiMdFilename with contextFileName if provided', () => {
-    const contextFileName = 'CUSTOM_AGENTS.md';
-    const paramsWithContextFile: ConfigParameters = {
-      ...baseParams,
-      contextFileName,
-    };
-    new Config(paramsWithContextFile);
-    expect(mockSetGeminiMdFilename).toHaveBeenCalledWith(contextFileName);
-  });
-
-  it('Config constructor should not call setGeminiMdFilename if contextFileName is not provided', () => {
-    new Config(baseParams); // baseParams does not have contextFileName
-    expect(mockSetGeminiMdFilename).not.toHaveBeenCalled();
   });
 
   it('should set default file filtering settings when not provided', () => {

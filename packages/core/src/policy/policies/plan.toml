@@ -30,28 +30,28 @@
 # Mode Transitions (into/out of Plan Mode)
 
 [[rule]]
-toolName = "enter_plan_mode"
+toolName = "EnterPlanMode"
 decision = "ask_user"
 priority = 50
 
 [[rule]]
-toolName = "enter_plan_mode"
+toolName = "EnterPlanMode"
 decision = "deny"
 priority = 70
 modes = ["plan"]
 deny_message = "You are already in Plan Mode."
 
 [[rule]]
-toolName = "exit_plan_mode"
+toolName = "ExitPlanMode"
 decision = "ask_user"
 priority = 70
 modes = ["plan"]
 
 [[rule]]
-toolName = "exit_plan_mode"
+toolName = "ExitPlanMode"
 decision = "deny"
 priority = 50
-deny_message = "You are not currently in Plan Mode. Use enter_plan_mode first to design a plan."
+deny_message = "You are not currently in Plan Mode. Use EnterPlanMode first to design a plan."
 
 
 # Catch-All: Deny everything by default in Plan mode.
@@ -73,29 +73,27 @@ modes = ["plan"]
 
 [[rule]]
 toolName = [
-  "glob",
-  "grep_search",
-  "list_directory",
-  "read_file",
-  "google_web_search",
-  "activate_skill",
+  "Glob",
+  "Grep",
+  "Read",
+  "WebSearch",
+  "Skill",
   "codebase_investigator",
-  "cli_help",
-  "get_internal_docs"
+  "cli_help"
 ]
 decision = "allow"
 priority = 70
 modes = ["plan"]
 
 [[rule]]
-toolName = ["ask_user", "save_memory"]
+toolName = ["AskUserQuestion"]
 decision = "ask_user"
 priority = 70
 modes = ["plan"]
 
-# Allow write_file and replace for .md files in the plans directory (cross-platform)
+# Allow Write and Edit for .md files in the plans directory (cross-platform)
 [[rule]]
-toolName = ["write_file", "replace"]
+toolName = ["Write", "Edit"]
 decision = "allow"
 priority = 70
 modes = ["plan"]
@@ -103,8 +101,8 @@ argsPattern = "\\x00\"file_path\":\"[^\"]+[\\\\/]+\\.gemini[\\\\/]+tmp[\\\\/]+[\
 
 # Explicitly Deny other write operations in Plan mode with a clear message.
 [[rule]]
-toolName = ["write_file", "replace"]
+toolName = ["Write", "Edit"]
 decision = "deny"
 priority = 65
 modes = ["plan"]
-deny_message = "You are in Plan Mode and cannot modify source code. You may ONLY use write_file or replace to save plans to the designated plans directory as .md files."
+deny_message = "You are in Plan Mode and cannot modify source code. You may ONLY use Write or Edit to save plans to the designated plans directory as .md files."

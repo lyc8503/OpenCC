@@ -22,7 +22,6 @@ import {
   ToolConfirmationOutcome,
   StreamEventType,
   isWithinRoot,
-  ReadManyFilesTool,
   type GeminiChat,
   type Config,
   type MessageBus,
@@ -99,17 +98,6 @@ vi.mock(
     const actual = await importOriginal();
     return {
       ...actual,
-      ReadManyFilesTool: vi.fn().mockImplementation(() => ({
-        name: 'read_many_files',
-        kind: 'read',
-        build: vi.fn().mockReturnValue({
-          getDescription: () => 'Read files',
-          toolLocations: () => [],
-          execute: vi.fn().mockResolvedValue({
-            llmContent: ['--- file.txt ---\n\nFile content\n\n'],
-          }),
-        }),
-      })),
       logToolCall: vi.fn(),
       isWithinRoot: vi.fn().mockReturnValue(true),
       LlmRole: {
@@ -1306,8 +1294,8 @@ describe('Session', () => {
     expect(path.resolve).toHaveBeenCalled();
     expect(fs.stat).toHaveBeenCalled();
 
-    // Verify ReadManyFilesTool was used (implicitly by checking if sendMessageStream was called with resolved content)
-    // Since we mocked ReadManyFilesTool to return specific content, we can check the args passed to sendMessageStream
+    // Verify files were read (implicitly by checking if sendMessageStream was called with resolved content)
+    // Since we mocked fs to return specific content, we can check the args passed to sendMessageStream
     expect(mockChat.sendMessageStream).toHaveBeenCalledWith(
       expect.anything(),
       expect.arrayContaining([
@@ -1540,14 +1528,9 @@ describe('Session', () => {
       ],
     });
 
-    // Should use glob
-    // ReadManyFilesTool is instantiated directly, so we check if the mock instance's build method was called
-    const MockReadManyFilesTool = ReadManyFilesTool as unknown as Mock;
-    const mockInstance =
-      MockReadManyFilesTool.mock.results[
-        MockReadManyFilesTool.mock.results.length - 1
-      ].value;
-    expect(mockInstance.build).toHaveBeenCalled();
+    // Should read directory files
+    // fs.readFile is called to read files
+    expect(fs.readFile).toHaveBeenCalled();
   });
 
   it('should set mode on config', () => {

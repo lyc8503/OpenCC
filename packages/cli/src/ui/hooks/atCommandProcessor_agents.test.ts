@@ -14,7 +14,6 @@ import type {
 import {
   FileDiscoveryService,
   GlobTool,
-  ReadManyFilesTool,
   StandardFileSystemService,
   ToolRegistry,
   COMMON_IGNORE_PATTERNS,
@@ -139,7 +138,6 @@ describe('handleAtCommand with Agents', () => {
     } as unknown as Config;
 
     const registry = new ToolRegistry(mockConfig, mockMessageBus);
-    registry.registerTool(new ReadManyFilesTool(mockConfig, mockMessageBus));
     registry.registerTool(new GlobTool(mockConfig, mockMessageBus));
     getToolRegistry.mockReturnValue(registry);
   });

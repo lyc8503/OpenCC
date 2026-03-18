@@ -6,13 +6,11 @@
 
 /**
  * Orchestrator for tool definitions.
- * Resolves the correct toolset based on model family and provides legacy exports.
+ * Provides unified tool definitions for all models.
  */
 
 import type { ToolDefinition, CoreToolSet } from './types.js';
-import { getToolFamily } from './modelFamilyService.js';
-import { DEFAULT_LEGACY_SET } from './model-family-sets/default-legacy.js';
-import { GEMINI_3_SET } from './model-family-sets/gemini-3.js';
+import { TOOL_SET } from './model-family-sets/tool-set.js';
 import {
   getShellDeclaration,
   getExitPlanModeDeclaration,
@@ -23,7 +21,6 @@ import {
 export {
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
-  LS_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
@@ -31,9 +28,6 @@ export {
   WEB_SEARCH_TOOL_NAME,
   WRITE_TODOS_TOOL_NAME,
   WEB_FETCH_TOOL_NAME,
-  READ_MANY_FILES_TOOL_NAME,
-  MEMORY_TOOL_NAME,
-  GET_INTERNAL_DOCS_TOOL_NAME,
   ACTIVATE_SKILL_TOOL_NAME,
   ASK_USER_TOOL_NAME,
   EXIT_PLAN_MODE_TOOL_NAME,
@@ -65,20 +59,13 @@ export {
   EDIT_PARAM_OLD_STRING,
   EDIT_PARAM_NEW_STRING,
   EDIT_PARAM_ALLOW_MULTIPLE,
-  LS_PARAM_IGNORE,
   SHELL_PARAM_COMMAND,
   SHELL_PARAM_IS_BACKGROUND,
   WEB_SEARCH_PARAM_QUERY,
   WEB_FETCH_PARAM_PROMPT,
-  READ_MANY_PARAM_INCLUDE,
-  READ_MANY_PARAM_EXCLUDE,
-  READ_MANY_PARAM_RECURSIVE,
-  READ_MANY_PARAM_USE_DEFAULT_EXCLUDES,
-  MEMORY_PARAM_FACT,
   TODOS_PARAM_TODOS,
   TODOS_ITEM_PARAM_DESCRIPTION,
   TODOS_ITEM_PARAM_STATUS,
-  DOCS_PARAM_PATH,
   ASK_USER_PARAM_QUESTIONS,
   ASK_USER_QUESTION_PARAM_QUESTION,
   ASK_USER_QUESTION_PARAM_HEADER,
@@ -93,136 +80,66 @@ export {
   SKILL_PARAM_NAME,
 } from './base-declarations.js';
 
-// Re-export sets for compatibility
-export { DEFAULT_LEGACY_SET } from './model-family-sets/default-legacy.js';
-export { GEMINI_3_SET } from './model-family-sets/gemini-3.js';
+// Re-export tool set
+export { TOOL_SET } from './model-family-sets/tool-set.js';
 
 /**
- * Resolves the appropriate tool set for a given model ID.
+ * Returns the unified tool set for all models.
  */
-export function getToolSet(modelId?: string): CoreToolSet {
-  const family = getToolFamily(modelId);
-
-  switch (family) {
-    case 'gemini-3':
-      return GEMINI_3_SET;
-    case 'default-legacy':
-    default:
-      return DEFAULT_LEGACY_SET;
-  }
+export function getToolSet(): CoreToolSet {
+  return TOOL_SET;
 }
 
 // ============================================================================
-// TOOL DEFINITIONS (LEGACY EXPORTS)
+// TOOL DEFINITIONS
 // ============================================================================
 
 export const READ_FILE_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.read_file;
-  },
-  overrides: (modelId) => getToolSet(modelId).read_file,
+  base: TOOL_SET.Read,
 };
 
 export const WRITE_FILE_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.write_file;
-  },
-  overrides: (modelId) => getToolSet(modelId).write_file,
+  base: TOOL_SET.Write,
 };
 
 export const GREP_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.grep_search;
-  },
-  overrides: (modelId) => getToolSet(modelId).grep_search,
+  base: TOOL_SET.Grep,
 };
 
 export const RIP_GREP_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.grep_search_ripgrep;
-  },
-  overrides: (modelId) => getToolSet(modelId).grep_search_ripgrep,
+  base: TOOL_SET.Grep,
 };
 
 export const WEB_SEARCH_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.google_web_search;
-  },
-  overrides: (modelId) => getToolSet(modelId).google_web_search,
+  base: TOOL_SET.WebSearch,
 };
 
 export const EDIT_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.replace;
-  },
-  overrides: (modelId) => getToolSet(modelId).replace,
+  base: TOOL_SET.Edit,
 };
 
 export const GLOB_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.glob;
-  },
-  overrides: (modelId) => getToolSet(modelId).glob,
-};
-
-export const LS_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.list_directory;
-  },
-  overrides: (modelId) => getToolSet(modelId).list_directory,
+  base: TOOL_SET.Glob,
 };
 
 export const WEB_FETCH_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.web_fetch;
-  },
-  overrides: (modelId) => getToolSet(modelId).web_fetch,
-};
-
-export const READ_MANY_FILES_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.read_many_files;
-  },
-  overrides: (modelId) => getToolSet(modelId).read_many_files,
-};
-
-export const MEMORY_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.save_memory;
-  },
-  overrides: (modelId) => getToolSet(modelId).save_memory,
+  base: TOOL_SET.WebFetch,
 };
 
 export const WRITE_TODOS_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.write_todos;
-  },
-  overrides: (modelId) => getToolSet(modelId).write_todos,
-};
-
-export const GET_INTERNAL_DOCS_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.get_internal_docs;
-  },
-  overrides: (modelId) => getToolSet(modelId).get_internal_docs,
+  base: TOOL_SET.TodoWrite,
 };
 
 export const ASK_USER_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.ask_user;
-  },
-  overrides: (modelId) => getToolSet(modelId).ask_user,
+  base: TOOL_SET.AskUserQuestion,
 };
 
 export const ENTER_PLAN_MODE_DEFINITION: ToolDefinition = {
-  get base() {
-    return DEFAULT_LEGACY_SET.enter_plan_mode;
-  },
-  overrides: (modelId) => getToolSet(modelId).enter_plan_mode,
+  base: TOOL_SET.EnterPlanMode,
 };
 
 // ============================================================================
-// DYNAMIC TOOL DEFINITIONS (LEGACY EXPORTS)
+// DYNAMIC TOOL DEFINITIONS
 // ============================================================================
 
 export {
@@ -236,18 +153,12 @@ export function getShellDefinition(
 ): ToolDefinition {
   return {
     base: getShellDeclaration(enableInteractiveShell, enableEfficiency),
-    overrides: (modelId) =>
-      getToolSet(modelId).run_shell_command(
-        enableInteractiveShell,
-        enableEfficiency,
-      ),
   };
 }
 
 export function getExitPlanModeDefinition(plansDir: string): ToolDefinition {
   return {
     base: getExitPlanModeDeclaration(plansDir),
-    overrides: (modelId) => getToolSet(modelId).exit_plan_mode(plansDir),
   };
 }
 
@@ -256,6 +167,5 @@ export function getActivateSkillDefinition(
 ): ToolDefinition {
   return {
     base: getActivateSkillDeclaration(skillNames),
-    overrides: (modelId) => getToolSet(modelId).activate_skill(skillNames),
   };
 }

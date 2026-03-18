@@ -14,9 +14,9 @@
 // ============================================================================
 
 export const PARAM_FILE_PATH = 'file_path';
-export const PARAM_DIR_PATH = 'dir_path';
+export const PARAM_DIR_PATH = 'path';
 export const PARAM_PATTERN = 'pattern';
-export const PARAM_CASE_SENSITIVE = 'case_sensitive';
+export const PARAM_CASE_SENSITIVE = '-i';
 export const PARAM_RESPECT_GIT_IGNORE = 'respect_git_ignore';
 export const PARAM_RESPECT_GEMINI_IGNORE = 'respect_gemini_ignore';
 export const PARAM_FILE_FILTERING_OPTIONS = 'file_filtering_options';
@@ -27,82 +27,64 @@ export const PARAM_DESCRIPTION = 'description';
 // ============================================================================
 
 // -- glob --
-export const GLOB_TOOL_NAME = 'glob';
+export const GLOB_TOOL_NAME = 'Glob';
 
-// -- grep_search --
-export const GREP_TOOL_NAME = 'grep_search';
-export const GREP_PARAM_INCLUDE_PATTERN = 'include_pattern';
+// -- Grep --
+export const GREP_TOOL_NAME = 'Grep';
+export const GREP_PARAM_INCLUDE_PATTERN = 'glob';
 export const GREP_PARAM_EXCLUDE_PATTERN = 'exclude_pattern';
-export const GREP_PARAM_NAMES_ONLY = 'names_only';
+export const GREP_PARAM_NAMES_ONLY = 'output_mode';
 export const GREP_PARAM_MAX_MATCHES_PER_FILE = 'max_matches_per_file';
-export const GREP_PARAM_TOTAL_MAX_MATCHES = 'total_max_matches';
+export const GREP_PARAM_TOTAL_MAX_MATCHES = 'head_limit';
 // ripgrep only
 export const GREP_PARAM_FIXED_STRINGS = 'fixed_strings';
 export const GREP_PARAM_CONTEXT = 'context';
-export const GREP_PARAM_AFTER = 'after';
-export const GREP_PARAM_BEFORE = 'before';
+export const GREP_PARAM_AFTER = '-A';
+export const GREP_PARAM_BEFORE = '-B';
 export const GREP_PARAM_NO_IGNORE = 'no_ignore';
 
-// -- list_directory --
-export const LS_TOOL_NAME = 'list_directory';
-export const LS_PARAM_IGNORE = 'ignore';
+// -- Read --
+export const READ_FILE_TOOL_NAME = 'Read';
+export const READ_FILE_PARAM_START_LINE = 'offset';
+export const READ_FILE_PARAM_END_LINE = 'limit';
 
-// -- read_file --
-export const READ_FILE_TOOL_NAME = 'read_file';
-export const READ_FILE_PARAM_START_LINE = 'start_line';
-export const READ_FILE_PARAM_END_LINE = 'end_line';
-
-// -- run_shell_command --
-export const SHELL_TOOL_NAME = 'run_shell_command';
+// -- Bash --
+export const SHELL_TOOL_NAME = 'Bash';
 export const SHELL_PARAM_COMMAND = 'command';
-export const SHELL_PARAM_IS_BACKGROUND = 'is_background';
+export const SHELL_PARAM_IS_BACKGROUND = 'run_in_background';
 
-// -- write_file --
-export const WRITE_FILE_TOOL_NAME = 'write_file';
+// -- Write --
+export const WRITE_FILE_TOOL_NAME = 'Write';
 export const WRITE_FILE_PARAM_CONTENT = 'content';
 
-// -- replace (edit) --
-export const EDIT_TOOL_NAME = 'replace';
+// -- Edit --
+export const EDIT_TOOL_NAME = 'Edit';
 export const EDIT_PARAM_INSTRUCTION = 'instruction';
 export const EDIT_PARAM_OLD_STRING = 'old_string';
 export const EDIT_PARAM_NEW_STRING = 'new_string';
-export const EDIT_PARAM_ALLOW_MULTIPLE = 'allow_multiple';
+export const EDIT_PARAM_ALLOW_MULTIPLE = 'replace_all';
 
-// -- google_web_search --
-export const WEB_SEARCH_TOOL_NAME = 'google_web_search';
+// -- WebSearch --
+export const WEB_SEARCH_TOOL_NAME = 'WebSearch';
 export const WEB_SEARCH_PARAM_QUERY = 'query';
 
-// -- write_todos --
-export const WRITE_TODOS_TOOL_NAME = 'write_todos';
+// -- TodoWrite --
+export const WRITE_TODOS_TOOL_NAME = 'TodoWrite';
 export const TODOS_PARAM_TODOS = 'todos';
-export const TODOS_ITEM_PARAM_DESCRIPTION = 'description';
+export const TODOS_ITEM_PARAM_DESCRIPTION = 'content';
 export const TODOS_ITEM_PARAM_STATUS = 'status';
 
-// -- web_fetch --
-export const WEB_FETCH_TOOL_NAME = 'web_fetch';
+// -- WebFetch --
+export const WEB_FETCH_TOOL_NAME = 'WebFetch';
 export const WEB_FETCH_PARAM_PROMPT = 'prompt';
+export const WEB_FETCH_PARAM_URL = 'url';
 
-// -- read_many_files --
-export const READ_MANY_FILES_TOOL_NAME = 'read_many_files';
-export const READ_MANY_PARAM_INCLUDE = 'include';
-export const READ_MANY_PARAM_EXCLUDE = 'exclude';
-export const READ_MANY_PARAM_RECURSIVE = 'recursive';
-export const READ_MANY_PARAM_USE_DEFAULT_EXCLUDES = 'useDefaultExcludes';
+// -- Skill --
+export const ACTIVATE_SKILL_TOOL_NAME = 'Skill';
+export const SKILL_PARAM_NAME = 'skill';
 
-// -- save_memory --
-export const MEMORY_TOOL_NAME = 'save_memory';
-export const MEMORY_PARAM_FACT = 'fact';
-
-// -- get_internal_docs --
-export const GET_INTERNAL_DOCS_TOOL_NAME = 'get_internal_docs';
-export const DOCS_PARAM_PATH = 'path';
-
-// -- activate_skill --
-export const ACTIVATE_SKILL_TOOL_NAME = 'activate_skill';
-export const SKILL_PARAM_NAME = 'name';
-
-// -- ask_user --
-export const ASK_USER_TOOL_NAME = 'ask_user';
+// -- AskUserQuestion --
+export const ASK_USER_TOOL_NAME = 'AskUserQuestion';
 export const ASK_USER_PARAM_QUESTIONS = 'questions';
 // ask_user question item params
 export const ASK_USER_QUESTION_PARAM_QUESTION = 'question';
@@ -115,10 +97,10 @@ export const ASK_USER_QUESTION_PARAM_PLACEHOLDER = 'placeholder';
 export const ASK_USER_OPTION_PARAM_LABEL = 'label';
 export const ASK_USER_OPTION_PARAM_DESCRIPTION = 'description';
 
-// -- exit_plan_mode --
-export const EXIT_PLAN_MODE_TOOL_NAME = 'exit_plan_mode';
+// -- ExitPlanMode --
+export const EXIT_PLAN_MODE_TOOL_NAME = 'ExitPlanMode';
 export const EXIT_PLAN_PARAM_PLAN_PATH = 'plan_path';
 
-// -- enter_plan_mode --
-export const ENTER_PLAN_MODE_TOOL_NAME = 'enter_plan_mode';
+// -- EnterPlanMode --
+export const ENTER_PLAN_MODE_TOOL_NAME = 'EnterPlanMode';
 export const PLAN_MODE_PARAM_REASON = 'reason';

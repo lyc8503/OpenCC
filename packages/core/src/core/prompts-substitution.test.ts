@@ -119,7 +119,7 @@ describe('Core System Prompt Substitution', () => {
   it('should substitute tool names using the ${toolName}_ToolName pattern', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.readFileSync).mockReturnValue(
-      'Use ${write_file_ToolName} and ${read_file_ToolName}.',
+      'Use ${Write_ToolName} and ${Read_ToolName}.',
     );
 
     const prompt = getCoreSystemPrompt(mockConfig);
@@ -127,8 +127,8 @@ describe('Core System Prompt Substitution', () => {
     expect(prompt).toContain(
       `Use ${toolNames.WRITE_FILE_TOOL_NAME} and ${toolNames.READ_FILE_TOOL_NAME}.`,
     );
-    expect(prompt).not.toContain('${write_file_ToolName}');
-    expect(prompt).not.toContain('${read_file_ToolName}');
+    expect(prompt).not.toContain('${Write_ToolName}');
+    expect(prompt).not.toContain('${Read_ToolName}');
   });
 
   it('should not substitute old patterns', () => {

@@ -641,7 +641,7 @@ name = "invalid-name"
     expect(discoveredRule?.priority).toBeCloseTo(1.01, 5);
   });
 
-  it('should normalize legacy "ShellTool" alias to "run_shell_command"', async () => {
+  it('should normalize legacy "ShellTool" alias to "Bash"', async () => {
     vi.mocked(
       fs.readdir as (path: PathLike) => Promise<string[]>,
     ).mockResolvedValue([]);
@@ -651,9 +651,7 @@ name = "invalid-name"
       MOCK_DEFAULT_DIR,
     );
     const rule = config.rules?.find(
-      (r) =>
-        r.toolName === 'run_shell_command' &&
-        r.decision === PolicyDecision.ALLOW,
+      (r) => r.toolName === 'Bash' && r.decision === PolicyDecision.ALLOW,
     );
     expect(rule).toBeDefined();
     expect(rule?.priority).toBeCloseTo(4.3, 5); // Command line allow

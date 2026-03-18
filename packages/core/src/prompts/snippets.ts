@@ -12,7 +12,6 @@ import {
   EXIT_PLAN_MODE_TOOL_NAME,
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
-  MEMORY_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
@@ -32,7 +31,9 @@ import {
   TRACKER_UPDATE_TASK_TOOL_NAME,
 } from '../tools/tool-names.js';
 import type { HierarchicalMemory } from '../config/memory.js';
-import { DEFAULT_CONTEXT_FILENAME } from '../tools/memoryTool.js';
+
+/** Default context filename for configuration files */
+const DEFAULT_CONTEXT_FILENAME = 'GEMINI.md';
 
 // --- Options Structs ---
 
@@ -161,8 +162,8 @@ ${renderUserMemory(userMemory, contextFilenames)}
 export function renderPreamble(options?: PreambleOptions): string {
   if (!options) return '';
   return options.interactive
-    ? 'You are Gemini CLI, an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and effectively.'
-    : 'You are Gemini CLI, an autonomous CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and effectively.';
+    ? "You are a Claude agent, built on Anthropic's Claude Agent SDK.\n\nYou are an interactive agent that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user."
+    : "You are a Claude agent, built on Anthropic's Claude Agent SDK.\n\nYou are an autonomous agent that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.";
 }
 
 export function renderCoreMandates(options?: CoreMandatesOptions): string {
@@ -373,7 +374,7 @@ export function renderOperationalGuidelines(
 - **Command Execution:** Use the ${formatToolName(SHELL_TOOL_NAME)} tool for running shell commands, remembering the safety rule to explain modifying commands first.${toolUsageInteractive(
     options.interactive,
     options.interactiveShellEnabled,
-  )}${toolUsageRememberingFacts(options)}
+  )}
 - **Confirmation Protocol:** If a tool call is declined or cancelled, respect the decision immediately. Do not re-attempt the action or "negotiate" for the same tool call unless the user explicitly directs you to. Offer an alternative technical path if possible.
 
 ## Interaction Details
@@ -771,17 +772,6 @@ function toolUsageInteractive(
   return `
 - **Background Processes:** To run a command in the background, set the \`${SHELL_PARAM_IS_BACKGROUND}\` parameter to true.
 - **Interactive Commands:** Always prefer non-interactive commands (e.g., using 'run once' or 'CI' flags for test runners to avoid persistent watch modes or 'git --no-pager') unless a persistent process is specifically required; however, some commands are only interactive and expect user input during their execution (e.g. ssh, vim).`;
-}
-
-function toolUsageRememberingFacts(
-  options: OperationalGuidelinesOptions,
-): string {
-  const base = `
-- **Memory Tool:** Use ${formatToolName(MEMORY_TOOL_NAME)} only for global user preferences, personal facts, or high-level information that applies across all sessions. Never save workspace-specific context, local file paths, or transient session state. Do not use memory to store summaries of code changes, bug fixes, or findings discovered during a task; this tool is for persistent user-related information only.`;
-  const suffix = options.interactive
-    ? ' If unsure whether a fact is worth remembering globally, ask the user.'
-    : '';
-  return base + suffix;
 }
 
 function gitRepoKeepUserInformed(interactive: boolean): string {

@@ -4,6 +4,56 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import path from 'node:path';
+import { Storage } from './storage.js';
+
+/** Default context filename for GEMINI.md context files */
+export const DEFAULT_CONTEXT_FILENAME = 'GEMINI.md';
+
+// This variable will hold the currently configured filename for GEMINI.md context files.
+// It defaults to DEFAULT_CONTEXT_FILENAME but can be overridden by setGeminiMdFilename.
+let currentGeminiMdFilename: string | string[] = DEFAULT_CONTEXT_FILENAME;
+
+/**
+ * Sets the current Gemini MD filename(s).
+ */
+export function setGeminiMdFilename(newFilename: string | string[]): void {
+  if (Array.isArray(newFilename)) {
+    if (newFilename.length > 0) {
+      currentGeminiMdFilename = newFilename.map((name) => name.trim());
+    }
+  } else if (newFilename && newFilename.trim() !== '') {
+    currentGeminiMdFilename = newFilename.trim();
+  }
+}
+
+/**
+ * Gets the primary Gemini MD filename.
+ */
+export function getCurrentGeminiMdFilename(): string {
+  if (Array.isArray(currentGeminiMdFilename)) {
+    return currentGeminiMdFilename[0];
+  }
+  return currentGeminiMdFilename;
+}
+
+/**
+ * Gets all configured Gemini MD filenames.
+ */
+export function getAllGeminiMdFilenames(): string[] {
+  if (Array.isArray(currentGeminiMdFilename)) {
+    return currentGeminiMdFilename;
+  }
+  return [currentGeminiMdFilename];
+}
+
+/**
+ * Gets the global memory file path.
+ */
+export function getGlobalMemoryFilePath(): string {
+  return path.join(Storage.getGlobalGeminiDir(), getCurrentGeminiMdFilename());
+}
+
 export interface HierarchicalMemory {
   global?: string;
   extension?: string;

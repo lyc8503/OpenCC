@@ -15,7 +15,7 @@ import {
 import {
   SHELL_TOOL_NAME,
   ACTIVATE_SKILL_TOOL_NAME,
-  MEMORY_TOOL_NAME,
+  ASK_USER_TOOL_NAME,
 } from '../tools/tool-names.js';
 import { estimateTokenCountSync } from '../utils/tokenCalculation.js';
 import type { Config } from '../config/config.js';
@@ -572,7 +572,7 @@ describe('ToolOutputMaskingService', () => {
         parts: [
           {
             functionResponse: {
-              name: MEMORY_TOOL_NAME,
+              name: ASK_USER_TOOL_NAME,
               response: { output: 'Important user preference' },
             },
           },
@@ -614,7 +614,7 @@ describe('ToolOutputMaskingService', () => {
 
       const name = parts[0].functionResponse?.name;
       if (name === ACTIVATE_SKILL_TOOL_NAME) return 1000;
-      if (name === MEMORY_TOOL_NAME) return 500;
+      if (name === ASK_USER_TOOL_NAME) return 500;
       if (name === 'bulky_tool') return 60000;
       if (name === 'padding') return 60000;
       return 10;
@@ -624,7 +624,7 @@ describe('ToolOutputMaskingService', () => {
 
     // Both 'bulky_tool' and 'padding' should be masked.
     // 'padding' (Index 3) crosses the 50k protection boundary immediately.
-    // ACTIVATE_SKILL and MEMORY are exempt.
+    // ACTIVATE_SKILL and ASK_USER are exempt.
     expect(result.maskedCount).toBe(2);
     expect(result.newHistory[0].parts?.[0].functionResponse?.name).toBe(
       ACTIVATE_SKILL_TOOL_NAME,
@@ -639,7 +639,7 @@ describe('ToolOutputMaskingService', () => {
     ).toBe('High value instructions for skill');
 
     expect(result.newHistory[1].parts?.[0].functionResponse?.name).toBe(
-      MEMORY_TOOL_NAME,
+      ASK_USER_TOOL_NAME,
     );
     expect(
       (

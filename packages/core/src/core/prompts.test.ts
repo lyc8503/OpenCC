@@ -31,21 +31,21 @@ import type { MessageBus } from '../confirmation-bus/message-bus.js';
 
 // Mock tool names if they are dynamically generated or complex
 vi.mock('../tools/ls', () => ({ LSTool: { Name: 'list_directory' } }));
-vi.mock('../tools/edit', () => ({ EditTool: { Name: 'replace' } }));
-vi.mock('../tools/glob', () => ({ GlobTool: { Name: 'glob' } }));
-vi.mock('../tools/grep', () => ({ GrepTool: { Name: 'grep_search' } }));
-vi.mock('../tools/read-file', () => ({ ReadFileTool: { Name: 'read_file' } }));
+vi.mock('../tools/edit', () => ({ EditTool: { Name: 'Edit' } }));
+vi.mock('../tools/glob', () => ({ GlobTool: { Name: 'Glob' } }));
+vi.mock('../tools/grep', () => ({ GrepTool: { Name: 'Grep' } }));
+vi.mock('../tools/read-file', () => ({ ReadFileTool: { Name: 'Read' } }));
 vi.mock('../tools/read-many-files', () => ({
   ReadManyFilesTool: { Name: 'read_many_files' },
 }));
 vi.mock('../tools/shell', () => ({
   ShellTool: class {
-    static readonly Name = 'run_shell_command';
-    name = 'run_shell_command';
+    static readonly Name = 'Bash';
+    name = 'Bash';
   },
 }));
 vi.mock('../tools/write-file', () => ({
-  WriteFileTool: { Name: 'write_file' },
+  WriteFileTool: { Name: 'Write' },
 }));
 vi.mock('../agents/codebase-investigator.js', () => ({
   CodebaseInvestigatorAgent: { name: 'codebase_investigator' },
@@ -83,7 +83,7 @@ describe('Core System Prompt (prompts.ts)', () => {
     vi.stubEnv('GEMINI_SYSTEM_MD', undefined);
     vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', undefined);
     const mockRegistry = {
-      getAllToolNames: vi.fn().mockReturnValue(['grep_search', 'glob']),
+      getAllToolNames: vi.fn().mockReturnValue(['Grep', 'Glob']),
       getAllTools: vi.fn().mockReturnValue([]),
     };
     mockConfig = {
@@ -143,7 +143,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
     expect(prompt).toContain('# Available Agent Skills');
     expect(prompt).toContain(
-      "To activate a skill and receive its detailed instructions, you can call the `activate_skill` tool with the skill's name.",
+      "To activate a skill and receive its detailed instructions, you can call the `Skill` tool with the skill's name.",
     );
     expect(prompt).toContain('Skill Guidance');
     expect(prompt).toContain('<available_skills>');
@@ -175,7 +175,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
     expect(prompt).toContain('# Available Agent Skills');
     expect(prompt).toContain(
-      "To activate a skill and receive its detailed instructions, call the `activate_skill` tool with the skill's name.",
+      "To activate a skill and receive its detailed instructions, call the `Skill` tool with the skill's name.",
     );
     expect(prompt).toMatchSnapshot();
   });
@@ -186,7 +186,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
     expect(prompt).not.toContain('# Available Agent Skills');
     expect(prompt).not.toContain('Skill Guidance');
-    expect(prompt).not.toContain('activate_skill');
+    expect(prompt).not.toContain('`Skill`');
   });
 
   it('should include sub-agents in XML for preview models', () => {
@@ -246,7 +246,9 @@ describe('Core System Prompt (prompts.ts)', () => {
   it('should use chatty system prompt for preview model', () => {
     vi.mocked(mockConfig.getActiveModel).mockReturnValue(PREVIEW_GEMINI_MODEL);
     const prompt = getCoreSystemPrompt(mockConfig);
-    expect(prompt).toContain('You are Gemini CLI, an interactive CLI agent'); // Check for core content
+    expect(prompt).toContain(
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK",
+    ); // Check for core content
     expect(prompt).toContain('- **User Hints:**');
     expect(prompt).toContain('No Chitchat:');
     expect(prompt).toMatchSnapshot();
@@ -257,7 +259,9 @@ describe('Core System Prompt (prompts.ts)', () => {
       PREVIEW_GEMINI_FLASH_MODEL,
     );
     const prompt = getCoreSystemPrompt(mockConfig);
-    expect(prompt).toContain('You are Gemini CLI, an interactive CLI agent'); // Check for core content
+    expect(prompt).toContain(
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK",
+    ); // Check for core content
     expect(prompt).toContain('No Chitchat:');
     expect(prompt).toMatchSnapshot();
   });
@@ -282,7 +286,9 @@ describe('Core System Prompt (prompts.ts)', () => {
     vi.mocked(mockConfig.getActiveModel).mockReturnValue(PREVIEW_GEMINI_MODEL);
     const prompt = getCoreSystemPrompt(mockConfig, userMemory);
     expect(prompt).not.toContain('---\n\n'); // Separator should not be present
-    expect(prompt).toContain('You are Gemini CLI, an interactive CLI agent'); // Check for core content
+    expect(prompt).toContain(
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK",
+    ); // Check for core content
     expect(prompt).toContain('No Chitchat:');
     expect(prompt).toMatchSnapshot(); // Use snapshot for base prompt structure
   });
@@ -296,7 +302,9 @@ describe('Core System Prompt (prompts.ts)', () => {
     expect(prompt).toContain('# Contextual Instructions (GEMINI.md)');
     expect(prompt).toContain('<loaded_context>');
     expect(prompt).toContain(memory);
-    expect(prompt).toContain('You are Gemini CLI, an interactive CLI agent'); // Ensure base prompt follows
+    expect(prompt).toContain(
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK",
+    ); // Ensure base prompt follows
     expect(prompt).toMatchSnapshot(); // Snapshot the combined prompt
   });
 
@@ -335,7 +343,7 @@ describe('Core System Prompt (prompts.ts)', () => {
     ['sandbox-exec', '# macOS Seatbelt', ['# Sandbox', '# Outside of Sandbox']],
     [
       undefined,
-      'You are Gemini CLI, an interactive CLI agent',
+      "You are a Claude agent, built on Anthropic's Claude Agent SDK",
       ['# Sandbox', '# macOS Seatbelt'],
     ],
   ])(
@@ -385,16 +393,16 @@ describe('Core System Prompt (prompts.ts)', () => {
     vi.mocked(mockConfig.toolRegistry.getAllToolNames).mockReturnValue([]);
     const prompt = getCoreSystemPrompt(mockConfig);
 
-    expect(prompt).not.toContain('`grep_search`');
-    expect(prompt).not.toContain('`glob`');
+    expect(prompt).not.toContain('`Grep`');
+    expect(prompt).not.toContain('`Glob`');
     expect(prompt).toContain(
       'Use search tools extensively to understand file structures, existing code patterns, and conventions.',
     );
   });
 
   it.each([
-    [[CodebaseInvestigatorAgent.name, 'grep_search', 'glob'], true],
-    [['grep_search', 'glob'], false],
+    [[CodebaseInvestigatorAgent.name, 'Grep', 'Glob'], true],
+    [['Grep', 'Glob'], false],
   ])(
     'should handle CodebaseInvestigator with tools=%s',
     (toolNames, expectCodebaseInvestigator) => {
@@ -437,14 +445,14 @@ describe('Core System Prompt (prompts.ts)', () => {
           `Utilize specialized sub-agents (e.g., \`codebase_investigator\`) as the primary mechanism for initial discovery`,
         );
         expect(prompt).not.toContain(
-          'Use `grep_search` and `glob` search tools extensively',
+          'Use `Grep` and `Glob` search tools extensively',
         );
       } else {
         expect(prompt).not.toContain(
           `Utilize specialized sub-agents (e.g., \`codebase_investigator\`) as the primary mechanism for initial discovery`,
         );
         expect(prompt).toContain(
-          'Use `grep_search` and `glob` search tools extensively',
+          'Use `Grep` and `Glob` search tools extensively',
         );
       }
       expect(prompt).toMatchSnapshot();
@@ -469,13 +477,13 @@ describe('Core System Prompt (prompts.ts)', () => {
     // Non-read-only MCP tools are excluded by the policy engine and
     // never appear in getAllTools().
     const planModeTools = [
-      { name: 'glob' },
-      { name: 'grep_search' },
-      { name: 'read_file' },
-      { name: 'ask_user' },
-      { name: 'exit_plan_mode' },
-      { name: 'write_file' },
-      { name: 'replace' },
+      { name: 'Glob' },
+      { name: 'Grep' },
+      { name: 'Read' },
+      { name: 'AskUserQuestion' },
+      { name: 'ExitPlanMode' },
+      { name: 'Write' },
+      { name: 'Edit' },
       readOnlyMcpTool,
     ] as unknown as AnyDeclarativeTool[];
 
@@ -530,9 +538,9 @@ describe('Core System Prompt (prompts.ts)', () => {
       // Use a smaller subset than the full planModeTools to verify
       // that only tools returned by getAllTools() appear in the prompt.
       const subsetTools = [
-        { name: 'glob' },
-        { name: 'read_file' },
-        { name: 'ask_user' },
+        { name: 'Glob' },
+        { name: 'Read' },
+        { name: 'AskUserQuestion' },
       ] as unknown as AnyDeclarativeTool[];
       vi.mocked(mockConfig.getActiveModel).mockReturnValue(
         PREVIEW_GEMINI_MODEL,
@@ -545,14 +553,14 @@ describe('Core System Prompt (prompts.ts)', () => {
       const prompt = getCoreSystemPrompt(mockConfig);
 
       // Should include enabled tools
-      expect(prompt).toContain('`glob`');
-      expect(prompt).toContain('`read_file`');
-      expect(prompt).toContain('`ask_user`');
+      expect(prompt).toContain('`Glob`');
+      expect(prompt).toContain('`Read`');
+      expect(prompt).toContain('`AskUserQuestion`');
 
       // Should NOT include tools not in getAllTools()
-      expect(prompt).not.toContain('`google_web_search`');
+      expect(prompt).not.toContain('`WebSearch`');
       expect(prompt).not.toContain('`list_directory`');
-      expect(prompt).not.toContain('`grep_search`');
+      expect(prompt).not.toContain('`Grep`');
     });
 
     describe('Approved Plan in Plan Mode', () => {
@@ -582,7 +590,7 @@ describe('Core System Prompt (prompts.ts)', () => {
       vi.mocked(mockConfig.isInteractive).mockReturnValue(true);
       const prompt = getCoreSystemPrompt(mockConfig);
       expect(prompt).toContain('# Autonomous Mode (YOLO)');
-      expect(prompt).toContain('Only use the `ask_user` tool if');
+      expect(prompt).toContain('Only use the `AskUserQuestion` tool if');
     });
 
     it('should NOT include YOLO mode instructions in non-interactive mode', () => {
@@ -628,10 +636,10 @@ describe('Core System Prompt (prompts.ts)', () => {
       );
     });
 
-    it('should use is_background parameter in background process instructions', () => {
+    it('should use run_in_background parameter in background process instructions', () => {
       const prompt = getCoreSystemPrompt(mockConfig);
       expect(prompt).toContain(
-        'To run a command in the background, set the `is_background` parameter to true.',
+        'To run a command in the background, set the `run_in_background` parameter to true.',
       );
       expect(prompt).not.toContain('via `&`');
     });
@@ -684,12 +692,12 @@ describe('Core System Prompt (prompts.ts)', () => {
   it('should include planning phase suggestion when enter_plan_mode tool is enabled', () => {
     vi.mocked(mockConfig.getActiveModel).mockReturnValue(PREVIEW_GEMINI_MODEL);
     vi.mocked(mockConfig.toolRegistry.getAllToolNames).mockReturnValue([
-      'enter_plan_mode',
+      'EnterPlanMode',
     ]);
     const prompt = getCoreSystemPrompt(mockConfig);
 
     expect(prompt).toContain(
-      'If the request is ambiguous, broad in scope, or involves architectural decisions or cross-cutting changes, use the `enter_plan_mode` tool to safely research and design your strategy. Do NOT use Plan Mode for straightforward bug fixes, answering questions, or simple inquiries.',
+      'If the request is ambiguous, broad in scope, or involves architectural decisions or cross-cutting changes, use the `EnterPlanMode` tool to safely research and design your strategy. Do NOT use Plan Mode for straightforward bug fixes, answering questions, or simple inquiries.',
     );
     expect(prompt).toMatchSnapshot();
   });

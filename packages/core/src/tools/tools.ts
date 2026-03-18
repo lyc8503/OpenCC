@@ -826,8 +826,9 @@ export type ToolResultDisplay =
 export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 
 export interface Todo {
-  description: string;
+  content: string;
   status: TodoStatus;
+  activeForm: string;
 }
 
 export interface FileDiff {

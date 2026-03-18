@@ -32,7 +32,7 @@
 # This ensures the model can gather user preferences/decisions when needed.
 # Note: In non-interactive mode, this decision is converted to DENY by the policy engine.
 [[rule]]
-toolName = "ask_user"
+toolName = "AskUserQuestion"
 decision = "ask_user"
 priority = 999
 modes = ["yolo"]
@@ -41,7 +41,7 @@ modes = ["yolo"]
 # and because planning currently requires human interaction (plan approval),
 # which conflicts with YOLO's autonomous nature.
 [[rule]]
-toolName = ["enter_plan_mode", "exit_plan_mode"]
+toolName = ["EnterPlanMode", "ExitPlanMode"]
 decision = "deny"
 priority = 999
 modes = ["yolo"]

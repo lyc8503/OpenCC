@@ -11,7 +11,6 @@ import type { HierarchicalMemory } from '../config/memory.js';
 import { GEMINI_DIR } from '../utils/paths.js';
 import { ApprovalMode } from '../policy/types.js';
 import * as snippets from './snippets.js';
-import * as legacySnippets from './snippets.legacy.js';
 import {
   resolvePathFromEnv,
   applySubstitutions,
@@ -27,9 +26,8 @@ import {
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
 } from '../tools/tool-names.js';
-import { resolveModel, supportsModernFeatures } from '../config/models.js';
 import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
-import { getAllGeminiMdFilenames } from '../tools/memoryTool.js';
+import { getAllGeminiMdFilenames } from '../config/memory.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 /**
@@ -58,13 +56,6 @@ export class PromptProvider {
     const toolNames = context.toolRegistry.getAllToolNames();
     const enabledToolNames = new Set(toolNames);
     const approvedPlanPath = context.config.getApprovedPlanPath();
-
-    const desiredModel = resolveModel(
-      context.config.getActiveModel(),
-      context.config.getGemini31LaunchedSync?.() ?? false,
-    );
-    const isModernModel = supportsModernFeatures(desiredModel);
-    const activeSnippets = isModernModel ? snippets : legacySnippets;
     const contextFilenames = getAllGeminiMdFilenames();
 
     // --- Context Gathering ---
@@ -93,19 +84,14 @@ export class PromptProvider {
         throw new Error(`missing system prompt file '${systemMdPath}'`);
       }
       basePrompt = fs.readFileSync(systemMdPath, 'utf8');
-      const skillsPrompt = activeSnippets.renderAgentSkills(
+      const skillsPrompt = snippets.renderAgentSkills(
         skills.map((s) => ({
           name: s.name,
           description: s.description,
           location: s.location,
         })),
       );
-      basePrompt = applySubstitutions(
-        basePrompt,
-        context.config,
-        skillsPrompt,
-        isModernModel,
-      );
+      basePrompt = applySubstitutions(basePrompt, context.config, skillsPrompt);
     } else {
       // --- Standard Composition ---
       const hasHierarchicalMemory =
@@ -201,22 +187,20 @@ export class PromptProvider {
           () => ({ interactive: interactiveMode }),
           isGitRepository(process.cwd()) ? true : false,
         ),
-        finalReminder: isModernModel
-          ? undefined
-          : this.withSection('finalReminder', () => ({
-              readFileToolName: READ_FILE_TOOL_NAME,
-            })),
+        finalReminder: this.withSection('finalReminder', () => ({
+          readFileToolName: READ_FILE_TOOL_NAME,
+        })),
       } as snippets.SystemPromptOptions;
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      const getCoreSystemPrompt = activeSnippets.getCoreSystemPrompt as (
+       
+      const getCoreSystemPrompt = snippets.getCoreSystemPrompt as (
         options: snippets.SystemPromptOptions,
       ) => string;
       basePrompt = getCoreSystemPrompt(options);
     }
 
     // --- Finalization (Shell) ---
-    const finalPrompt = activeSnippets.renderFinalShell(
+    const finalPrompt = snippets.renderFinalShell(
       basePrompt,
       userMemory,
       contextFilenames,
@@ -236,15 +220,7 @@ export class PromptProvider {
   }
 
   getCompressionPrompt(context: AgentLoopContext): string {
-    const desiredModel = resolveModel(
-      context.config.getActiveModel(),
-      context.config.getGemini31LaunchedSync?.() ?? false,
-    );
-    const isModernModel = supportsModernFeatures(desiredModel);
-    const activeSnippets = isModernModel ? snippets : legacySnippets;
-    return activeSnippets.getCompressionPrompt(
-      context.config.getApprovedPlanPath(),
-    );
+    return snippets.getCompressionPrompt(context.config.getApprovedPlanPath());
   }
 
   private withSection<T>(

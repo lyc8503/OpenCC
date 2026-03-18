@@ -19,7 +19,7 @@ import {
 import {
   setGeminiMdFilename,
   DEFAULT_CONTEXT_FILENAME,
-} from '../tools/memoryTool.js';
+} from '../config/memory.js';
 import { flattenMemory, type HierarchicalMemory } from '../config/memory.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GEMINI_DIR, normalizePath, homedir as pathsHomedir } from './paths.js';

@@ -9,7 +9,6 @@ import { CodebaseInvestigatorAgent } from './codebase-investigator.js';
 import {
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
-  LS_TOOL_NAME,
   READ_FILE_TOOL_NAME,
 } from '../tools/tool-names.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
@@ -46,7 +45,6 @@ describe('CodebaseInvestigatorAgent', () => {
     expect(agent.outputConfig?.outputName).toBe('report');
     expect(agent.modelConfig?.model).toBe(DEFAULT_GEMINI_MODEL);
     expect(agent.toolConfig?.tools).toEqual([
-      LS_TOOL_NAME,
       READ_FILE_TOOL_NAME,
       GLOB_TOOL_NAME,
       GREP_TOOL_NAME,

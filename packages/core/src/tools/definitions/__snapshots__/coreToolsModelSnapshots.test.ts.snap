@@ -3,12 +3,12 @@
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: activate_skill 1`] = `
 {
   "description": "Activates a specialized agent skill by name (Available: 'skill1', 'skill2'). Returns the skill's instructions wrapped in \`<activated_skill>\` tags. These provide specialized guidance for the current task. Use this when you identify a task that matches a skill's description. ONLY use names exactly as they appear in the \`<available_skills>\` section.",
-  "name": "activate_skill",
+  "name": "Skill",
   "parametersJsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "properties": {
-      "name": {
+      "skill": {
         "description": "The name of the skill to activate.",
         "enum": [
           "skill1",
@@ -18,7 +18,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
       },
     },
     "required": [
-      "name",
+      "skill",
     ],
     "type": "object",
   },
@@ -28,18 +28,18 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: activate_skill_empty 1`] = `
 {
   "description": "Activates a specialized agent skill by name. Returns the skill's instructions wrapped in \`<activated_skill>\` tags. These provide specialized guidance for the current task. Use this when you identify a task that matches a skill's description. ONLY use names exactly as they appear in the \`<available_skills>\` section.",
-  "name": "activate_skill",
+  "name": "Skill",
   "parametersJsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "properties": {
-      "name": {
+      "skill": {
         "description": "No skills are currently available.",
         "type": "string",
       },
     },
     "required": [
-      "name",
+      "skill",
     ],
     "type": "object",
   },
@@ -49,12 +49,12 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: activate_skill_single 1`] = `
 {
   "description": "Activates a specialized agent skill by name (Available: 'skill1'). Returns the skill's instructions wrapped in \`<activated_skill>\` tags. These provide specialized guidance for the current task. Use this when you identify a task that matches a skill's description. ONLY use names exactly as they appear in the \`<available_skills>\` section.",
-  "name": "activate_skill",
+  "name": "Skill",
   "parametersJsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "properties": {
-      "name": {
+      "skill": {
         "description": "The name of the skill to activate.",
         "enum": [
           "skill1",
@@ -63,7 +63,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
       },
     },
     "required": [
-      "name",
+      "skill",
     ],
     "type": "object",
   },
@@ -72,31 +72,93 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: ask_user 1`] = `
 {
-  "description": "Ask the user one or more questions to gather preferences, clarify requirements, or make decisions.",
-  "name": "ask_user",
+  "description": "Use this tool when you need to ask the user questions during execution. This allows you to:
+1. Gather user preferences or requirements
+2. Clarify ambiguous instructions
+3. Get decisions on implementation choices as you work
+4. Offer choices to the user about what direction to take.
+
+Usage notes:
+- Users will always be able to select "Other" to provide custom text input
+- Use multiSelect: true to allow multiple answers to be selected for a question
+- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
+
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval. IMPORTANT: Do not reference "the plan" in your questions (e.g., "Do you have feedback about the plan?", "Does the plan look good?") because the user cannot see the plan in the UI until you call ExitPlanMode. If you need plan approval, use ExitPlanMode instead.",
+  "name": "AskUserQuestion",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
+      "annotations": {
+        "additionalProperties": {
+          "additionalProperties": false,
+          "properties": {
+            "notes": {
+              "description": "Free-text notes the user added to their selection.",
+              "type": "string",
+            },
+            "preview": {
+              "description": "The preview content of the selected option, if the question used previews.",
+              "type": "string",
+            },
+          },
+          "type": "object",
+        },
+        "description": "Optional per-question annotations from the user (e.g., notes on preview selections). Keyed by question text.",
+        "propertyNames": {
+          "type": "string",
+        },
+        "type": "object",
+      },
+      "answers": {
+        "additionalProperties": {
+          "type": "string",
+        },
+        "description": "User answers collected by the permission component",
+        "propertyNames": {
+          "type": "string",
+        },
+        "type": "object",
+      },
+      "metadata": {
+        "additionalProperties": false,
+        "description": "Optional metadata for tracking and analytics purposes. Not displayed to user.",
+        "properties": {
+          "source": {
+            "description": "Optional identifier for the source of this question (e.g., "remember" for /remember command). Used for analytics tracking.",
+            "type": "string",
+          },
+        },
+        "type": "object",
+      },
       "questions": {
+        "description": "Questions to ask the user (1-4 questions)",
         "items": {
+          "additionalProperties": false,
           "properties": {
             "header": {
-              "description": "Very short label displayed as a chip/tag. Use abbreviations: "Auth" not "Authentication", "Config" not "Configuration". Examples: "Auth method", "Library", "Approach", "Database".",
+              "description": "Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach".",
               "type": "string",
             },
             "multiSelect": {
-              "description": "Only applies when type='choice'. Set to true to allow selecting multiple options.",
+              "default": false,
+              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
               "type": "boolean",
             },
             "options": {
-              "description": "The selectable choices for 'choice' type questions. Provide 2-4 options. An 'Other' option is automatically added. Not needed for 'text' or 'yesno' types.",
+              "description": "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically.",
               "items": {
+                "additionalProperties": false,
                 "properties": {
                   "description": {
-                    "description": "Brief explanation of this option. Example: "Industry standard, supports SSO"",
+                    "description": "Explanation of what this option means or what will happen if chosen. Useful for providing context about trade-offs or implications.",
                     "type": "string",
                   },
                   "label": {
-                    "description": "The display text for this option (1-5 words). Example: "OAuth 2.0"",
+                    "description": "The display text for this option that the user will see and select. Should be concise (1-5 words) and clearly describe the choice.",
+                    "type": "string",
+                  },
+                  "preview": {
+                    "description": "Optional preview content shown in a monospace box when this option is focused. Use for ASCII mockups, code snippets, or diagrams that help users visually compare options. Supports multi-line text with newlines.",
                     "type": "string",
                   },
                 },
@@ -106,31 +168,20 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
                 ],
                 "type": "object",
               },
+              "maxItems": 4,
+              "minItems": 2,
               "type": "array",
             },
-            "placeholder": {
-              "description": "Hint text shown in the input field. For type='text', shown in the main input. For type='choice', shown in the 'Other' custom input.",
-              "type": "string",
-            },
             "question": {
-              "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark.",
-              "type": "string",
-            },
-            "type": {
-              "default": "choice",
-              "description": "Question type: 'choice' (default) for multiple-choice with options, 'text' for free-form input, 'yesno' for Yes/No confirmation.",
-              "enum": [
-                "choice",
-                "text",
-                "yesno",
-              ],
+              "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"",
               "type": "string",
             },
           },
           "required": [
             "question",
             "header",
-            "type",
+            "options",
+            "multiSelect",
           ],
           "type": "object",
         },
@@ -149,15 +200,57 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: enter_plan_mode 1`] = `
 {
-  "description": "Switch to Plan Mode to safely research, design, and plan complex changes using read-only tools.",
-  "name": "enter_plan_mode",
+  "description": "Use this tool proactively when you're about to start a non-trivial implementation task. Getting user sign-off on your approach before writing code prevents wasted effort and ensures alignment. This tool transitions you into plan mode where you can explore the codebase and design an implementation approach for user approval.
+
+#### When to Use This Tool
+
+**Prefer using EnterPlanMode** for implementation tasks unless they're simple. Use it when ANY of these conditions apply:
+
+1. **New Feature Implementation**: Adding meaningful new functionality
+   - Example: "Add a logout button" - where should it go? What should happen on click?
+   - Example: "Add form validation" - what rules? What error messages?
+
+2. **Multiple Valid Approaches**: The task can be solved in several different ways
+   - Example: "Add caching to the API" - could use Redis, in-memory, file-based, etc.
+   - Example: "Improve performance" - many optimization strategies possible
+
+3. **Code Modifications**: Changes that affect existing behavior or structure
+   - Example: "Update the login flow" - what exactly should change?
+   - Example: "Refactor this component" - what's the target architecture?
+
+4. **Architectural Decisions**: The task requires choosing between patterns or technologies
+   - Example: "Add real-time updates" - WebSockets vs SSE vs polling
+   - Example: "Implement state management" - Redux vs Context vs custom solution
+
+5. **Multi-File Changes**: The task will likely touch more than 2-3 files
+   - Example: "Refactor the authentication system"
+   - Example: "Add a new API endpoint with tests"
+
+6. **Unclear Requirements**: You need to explore before understanding the full scope
+   - Example: "Make the app faster" - need to profile and identify bottlenecks
+   - Example: "Fix the bug in checkout" - need to investigate root cause
+
+7. **User Preferences Matter**: The implementation could reasonably go multiple ways
+   - If you would use AskUserQuestion to clarify the approach, use EnterPlanMode instead
+   - Plan mode lets you explore first, then present options with context
+
+#### When NOT to Use This Tool
+
+Only skip EnterPlanMode for simple tasks:
+- Single-line or few-line fixes (typos, obvious bugs, small tweaks)
+- Adding a single function with clear requirements
+- Tasks where the user has given very specific, detailed instructions
+- Pure research/exploration tasks (use the Agent tool with explore agent instead)
+
+#### Important Notes
+
+- This tool REQUIRES user approval - they must consent to entering plan mode
+- If unsure whether to use it, err on the side of planning - it's better to get alignment upfront than to redo work
+- Users appreciate being consulted before significant changes are made to their codebase",
+  "name": "EnterPlanMode",
   "parametersJsonSchema": {
-    "properties": {
-      "reason": {
-        "description": "Short reason explaining why you are entering plan mode.",
-        "type": "string",
-      },
-    },
+    "additionalProperties": false,
+    "properties": {},
     "type": "object",
   },
 }
@@ -166,7 +259,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: exit_plan_mode 1`] = `
 {
   "description": "Finalizes the planning phase and transitions to implementation by presenting the plan for user approval. This tool MUST be used to exit Plan Mode before any source code edits can be performed. Call this whenever a plan is ready or the user requests implementation.",
-  "name": "exit_plan_mode",
+  "name": "ExitPlanMode",
   "parametersJsonSchema": {
     "properties": {
       "plan_path": {
@@ -182,47 +275,25 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 }
 `;
 
-exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: get_internal_docs 1`] = `
-{
-  "description": "Returns the content of Gemini CLI internal documentation files. If no path is provided, returns a list of all available documentation paths.",
-  "name": "get_internal_docs",
-  "parametersJsonSchema": {
-    "properties": {
-      "path": {
-        "description": "The relative path to the documentation file (e.g., 'cli/commands.md'). If omitted, lists all available documentation.",
-        "type": "string",
-      },
-    },
-    "type": "object",
-  },
-}
-`;
-
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: glob 1`] = `
 {
-  "description": "Efficiently finds files matching specific glob patterns (e.g., \`src/**/*.ts\`, \`**/*.md\`), returning absolute paths sorted by modification time (newest first). Ideal for quickly locating files based on their name or path structure, especially in large codebases.",
-  "name": "glob",
+  "description": "- Fast file pattern matching tool that works with any codebase size
+- Supports glob patterns like "**/*.js" or "src/**/*.ts"
+- Returns matching file paths sorted by modification time
+- Use this tool when you need to find files by name patterns
+- When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead
+- You can call multiple tools in a single response. It is always better to speculatively perform multiple searches in parallel if they are potentially useful.",
+  "name": "Glob",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "case_sensitive": {
-        "description": "Optional: Whether the search should be case-sensitive. Defaults to false.",
-        "type": "boolean",
-      },
-      "dir_path": {
-        "description": "Optional: The absolute path to the directory to search within. If omitted, searches the root directory.",
+      "path": {
+        "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.",
         "type": "string",
       },
       "pattern": {
-        "description": "The glob pattern to match against (e.g., '**/*.py', 'docs/*.md').",
+        "description": "The glob pattern to match files against",
         "type": "string",
-      },
-      "respect_gemini_ignore": {
-        "description": "Optional: Whether to respect .geminiignore patterns when finding files. Defaults to true.",
-        "type": "boolean",
-      },
-      "respect_git_ignore": {
-        "description": "Optional: Whether to respect .gitignore patterns when finding files. Only available in git repositories. Defaults to true.",
-        "type": "boolean",
       },
     },
     "required": [
@@ -235,12 +306,38 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: google_web_search 1`] = `
 {
-  "description": "Performs a web search using Google Search (via the Gemini API) and returns the results. This tool is useful for finding information on the internet based on a query.",
-  "name": "google_web_search",
+  "description": "Allows Claude to search the web and use the results to inform responses. Provides up-to-date information for current events and recent data. Returns search result information formatted as search result blocks, including links as markdown hyperlinks.
+CRITICAL REQUIREMENT - You MUST follow this:
+- When answering the user's question, you MUST include a "Sources:" section at the end of your response
+- In the Sources section, list all relevant URLs from the search results as markdown hyperlinks: [Title](URL)
+- IMPORTANT: Never skip including sources in your response
+Example format:
+Your answer here
+
+Sources:
+- [Source Title 1](https://example.com/1)
+- [Source Title 2](https://example.com/2)",
+  "name": "WebSearch",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
+      "allowed_domains": {
+        "description": "Only include search results from these domains",
+        "items": {
+          "type": "string",
+        },
+        "type": "array",
+      },
+      "blocked_domains": {
+        "description": "Never include search results from these domains",
+        "items": {
+          "type": "string",
+        },
+        "type": "array",
+      },
       "query": {
-        "description": "The search query to find information on the web.",
+        "description": "The search query to find information on the web. Must be at least 2 characters.",
+        "minLength": 2,
         "type": "string",
       },
     },
@@ -254,39 +351,72 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: grep_search 1`] = `
 {
-  "description": "Searches for a regular expression pattern within file contents. Max 100 matches.",
-  "name": "grep_search",
+  "description": "A powerful search tool built on ripgrep
+
+  Usage:
+  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+  - Use Agent tool for open-ended searches requiring multiple rounds
+  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+  "name": "Grep",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "dir_path": {
-        "description": "Optional: The absolute path to the directory to search within. If omitted, searches the current working directory.",
-        "type": "string",
+      "-A": {
+        "description": "Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "exclude_pattern": {
-        "description": "Optional: A regular expression pattern to exclude from the search results. If a line matches both the pattern and the exclude_pattern, it will be omitted.",
-        "type": "string",
+      "-B": {
+        "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "include_pattern": {
-        "description": "Optional: A glob pattern to filter which files are searched (e.g., '*.js', '*.{ts,tsx}', 'src/**'). If omitted, searches all files (respecting potential global ignores).",
-        "type": "string",
-      },
-      "max_matches_per_file": {
-        "description": "Optional: Maximum number of matches to return per file. Use this to prevent being overwhelmed by repetitive matches in large files.",
-        "minimum": 1,
-        "type": "integer",
-      },
-      "names_only": {
-        "description": "Optional: If true, only the file paths of the matches will be returned, without the line content or line numbers. This is useful for gathering a list of files.",
+      "-i": {
+        "description": "Case insensitive search (rg -i)",
         "type": "boolean",
       },
-      "pattern": {
-        "description": "The regular expression (regex) pattern to search for within file contents (e.g., 'function\\s+myFunction', 'import\\s+\\{.*\\}\\s+from\\s+.*').",
+      "context": {
+        "description": "Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
+      },
+      "glob": {
+        "description": "Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob",
         "type": "string",
       },
-      "total_max_matches": {
-        "description": "Optional: Maximum number of total matches to return. Use this to limit the overall size of the response. Defaults to 100 if omitted.",
-        "minimum": 1,
-        "type": "integer",
+      "head_limit": {
+        "description": "Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited).",
+        "type": "number",
+      },
+      "multiline": {
+        "description": "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.",
+        "type": "boolean",
+      },
+      "offset": {
+        "description": "Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N". Works across all output modes. Defaults to 0.",
+        "type": "number",
+      },
+      "output_mode": {
+        "description": "Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".",
+        "enum": [
+          "content",
+          "files_with_matches",
+          "count",
+        ],
+        "type": "string",
+      },
+      "path": {
+        "description": "File or directory to search in (rg PATH). Defaults to current working directory.",
+        "type": "string",
+      },
+      "pattern": {
+        "description": "The regular expression pattern to search for in file contents",
+        "type": "string",
+      },
+      "type": {
+        "description": "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.",
+        "type": "string",
       },
     },
     "required": [
@@ -299,65 +429,72 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: grep_search_ripgrep 1`] = `
 {
-  "description": "Searches for a regular expression pattern within file contents.",
-  "name": "grep_search",
+  "description": "A powerful search tool built on ripgrep
+
+  Usage:
+  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+  - Use Agent tool for open-ended searches requiring multiple rounds
+  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+  "name": "Grep",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "after": {
-        "description": "Show this many lines after each match (equivalent to grep -A). Defaults to 0 if omitted.",
-        "minimum": 0,
-        "type": "integer",
+      "-A": {
+        "description": "Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "before": {
-        "description": "Show this many lines before each match (equivalent to grep -B). Defaults to 0 if omitted.",
-        "minimum": 0,
-        "type": "integer",
+      "-B": {
+        "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "case_sensitive": {
-        "description": "If true, search is case-sensitive. Defaults to false (ignore case) if omitted.",
+      "-i": {
+        "description": "Case insensitive search (rg -i)",
         "type": "boolean",
       },
       "context": {
-        "description": "Show this many lines of context around each match (equivalent to grep -C). Defaults to 0 if omitted.",
-        "type": "integer",
+        "description": "Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "dir_path": {
-        "description": "Directory or file to search. Directories are searched recursively. Relative paths are resolved against current working directory. Defaults to current working directory ('.') if omitted.",
+      "glob": {
+        "description": "Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob",
         "type": "string",
       },
-      "exclude_pattern": {
-        "description": "Optional: A regular expression pattern to exclude from the search results. If a line matches both the pattern and the exclude_pattern, it will be omitted.",
+      "head_limit": {
+        "description": "Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited).",
+        "type": "number",
+      },
+      "multiline": {
+        "description": "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.",
+        "type": "boolean",
+      },
+      "offset": {
+        "description": "Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N". Works across all output modes. Defaults to 0.",
+        "type": "number",
+      },
+      "output_mode": {
+        "description": "Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".",
+        "enum": [
+          "content",
+          "files_with_matches",
+          "count",
+        ],
         "type": "string",
       },
-      "fixed_strings": {
-        "description": "If true, treats the \`pattern\` as a literal string instead of a regular expression. Defaults to false (basic regex) if omitted.",
-        "type": "boolean",
-      },
-      "include_pattern": {
-        "description": "Glob pattern to filter files (e.g., '*.ts', 'src/**'). Recommended for large repositories to reduce noise. Defaults to all files if omitted.",
+      "path": {
+        "description": "File or directory to search in (rg PATH). Defaults to current working directory.",
         "type": "string",
-      },
-      "max_matches_per_file": {
-        "description": "Optional: Maximum number of matches to return per file. Use this to prevent being overwhelmed by repetitive matches in large files.",
-        "minimum": 1,
-        "type": "integer",
-      },
-      "names_only": {
-        "description": "Optional: If true, only the file paths of the matches will be returned, without the line content or line numbers. This is useful for gathering a list of files.",
-        "type": "boolean",
-      },
-      "no_ignore": {
-        "description": "If true, searches all files including those usually ignored (like in .gitignore, build/, dist/, etc). Defaults to false if omitted.",
-        "type": "boolean",
       },
       "pattern": {
-        "description": "The pattern to search for. By default, treated as a Rust-flavored regular expression. Use '\\b' for precise symbol matching (e.g., '\\bMatchMe\\b').",
+        "description": "The regular expression pattern to search for in file contents",
         "type": "string",
       },
-      "total_max_matches": {
-        "description": "Optional: Maximum number of total matches to return. Use this to limit the overall size of the response. Defaults to 100 if omitted.",
-        "minimum": 1,
-        "type": "integer",
+      "type": {
+        "description": "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.",
+        "type": "string",
       },
     },
     "required": [
@@ -368,133 +505,43 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 }
 `;
 
-exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: list_directory 1`] = `
-{
-  "description": "Lists the names of files and subdirectories directly within a specified directory path. Can optionally ignore entries matching provided glob patterns.",
-  "name": "list_directory",
-  "parametersJsonSchema": {
-    "properties": {
-      "dir_path": {
-        "description": "The path to the directory to list",
-        "type": "string",
-      },
-      "file_filtering_options": {
-        "description": "Optional: Whether to respect ignore patterns from .gitignore or .geminiignore",
-        "properties": {
-          "respect_gemini_ignore": {
-            "description": "Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.",
-            "type": "boolean",
-          },
-          "respect_git_ignore": {
-            "description": "Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.",
-            "type": "boolean",
-          },
-        },
-        "type": "object",
-      },
-      "ignore": {
-        "description": "List of glob patterns to ignore",
-        "items": {
-          "type": "string",
-        },
-        "type": "array",
-      },
-    },
-    "required": [
-      "dir_path",
-    ],
-    "type": "object",
-  },
-}
-`;
-
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: read_file 1`] = `
 {
-  "description": "Reads and returns the content of a specified file. If the file is large, the content will be truncated. The tool's response will clearly indicate if truncation has occurred and will provide details on how to read more of the file using the 'start_line' and 'end_line' parameters. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), audio files (MP3, WAV, AIFF, AAC, OGG, FLAC), and PDF files. For text files, it can read specific line ranges.",
-  "name": "read_file",
+  "description": "Reads a file from the local filesystem. You can access any file directly by using this tool.
+Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
+
+Usage:
+- The file_path parameter must be an absolute path, not a relative path
+- By default, it reads up to 2000 lines starting from the beginning of the file
+- You can optionally specify a line offset and limit (especially handy for long files), but it's recommended to read the whole file by not providing these parameters
+- Any lines longer than 2000 characters will be truncated
+- Results are returned using cat -n format, with line numbers starting at 1
+- This tool allows Claude Code to read images (eg PNG, JPG, etc). When reading an image file the contents are presented visually as Claude Code is a multimodal LLM.
+- This tool can read PDF files (.pdf). For large PDFs (more than 10 pages), you MUST provide the pages parameter to read specific page ranges (e.g., pages: "1-5"). Reading a large PDF without the pages parameter will fail. Maximum 20 pages per request.
+- This tool can read Jupyter notebooks (.ipynb files) and returns all cells with their outputs, combining code, text, and visualizations.
+- This tool can only read files, not directories. To read a directory, use an ls command via the Bash tool.
+- You can call multiple tools in a single response. It is always better to speculatively read multiple potentially useful files in parallel.
+- You will regularly be asked to read screenshots. If the user provides a path to a screenshot, ALWAYS use this tool to view the file at the path. This tool will work with all temporary file paths.
+- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.",
+  "name": "Read",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "end_line": {
-        "description": "Optional: The 1-based line number to end reading at (inclusive).",
-        "type": "number",
-      },
       "file_path": {
-        "description": "The path to the file to read.",
+        "description": "The absolute path to the file to read",
         "type": "string",
       },
-      "start_line": {
-        "description": "Optional: The 1-based line number to start reading from.",
+      "limit": {
+        "description": "The number of lines to read. Equivalent to "limit".",
+        "type": "number",
+      },
+      "offset": {
+        "description": "The number of lines to skip before starting to read. Equivalent to "offset".",
         "type": "number",
       },
     },
     "required": [
       "file_path",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: read_many_files 1`] = `
-{
-  "description": "Reads content from multiple files specified by glob patterns within a configured target directory. For text files, it concatenates their content into a single string. It is primarily designed for text-based files. However, it can also process image (e.g., .png, .jpg), audio (e.g., .mp3, .wav), and PDF (.pdf) files if their file names or extensions are explicitly included in the 'include' argument. For these explicitly requested non-text files, their data is read and included in a format suitable for model consumption (e.g., base64 encoded).
-
-This tool is useful when you need to understand or analyze a collection of files, such as:
-- Getting an overview of a codebase or parts of it (e.g., all TypeScript files in the 'src' directory).
-- Finding where specific functionality is implemented if the user asks broad questions about code.
-- Reviewing documentation files (e.g., all Markdown files in the 'docs' directory).
-- Gathering context from multiple configuration files.
-- When the user asks to "read all files in X directory" or "show me the content of all Y files".
-
-Use this tool when the user's query implies needing the content of several files simultaneously for context, analysis, or summarization. For text files, it uses default UTF-8 encoding and a '--- {filePath} ---' separator between file contents. The tool inserts a '--- End of content ---' after the last file. Ensure glob patterns are relative to the target directory. Glob patterns like 'src/**/*.js' are supported. Avoid using for single files if a more specific single-file reading tool is available, unless the user specifically requests to process a list containing just one file via this tool. Other binary files (not explicitly requested as image/audio/PDF) are generally skipped. Default excludes apply to common non-text files (except for explicitly requested images/audio/PDFs) and large dependency directories unless 'useDefaultExcludes' is false.",
-  "name": "read_many_files",
-  "parametersJsonSchema": {
-    "properties": {
-      "exclude": {
-        "default": [],
-        "description": "Optional. Glob patterns for files/directories to exclude. Added to default excludes if useDefaultExcludes is true. Example: "**/*.log", "temp/"",
-        "items": {
-          "minLength": 1,
-          "type": "string",
-        },
-        "type": "array",
-      },
-      "file_filtering_options": {
-        "description": "Whether to respect ignore patterns from .gitignore or .geminiignore",
-        "properties": {
-          "respect_gemini_ignore": {
-            "description": "Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.",
-            "type": "boolean",
-          },
-          "respect_git_ignore": {
-            "description": "Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.",
-            "type": "boolean",
-          },
-        },
-        "type": "object",
-      },
-      "include": {
-        "description": "An array of glob patterns or paths. Examples: ["src/**/*.ts"], ["README.md", "docs/"]",
-        "items": {
-          "minLength": 1,
-          "type": "string",
-        },
-        "minItems": 1,
-        "type": "array",
-      },
-      "recursive": {
-        "default": true,
-        "description": "Optional. Whether to search recursively (primarily controlled by \`**\` in glob patterns). Defaults to true.",
-        "type": "boolean",
-      },
-      "useDefaultExcludes": {
-        "default": true,
-        "description": "Optional. Whether to apply a list of default exclusion patterns (e.g., node_modules, .git, binary files). Defaults to true.",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "include",
     ],
     "type": "object",
   },
@@ -503,59 +550,39 @@ Use this tool when the user's query implies needing the content of several files
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: replace 1`] = `
 {
-  "description": "Replaces text within a file. By default, the tool expects to find and replace exactly ONE occurrence of \`old_string\`. If you want to replace multiple occurrences of the exact same string, set \`allow_multiple\` to true. This tool requires providing significant context around the change to ensure precise targeting. Always use the read_file tool to examine the file's current content before attempting a text replacement.
-      
-      The user has the ability to modify the \`new_string\` content. If modified, this will be stated in the response.
-      
-      Expectation for required parameters:
-      1. \`old_string\` MUST be the exact literal text to replace (including all whitespace, indentation, newlines, and surrounding code etc.).
-      2. \`new_string\` MUST be the exact literal text to replace \`old_string\` with (also including all whitespace, indentation, newlines, and surrounding code etc.). Ensure the resulting code is correct and idiomatic and that \`old_string\` and \`new_string\` are different.
-      3. \`instruction\` is the detailed instruction of what needs to be changed. It is important to Make it specific and detailed so developers or large language models can understand what needs to be changed and perform the changes on their own if necessary. 
-      4. NEVER escape \`old_string\` or \`new_string\`, that would break the exact literal text requirement.
-      **Important:** If ANY of the above are not satisfied, the tool will fail. CRITICAL for \`old_string\`: Must uniquely identify the instance(s) to change. Include at least 3 lines of context BEFORE and AFTER the target text, matching whitespace and indentation precisely. If this string matches multiple locations and \`allow_multiple\` is not true, the tool will fail.
-      5. Prefer to break down complex and long changes into multiple smaller atomic calls to this tool. Always check the content of the file after changes or not finding a string to match.
-      **Multiple replacements:** Set \`allow_multiple\` to true if you want to replace ALL occurrences that match \`old_string\` exactly.",
-  "name": "replace",
+  "description": "Performs exact string replacements in files.
+
+Usage:
+- You must use your \`Read\` tool at least once in the conversation before editing. This tool will error if you attempt an edit without reading the file.
+- When editing text from Read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is: spaces + line number + tab. Everything after that tab is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.
+- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
+- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
+- The edit will FAIL if \`old_string\` is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use \`replace_all\` to change every instance of \`old_string\`.
+- Use \`replace_all\` for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.",
+  "name": "Edit",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "allow_multiple": {
-        "description": "If true, the tool will replace all occurrences of \`old_string\`. If false (default), it will only succeed if exactly one occurrence is found.",
-        "type": "boolean",
-      },
       "file_path": {
-        "description": "The path to the file to modify.",
-        "type": "string",
-      },
-      "instruction": {
-        "description": "A clear, semantic instruction for the code change, acting as a high-quality prompt for an expert LLM assistant. It must be self-contained and explain the goal of the change.
-
-A good instruction should concisely answer:
-1.  WHY is the change needed? (e.g., "To fix a bug where users can be null...")
-2.  WHERE should the change happen? (e.g., "...in the 'renderUserProfile' function...")
-3.  WHAT is the high-level change? (e.g., "...add a null check for the 'user' object...")
-4.  WHAT is the desired outcome? (e.g., "...so that it displays a loading spinner instead of crashing.")
-
-**GOOD Example:** "In the 'calculateTotal' function, correct the sales tax calculation by updating the 'taxRate' constant from 0.05 to 0.075 to reflect the new regional tax laws."
-
-**BAD Examples:**
-- "Change the text." (Too vague)
-- "Fix the bug." (Doesn't explain the bug or the fix)
-- "Replace the line with this new line." (Brittle, just repeats the other parameters)
-",
+        "description": "The absolute path to the file to modify",
         "type": "string",
       },
       "new_string": {
-        "description": "The exact literal text to replace \`old_string\` with, preferably unescaped. Provide the EXACT text. Ensure the resulting code is correct and idiomatic. Do not use omission placeholders like '(rest of methods ...)', '...', or 'unchanged code'; provide exact literal code.",
+        "description": "The text to replace it with (must be different from old_string)",
         "type": "string",
       },
       "old_string": {
-        "description": "The exact literal text to replace, preferably unescaped. For single replacements (default), include at least 3 lines of context BEFORE and AFTER the target text, matching whitespace and indentation precisely. If this string is not the exact literal text (i.e. you escaped it) or does not match exactly, the tool will fail.",
+        "description": "The text to replace",
         "type": "string",
+      },
+      "replace_all": {
+        "default": false,
+        "description": "Replace all occurrences of old_string (default false)",
+        "type": "boolean",
       },
     },
     "required": [
       "file_path",
-      "instruction",
       "old_string",
       "new_string",
     ],
@@ -566,7 +593,7 @@ A good instruction should concisely answer:
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: run_shell_command 1`] = `
 {
-  "description": "This tool executes a given shell command as \`bash -c <command>\`. To run a command in the background, set the \`is_background\` parameter to true. Do NOT use \`&\` to background commands. Command is executed as a subprocess that leads its own process group. Command process group can be terminated as \`kill -- -PGID\` or signaled as \`kill -s SIGNAL -- -PGID\`.
+  "description": "This tool executes a given shell command as \`bash -c <command>\`. To run a command in the background, set the \`run_in_background\` parameter to true. Do NOT use \`&\` to background commands. Command is executed as a subprocess that leads its own process group. Command process group can be terminated as \`kill -- -PGID\` or signaled as \`kill -s SIGNAL -- -PGID\`.
 
       Efficiency Guidelines:
       - Quiet Flags: Always prefer silent or quiet flags (e.g., \`npm install --silent\`, \`git --no-pager\`) to reduce output volume while still capturing necessary information.
@@ -580,7 +607,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
       Signal: Only included if process was terminated by a signal.
       Background PIDs: Only included if background processes were started.
       Process Group PGID: Only included if available.",
-  "name": "run_shell_command",
+  "name": "Bash",
   "parametersJsonSchema": {
     "properties": {
       "command": {
@@ -591,11 +618,11 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
         "description": "Brief description of the command for the user. Be specific and concise. Ideally a single sentence. Can be up to 3 sentences for clarity. No line breaks.",
         "type": "string",
       },
-      "dir_path": {
+      "path": {
         "description": "(OPTIONAL) The path of the directory to run the command in. If not provided, the project root directory is used. Must be a directory within the workspace and must already exist.",
         "type": "string",
       },
-      "is_background": {
+      "run_in_background": {
         "description": "Set to true if this command should be run in the background (e.g. for long-running servers or watchers). The command will be started, allowed to run for a brief moment to check for immediate errors, and then moved to the background.",
         "type": "boolean",
       },
@@ -608,47 +635,39 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 }
 `;
 
-exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: save_memory 1`] = `
-{
-  "description": "
-Saves concise global user context (preferences, facts) for use across ALL workspaces.
-
-### CRITICAL: GLOBAL CONTEXT ONLY
-NEVER save workspace-specific context, local paths, or commands (e.g. "The entry point is src/index.js", "The test command is npm test"). These are local to the current workspace and must NOT be saved globally. EXCLUSIVELY for context relevant across ALL workspaces.
-
-- Use for "Remember X" or clear personal facts.
-- Do NOT use for session context.",
-  "name": "save_memory",
-  "parametersJsonSchema": {
-    "additionalProperties": false,
-    "properties": {
-      "fact": {
-        "description": "The specific fact or piece of information to remember. Should be a clear, self-contained statement.",
-        "type": "string",
-      },
-    },
-    "required": [
-      "fact",
-    ],
-    "type": "object",
-  },
-}
-`;
-
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: web_fetch 1`] = `
 {
-  "description": "Processes content from URL(s), including local and private network addresses (e.g., localhost), embedded in a prompt. Include up to 20 URLs and instructions (e.g., summarize, extract specific data) directly in the 'prompt' parameter.",
-  "name": "web_fetch",
+  "description": "Fetches content from a specified URL and processes it using an AI model. Takes a URL and a prompt as input, fetches the URL content, converts HTML to markdown, and processes the content with the prompt using a small, fast model. Returns the model's response about the content.
+CRITICAL REQUIREMENT - You MUST follow this:
+- Only include "Sources:" section if using WebSearch tool too
+- This tool WILL FAIL for authenticated or private URLs. Before using this tool, check if the URL points to an authenticated service (e.g., Google Docs, Confluence, Jira, GitHub). If so, look for a specialized MCP tool that provides authenticated access.
+- You may use WebFetch for URLs provided by the user in their messages or local files.",
+  "name": "WebFetch",
   "parametersJsonSchema": {
+    "additionalProperties": false,
+    "oneOf": [
+      {
+        "required": [
+          "url",
+        ],
+      },
+      {
+        "required": [
+          "prompt",
+        ],
+      },
+    ],
     "properties": {
       "prompt": {
-        "description": "A comprehensive prompt that includes the URL(s) (up to 20) to fetch and specific instructions on how to process their content (e.g., "Summarize https://example.com/article and extract key points from https://another.com/data"). All URLs to be fetched must be valid and complete, starting with "http://" or "https://", and be fully-formed with a valid hostname (e.g., a domain name like "example.com" or an IP address). For example, "https://example.com" is valid, but "example.com" is not.",
+        "description": "The prompt to run on the fetched content. Can contain up to 20 URLs.",
+        "type": "string",
+      },
+      "url": {
+        "description": "The URL to fetch content from",
+        "format": "uri",
         "type": "string",
       },
     },
-    "required": [
-      "prompt",
-    ],
     "type": "object",
   },
 }
@@ -656,19 +675,33 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: write_file 1`] = `
 {
-  "description": "Writes content to a specified file in the local filesystem.
+  "description": "Writes a file to the local filesystem.
 
-      The user has the ability to modify \`content\`. If modified, this will be stated in the response.",
-  "name": "write_file",
+Usage:
+- This tool will overwrite the existing file if there is one at the provided path.
+- If this is an existing file, you MUST use the Read tool first to read the file. This tool will fail if you did not read the file first.
+- Prefer the Edit tool for modifying existing files — it's safer and more reliable.
+- NEVER create documentation files (*.md) or README files unless explicitly requested by the User.
+- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.",
+  "name": "Write",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
+      "ai_proposed_content": {
+        "description": "Internal: The originally proposed content before user modification.",
+        "type": "string",
+      },
       "content": {
         "description": "The content to write to the file. Do not use omission placeholders like '(rest of methods ...)', '...', or 'unchanged code'; provide complete literal content.",
         "type": "string",
       },
       "file_path": {
-        "description": "The path to the file to write to.",
+        "description": "The absolute path to the file to write (must be absolute, not relative)",
         "type": "string",
+      },
+      "modified_by_user": {
+        "description": "Internal: Whether the content was modified by the user.",
+        "type": "boolean",
       },
     },
     "required": [
@@ -682,70 +715,39 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: write_todos 1`] = `
 {
-  "description": "This tool can help you list out the current subtasks that are required to be completed for a given user request. The list of subtasks helps you keep track of the current task, organize complex queries and help ensure that you don't miss any steps. With this list, the user can also see the current progress you are making in executing a given task.
+  "description": "Use this tool to create a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
+It also helps the user understand the progress of the task and overall progress of their requests.
 
-Depending on the task complexity, you should first divide a given task into subtasks and then use this tool to list out the subtasks that are required to be completed for a given user request.
-Each of the subtasks should be clear and distinct. 
+## When to Use This Tool
 
-Use this tool for complex queries that require multiple steps. If you find that the request is actually complex after you have started executing the user task, create a todo list and use it. If execution of the user task requires multiple steps, planning and generally is higher complexity than a simple Q&A, use this tool.
+Use this tool proactively in these scenarios:
 
-DO NOT use this tool for simple tasks that can be completed in less than 2 steps. If the user query is simple and straightforward, do not use the tool. If you can respond with an answer in a single turn then this tool is not required.
+- Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
+- Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
+- Plan mode - When using plan mode, create a task list to track the work
+- User explicitly requests todo list - When the user directly asks you to use the todo list
+- User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
 
-## Task state definitions
+When receiving new instructions, immediately capture user requirements as tasks. When starting work on a task, mark it as in_progress BEFORE beginning work. After completing a task, mark it as completed and add any new follow-up tasks discovered during implementation.
 
-- pending: Work has not begun on a given subtask.
-- in_progress: Marked just prior to beginning work on a given subtask. You should only have one subtask as in_progress at a time.
-- completed: Subtask was successfully completed with no errors or issues. If the subtask required more steps to complete, update the todo list with the subtasks. All steps should be identified as completed only when they are completed.
-- cancelled: As you update the todo list, some tasks are not required anymore due to the dynamic nature of the task. In this case, mark the subtasks as cancelled.
+## When NOT to Use This Tool
 
+Skip using this tool when:
+- There is only a single, straightforward task
+- The task is trivial and tracking it provides no organizational benefit
+- The task can be completed in less than 3 trivial steps
+- The task is purely conversational or informational
 
-## Methodology for using this tool
-1. Use this todo list as soon as you receive a user request based on the complexity of the task.
-2. Keep track of every subtask that you update the list with.
-3. Mark a subtask as in_progress before you begin working on it. You should only have one subtask as in_progress at a time.
-4. Update the subtask list as you proceed in executing the task. The subtask list is not static and should reflect your progress and current plans, which may evolve as you acquire new information.
-5. Mark a subtask as completed when you have completed it.
-6. Mark a subtask as cancelled if the subtask is no longer needed.
-7. You must update the todo list as soon as you start, stop or cancel a subtask. Don't batch or wait to update the todo list.
+NOTE that you should not use this tool if there is only one trivial task to do. Ask yourself: "Will tracking this help the user understand progress?"
 
+## Task Fields
 
-## Examples of When to Use the Todo List
+- **subject**: A brief, actionable title in imperative form (e.g., "Fix authentication bug in login flow")
+- **description**: Detailed description of what needs to be done, including context and acceptance criteria
+- **activeForm** (optional): Present continuous form shown in the spinner when in_progress (e.g., "Fixing authentication bug"). If omitted, the spinner shows the content instead.
 
-<example>
-User request: Create a website with a React for creating fancy logos using gemini-2.5-flash-image
-
-ToDo list created by the agent:
-1. Initialize a new React project environment (e.g., using Vite).
-2. Design and build the core UI components: a text input (prompt field) for the logo description, selection controls for style parameters (if the API supports them), and an image preview area.
-3. Implement state management (e.g., React Context or Zustand) to manage the user's input prompt, the API loading status (pending, success, error), and the resulting image data.
-4. Create an API service module within the React app (using "fetch" or "axios") to securely format and send the prompt data via an HTTP POST request to the specified "gemini-2.5-flash-image" (Gemini model) endpoint.
-5. Implement asynchronous logic to handle the API call: show a loading indicator while the request is pending, retrieve the generated image (e.g., as a URL or base64 string) upon success, and display any errors.
-6. Display the returned "fancy logo" from the API response in the preview area component.
-7. Add functionality (e.g., a "Download" button) to allow the user to save the generated image file.
-8. Deploy the application to a web server or hosting platform.
-
-<reasoning>
-The agent used the todo list to break the task into distinct, manageable steps:
-1. Building an entire interactive web application from scratch is a highly complex, multi-stage process involving setup, UI development, logic integration, and deployment.
-2. The agent inferred the core functionality required for a "logo creator," such as UI controls for customization (Task 3) and an export feature (Task 7), which must be tracked as distinct goals.
-3. The agent rightly inferred the requirement of an API service model for interacting with the image model endpoint.
-</reasoning>
-</example>
-
-
-## Examples of When NOT to Use the Todo List
-
-<example>
-User request: Ensure that the test <test file> passes.
-
-Agent:
-<Goes into a loop of running the test, identifying errors, and updating the code until the test passes.>
-
-<reasoning>
-The agent did not use the todo list because this task could be completed by a tight loop of execute test->edit->execute test.
-</reasoning>
-</example>",
-  "name": "write_todos",
+All tasks are created with status \`pending\`.",
+  "name": "TodoWrite",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
@@ -755,8 +757,14 @@ The agent did not use the todo list because this task could be completed by a ti
           "additionalProperties": false,
           "description": "A single todo item.",
           "properties": {
-            "description": {
-              "description": "The description of the task.",
+            "activeForm": {
+              "description": "Present continuous form shown in spinner when in_progress",
+              "minLength": 1,
+              "type": "string",
+            },
+            "content": {
+              "description": "The imperative form describing what needs to be done",
+              "minLength": 1,
               "type": "string",
             },
             "status": {
@@ -765,14 +773,14 @@ The agent did not use the todo list because this task could be completed by a ti
                 "pending",
                 "in_progress",
                 "completed",
-                "cancelled",
               ],
               "type": "string",
             },
           },
           "required": [
-            "description",
+            "content",
             "status",
+            "activeForm",
           ],
           "type": "object",
         },
@@ -790,12 +798,12 @@ The agent did not use the todo list because this task could be completed by a ti
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: activate_skill 1`] = `
 {
   "description": "Activates a specialized agent skill by name (Available: 'skill1', 'skill2'). Returns the skill's instructions wrapped in \`<activated_skill>\` tags. These provide specialized guidance for the current task. Use this when you identify a task that matches a skill's description. ONLY use names exactly as they appear in the \`<available_skills>\` section.",
-  "name": "activate_skill",
+  "name": "Skill",
   "parametersJsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "properties": {
-      "name": {
+      "skill": {
         "description": "The name of the skill to activate.",
         "enum": [
           "skill1",
@@ -805,7 +813,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
       },
     },
     "required": [
-      "name",
+      "skill",
     ],
     "type": "object",
   },
@@ -815,18 +823,18 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: activate_skill_empty 1`] = `
 {
   "description": "Activates a specialized agent skill by name. Returns the skill's instructions wrapped in \`<activated_skill>\` tags. These provide specialized guidance for the current task. Use this when you identify a task that matches a skill's description. ONLY use names exactly as they appear in the \`<available_skills>\` section.",
-  "name": "activate_skill",
+  "name": "Skill",
   "parametersJsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "properties": {
-      "name": {
+      "skill": {
         "description": "No skills are currently available.",
         "type": "string",
       },
     },
     "required": [
-      "name",
+      "skill",
     ],
     "type": "object",
   },
@@ -836,12 +844,12 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: activate_skill_single 1`] = `
 {
   "description": "Activates a specialized agent skill by name (Available: 'skill1'). Returns the skill's instructions wrapped in \`<activated_skill>\` tags. These provide specialized guidance for the current task. Use this when you identify a task that matches a skill's description. ONLY use names exactly as they appear in the \`<available_skills>\` section.",
-  "name": "activate_skill",
+  "name": "Skill",
   "parametersJsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "properties": {
-      "name": {
+      "skill": {
         "description": "The name of the skill to activate.",
         "enum": [
           "skill1",
@@ -850,7 +858,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
       },
     },
     "required": [
-      "name",
+      "skill",
     ],
     "type": "object",
   },
@@ -859,31 +867,51 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: ask_user 1`] = `
 {
-  "description": "Ask the user one or more questions to gather preferences, clarify requirements, or make decisions. When using this tool, prefer providing multiple-choice options with detailed descriptions and enable multi-select where appropriate to provide maximum flexibility.",
-  "name": "ask_user",
+  "description": "Use this tool when you need to ask the user questions during execution. This allows you to:
+1. Gather user preferences or requirements
+2. Clarify ambiguous instructions
+3. Get decisions on implementation choices as you work
+4. Offer choices to the user about what direction to take.
+
+Usage notes:
+- Users will always be able to select "Other" to provide custom text input
+- Use multiSelect: true to allow multiple answers to be selected for a question
+- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
+
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.",
+  "name": "AskUserQuestion",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
       "questions": {
+        "description": "Questions to ask the user (1-4 questions)",
         "items": {
+          "additionalProperties": false,
           "properties": {
             "header": {
-              "description": "Very short label displayed as a chip/tag. Use abbreviations: "Auth" not "Authentication", "Config" not "Configuration". Examples: "Auth method", "Library", "Approach", "Database".",
+              "description": "Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach".",
               "type": "string",
             },
             "multiSelect": {
-              "description": "Only applies when type='choice'. Set to true to allow selecting multiple options.",
+              "default": false,
+              "description": "Set to true to allow the user to select multiple options instead of just one.",
               "type": "boolean",
             },
             "options": {
-              "description": "The selectable choices for 'choice' type questions. Provide 2-4 options. An 'Other' option is automatically added. Not needed for 'text' or 'yesno' types.",
+              "description": "The available choices for this question. Must have 2-4 options.",
               "items": {
+                "additionalProperties": false,
                 "properties": {
                   "description": {
-                    "description": "Brief explanation of this option. Example: "Industry standard, supports SSO"",
+                    "description": "Explanation of what this option means or what will happen if chosen.",
                     "type": "string",
                   },
                   "label": {
-                    "description": "The display text for this option (1-5 words). Example: "OAuth 2.0"",
+                    "description": "The display text for this option that the user will see and select.",
+                    "type": "string",
+                  },
+                  "preview": {
+                    "description": "Optional preview content shown in a monospace box when this option is focused.",
                     "type": "string",
                   },
                 },
@@ -893,31 +921,20 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
                 ],
                 "type": "object",
               },
+              "maxItems": 4,
+              "minItems": 2,
               "type": "array",
-            },
-            "placeholder": {
-              "description": "Hint text shown in the input field. For type='text', shown in the main input. For type='choice', shown in the 'Other' custom input.",
-              "type": "string",
             },
             "question": {
               "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark.",
-              "type": "string",
-            },
-            "type": {
-              "default": "choice",
-              "description": "Question type: 'choice' (default) for multiple-choice with options, 'text' for free-form input, 'yesno' for Yes/No confirmation.",
-              "enum": [
-                "choice",
-                "text",
-                "yesno",
-              ],
               "type": "string",
             },
           },
           "required": [
             "question",
             "header",
-            "type",
+            "options",
+            "multiSelect",
           ],
           "type": "object",
         },
@@ -936,15 +953,37 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: enter_plan_mode 1`] = `
 {
-  "description": "Switch to Plan Mode to safely research, design, and plan complex changes using read-only tools.",
-  "name": "enter_plan_mode",
+  "description": "Use this tool proactively when you're about to start a non-trivial implementation task. Getting user sign-off on your approach before writing code prevents wasted effort and ensures alignment. This tool transitions you into plan mode where you can explore the codebase and design an implementation approach for user approval.
+
+#### When to Use This Tool
+
+**Prefer using EnterPlanMode** for implementation tasks unless they're simple. Use it when ANY of these conditions apply:
+
+1. **New Feature Implementation**: Adding meaningful new functionality
+2. **Multiple Valid Approaches**: The task can be solved in several different ways
+3. **Code Modifications**: Changes that affect existing behavior or structure
+4. **Architectural Decisions**: The task requires choosing between patterns or technologies
+5. **Multi-File Changes**: The task will likely touch more than 2-3 files
+6. **Unclear Requirements**: You need to explore before understanding the full scope
+7. **User Preferences Matter**: The implementation could reasonably go multiple ways
+
+#### When NOT to Use This Tool
+
+Only skip EnterPlanMode for simple tasks:
+- Single-line or few-line fixes (typos, obvious bugs, small tweaks)
+- Adding a single function with clear requirements
+- Tasks where the user has given very specific, detailed instructions
+- Pure research/exploration tasks (use the Agent tool with explore agent instead)
+
+#### Important Notes
+
+- This tool REQUIRES user approval - they must consent to entering plan mode
+- If unsure whether to use it, err on the side of planning - it's better to get alignment upfront than to redo work
+- Users appreciate being consulted before significant changes are made to their codebase",
+  "name": "EnterPlanMode",
   "parametersJsonSchema": {
-    "properties": {
-      "reason": {
-        "description": "Short reason explaining why you are entering plan mode.",
-        "type": "string",
-      },
-    },
+    "additionalProperties": false,
+    "properties": {},
     "type": "object",
   },
 }
@@ -953,7 +992,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: exit_plan_mode 1`] = `
 {
   "description": "Finalizes the planning phase and transitions to implementation by presenting the plan for user approval. This tool MUST be used to exit Plan Mode before any source code edits can be performed. Call this whenever a plan is ready or the user requests implementation.",
-  "name": "exit_plan_mode",
+  "name": "ExitPlanMode",
   "parametersJsonSchema": {
     "properties": {
       "plan_path": {
@@ -969,47 +1008,25 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 }
 `;
 
-exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: get_internal_docs 1`] = `
-{
-  "description": "Returns the content of Gemini CLI internal documentation files. If no path is provided, returns a list of all available documentation paths.",
-  "name": "get_internal_docs",
-  "parametersJsonSchema": {
-    "properties": {
-      "path": {
-        "description": "The relative path to the documentation file (e.g., 'cli/commands.md'). If omitted, lists all available documentation.",
-        "type": "string",
-      },
-    },
-    "type": "object",
-  },
-}
-`;
-
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: glob 1`] = `
 {
-  "description": "Efficiently finds files matching specific glob patterns (e.g., \`src/**/*.ts\`, \`**/*.md\`), returning absolute paths sorted by modification time (newest first). Ideal for quickly locating files based on their name or path structure, especially in large codebases.",
-  "name": "glob",
+  "description": "- Fast file pattern matching tool that works with any codebase size
+- Supports glob patterns like "**/*.js" or "src/**/*.ts"
+- Returns matching file paths sorted by modification time
+- Use this tool when you need to find files by name patterns
+- When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead
+- You can call multiple tools in a single response. It is always better to speculatively perform multiple searches in parallel if they are potentially useful.",
+  "name": "Glob",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "case_sensitive": {
-        "description": "Optional: Whether the search should be case-sensitive. Defaults to false.",
-        "type": "boolean",
-      },
-      "dir_path": {
-        "description": "Optional: The absolute path to the directory to search within. If omitted, searches the root directory.",
+      "path": {
+        "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.",
         "type": "string",
       },
       "pattern": {
-        "description": "The glob pattern to match against (e.g., '**/*.py', 'docs/*.md').",
+        "description": "The glob pattern to match files against",
         "type": "string",
-      },
-      "respect_gemini_ignore": {
-        "description": "Optional: Whether to respect .geminiignore patterns when finding files. Defaults to true.",
-        "type": "boolean",
-      },
-      "respect_git_ignore": {
-        "description": "Optional: Whether to respect .gitignore patterns when finding files. Only available in git repositories. Defaults to true.",
-        "type": "boolean",
       },
     },
     "required": [
@@ -1022,12 +1039,32 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: google_web_search 1`] = `
 {
-  "description": "Performs a grounded Google Search to find information across the internet. Returns a synthesized answer with citations (e.g., [1]) and source URIs. Best for finding up-to-date documentation, troubleshooting obscure errors, or broad research. Use this when you don't have a specific URL. If a search result requires deeper analysis, follow up by using 'web_fetch' on the provided URI.",
-  "name": "google_web_search",
+  "description": "Allows Claude to search the web and use the results to inform responses. Provides up-to-date information for current events and recent data. Returns search result information formatted as search result blocks, including links as markdown hyperlinks.
+CRITICAL REQUIREMENT - You MUST follow this:
+- When answering the user's question, you MUST include a "Sources:" section at the end of your response
+- In the Sources section, list all relevant URLs from the search results as markdown hyperlinks: [Title](URL)
+- IMPORTANT: Never skip including sources in your response",
+  "name": "WebSearch",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
+      "allowed_domains": {
+        "description": "Only include search results from these domains",
+        "items": {
+          "type": "string",
+        },
+        "type": "array",
+      },
+      "blocked_domains": {
+        "description": "Never include search results from these domains",
+        "items": {
+          "type": "string",
+        },
+        "type": "array",
+      },
       "query": {
-        "description": "The search query. Supports natural language questions (e.g., 'Latest breaking changes in React 19') or specific technical queries.",
+        "description": "The search query to find information on the web. Must be at least 2 characters.",
+        "minLength": 2,
         "type": "string",
       },
     },
@@ -1041,39 +1078,72 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: grep_search 1`] = `
 {
-  "description": "Searches for a regular expression pattern within file contents. Max 100 matches.",
-  "name": "grep_search",
+  "description": "A powerful search tool built on ripgrep
+
+  Usage:
+  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+  - Use Agent tool for open-ended searches requiring multiple rounds
+  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+  "name": "Grep",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "dir_path": {
-        "description": "Optional: The absolute path to the directory to search within. If omitted, searches the current working directory.",
-        "type": "string",
+      "-A": {
+        "description": "Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "exclude_pattern": {
-        "description": "Optional: A regular expression pattern to exclude from the search results. If a line matches both the pattern and the exclude_pattern, it will be omitted.",
-        "type": "string",
+      "-B": {
+        "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "include_pattern": {
-        "description": "Optional: A glob pattern to filter which files are searched (e.g., '*.js', '*.{ts,tsx}', 'src/**'). If omitted, searches all files (respecting potential global ignores).",
-        "type": "string",
-      },
-      "max_matches_per_file": {
-        "description": "Optional: Maximum number of matches to return per file. Use this to prevent being overwhelmed by repetitive matches in large files.",
-        "minimum": 1,
-        "type": "integer",
-      },
-      "names_only": {
-        "description": "Optional: If true, only the file paths of the matches will be returned, without the line content or line numbers. This is useful for gathering a list of files.",
+      "-i": {
+        "description": "Case insensitive search (rg -i)",
         "type": "boolean",
       },
-      "pattern": {
-        "description": "The regular expression (regex) pattern to search for within file contents (e.g., 'function\\s+myFunction', 'import\\s+\\{.*\\}\\s+from\\s+.*').",
+      "context": {
+        "description": "Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
+      },
+      "glob": {
+        "description": "Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob",
         "type": "string",
       },
-      "total_max_matches": {
-        "description": "Optional: Maximum number of total matches to return. Use this to limit the overall size of the response. Defaults to 100 if omitted.",
-        "minimum": 1,
-        "type": "integer",
+      "head_limit": {
+        "description": "Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited).",
+        "type": "number",
+      },
+      "multiline": {
+        "description": "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.",
+        "type": "boolean",
+      },
+      "offset": {
+        "description": "Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N". Works across all output modes. Defaults to 0.",
+        "type": "number",
+      },
+      "output_mode": {
+        "description": "Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".",
+        "enum": [
+          "content",
+          "files_with_matches",
+          "count",
+        ],
+        "type": "string",
+      },
+      "path": {
+        "description": "File or directory to search in (rg PATH). Defaults to current working directory.",
+        "type": "string",
+      },
+      "pattern": {
+        "description": "The regular expression pattern to search for in file contents",
+        "type": "string",
+      },
+      "type": {
+        "description": "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.",
+        "type": "string",
       },
     },
     "required": [
@@ -1086,65 +1156,72 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: grep_search_ripgrep 1`] = `
 {
-  "description": "Searches for a regular expression pattern within file contents. This tool is FAST and optimized, powered by ripgrep. PREFERRED over standard \`run_shell_command("grep ...")\` due to better performance and automatic output limiting (defaults to 100 matches, but can be increased via \`total_max_matches\`).",
-  "name": "grep_search",
+  "description": "A powerful search tool built on ripgrep
+
+  Usage:
+  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+  - Use Agent tool for open-ended searches requiring multiple rounds
+  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+  "name": "Grep",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "after": {
-        "description": "Show this many lines after each match (equivalent to grep -A). Defaults to 0 if omitted.",
-        "minimum": 0,
-        "type": "integer",
+      "-A": {
+        "description": "Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "before": {
-        "description": "Show this many lines before each match (equivalent to grep -B). Defaults to 0 if omitted.",
-        "minimum": 0,
-        "type": "integer",
+      "-B": {
+        "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "case_sensitive": {
-        "description": "If true, search is case-sensitive. Defaults to false (ignore case) if omitted.",
+      "-i": {
+        "description": "Case insensitive search (rg -i)",
         "type": "boolean",
       },
       "context": {
-        "description": "Show this many lines of context around each match (equivalent to grep -C). Defaults to 0 if omitted.",
-        "type": "integer",
+        "description": "Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.",
+        "type": "number",
       },
-      "dir_path": {
-        "description": "Directory or file to search. Directories are searched recursively. Relative paths are resolved against current working directory. Defaults to current working directory ('.') if omitted.",
+      "glob": {
+        "description": "Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob",
         "type": "string",
       },
-      "exclude_pattern": {
-        "description": "Optional: A regular expression pattern to exclude from the search results. If a line matches both the pattern and the exclude_pattern, it will be omitted.",
+      "head_limit": {
+        "description": "Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited).",
+        "type": "number",
+      },
+      "multiline": {
+        "description": "Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.",
+        "type": "boolean",
+      },
+      "offset": {
+        "description": "Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N". Works across all output modes. Defaults to 0.",
+        "type": "number",
+      },
+      "output_mode": {
+        "description": "Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".",
+        "enum": [
+          "content",
+          "files_with_matches",
+          "count",
+        ],
         "type": "string",
       },
-      "fixed_strings": {
-        "description": "If true, treats the \`pattern\` as a literal string instead of a regular expression. Defaults to false (basic regex) if omitted.",
-        "type": "boolean",
-      },
-      "include_pattern": {
-        "description": "Glob pattern to filter files (e.g., '*.ts', 'src/**'). Recommended for large repositories to reduce noise. Defaults to all files if omitted.",
+      "path": {
+        "description": "File or directory to search in (rg PATH). Defaults to current working directory.",
         "type": "string",
-      },
-      "max_matches_per_file": {
-        "description": "Optional: Maximum number of matches to return per file. Use this to prevent being overwhelmed by repetitive matches in large files.",
-        "minimum": 1,
-        "type": "integer",
-      },
-      "names_only": {
-        "description": "Optional: If true, only the file paths of the matches will be returned, without the line content or line numbers. This is useful for gathering a list of files.",
-        "type": "boolean",
-      },
-      "no_ignore": {
-        "description": "If true, searches all files including those usually ignored (like in .gitignore, build/, dist/, etc). Defaults to false if omitted.",
-        "type": "boolean",
       },
       "pattern": {
-        "description": "The pattern to search for. By default, treated as a Rust-flavored regular expression. Use '\\b' for precise symbol matching (e.g., '\\bMatchMe\\b').",
+        "description": "The regular expression pattern to search for in file contents",
         "type": "string",
       },
-      "total_max_matches": {
-        "description": "Optional: Maximum number of total matches to return. Use this to limit the overall size of the response. Defaults to 100 if omitted.",
-        "minimum": 1,
-        "type": "integer",
+      "type": {
+        "description": "File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.",
+        "type": "string",
       },
     },
     "required": [
@@ -1155,133 +1232,43 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 }
 `;
 
-exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: list_directory 1`] = `
-{
-  "description": "Lists the names of files and subdirectories directly within a specified directory path. Can optionally ignore entries matching provided glob patterns.",
-  "name": "list_directory",
-  "parametersJsonSchema": {
-    "properties": {
-      "dir_path": {
-        "description": "The path to the directory to list",
-        "type": "string",
-      },
-      "file_filtering_options": {
-        "description": "Optional: Whether to respect ignore patterns from .gitignore or .geminiignore",
-        "properties": {
-          "respect_gemini_ignore": {
-            "description": "Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.",
-            "type": "boolean",
-          },
-          "respect_git_ignore": {
-            "description": "Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.",
-            "type": "boolean",
-          },
-        },
-        "type": "object",
-      },
-      "ignore": {
-        "description": "List of glob patterns to ignore",
-        "items": {
-          "type": "string",
-        },
-        "type": "array",
-      },
-    },
-    "required": [
-      "dir_path",
-    ],
-    "type": "object",
-  },
-}
-`;
-
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: read_file 1`] = `
 {
-  "description": "Reads and returns the content of a specified file. To maintain context efficiency, you MUST use 'start_line' and 'end_line' for targeted, surgical reads of specific sections. For your safety, the tool will automatically truncate output exceeding 2000 lines, 2000 characters per line, or 20MB in size; however, triggering these limits is considered token-inefficient. Always retrieve only the minimum content necessary for your next step. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), audio files (MP3, WAV, AIFF, AAC, OGG, FLAC), and PDF files.",
-  "name": "read_file",
+  "description": "Reads a file from the local filesystem. You can access any file directly by using this tool.
+Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
+
+Usage:
+- The file_path parameter must be an absolute path, not a relative path
+- By default, it reads up to 2000 lines starting from the beginning of the file
+- You can optionally specify a line offset and limit (especially handy for long files), but it's recommended to read the whole file by not providing these parameters
+- Any lines longer than 2000 characters will be truncated
+- Results are returned using cat -n format, with line numbers starting at 1
+- This tool allows Claude Code to read images (eg PNG, JPG, etc). When reading an image file the contents are presented visually as Claude Code is a multimodal LLM.
+- This tool can read PDF files (.pdf). For large PDFs (more than 10 pages), you MUST provide the pages parameter to read specific page ranges (e.g., pages: "1-5"). Reading a large PDF without the pages parameter will fail. Maximum 20 pages per request.
+- This tool can read Jupyter notebooks (.ipynb files) and returns all cells with their outputs, combining code, text, and visualizations.
+- This tool can only read files, not directories. To read a directory, use an ls command via the Bash tool.
+- You can call multiple tools in a single response. It is always better to speculatively read multiple potentially useful files in parallel.
+- You will regularly be asked to read screenshots. If the user provides a path to a screenshot, ALWAYS use this tool to view the file at the path. This tool will work with all temporary file paths.
+- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.",
+  "name": "Read",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "end_line": {
-        "description": "Optional: The 1-based line number to end reading at (inclusive).",
-        "type": "number",
-      },
       "file_path": {
-        "description": "The path to the file to read.",
+        "description": "The absolute path to the file to read",
         "type": "string",
       },
-      "start_line": {
-        "description": "Optional: The 1-based line number to start reading from.",
+      "limit": {
+        "description": "The number of lines to read. Equivalent to "limit".",
+        "type": "number",
+      },
+      "offset": {
+        "description": "The number of lines to skip before starting to read. Equivalent to "offset".",
         "type": "number",
       },
     },
     "required": [
       "file_path",
-    ],
-    "type": "object",
-  },
-}
-`;
-
-exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: read_many_files 1`] = `
-{
-  "description": "Reads content from multiple files specified by glob patterns within a configured target directory. For text files, it concatenates their content into a single string. It is primarily designed for text-based files. However, it can also process image (e.g., .png, .jpg), audio (e.g., .mp3, .wav), and PDF (.pdf) files if their file names or extensions are explicitly included in the 'include' argument. For these explicitly requested non-text files, their data is read and included in a format suitable for model consumption (e.g., base64 encoded).
-
-This tool is useful when you need to understand or analyze a collection of files, such as:
-- Getting an overview of a codebase or parts of it (e.g., all TypeScript files in the 'src' directory).
-- Finding where specific functionality is implemented if the user asks broad questions about code.
-- Reviewing documentation files (e.g., all Markdown files in the 'docs' directory).
-- Gathering context from multiple configuration files.
-- When the user asks to "read all files in X directory" or "show me the content of all Y files".
-
-Use this tool when the user's query implies needing the content of several files simultaneously for context, analysis, or summarization. For text files, it uses default UTF-8 encoding and a '--- {filePath} ---' separator between file contents. The tool inserts a '--- End of content ---' after the last file. Ensure glob patterns are relative to the target directory. Glob patterns like 'src/**/*.js' are supported. Avoid using for single files if a more specific single-file reading tool is available, unless the user specifically requests to process a list containing just one file via this tool. Other binary files (not explicitly requested as image/audio/PDF) are generally skipped. Default excludes apply to common non-text files (except for explicitly requested images/audio/PDFs) and large dependency directories unless 'useDefaultExcludes' is false.",
-  "name": "read_many_files",
-  "parametersJsonSchema": {
-    "properties": {
-      "exclude": {
-        "default": [],
-        "description": "Optional. Glob patterns for files/directories to exclude. Added to default excludes if useDefaultExcludes is true. Example: "**/*.log", "temp/"",
-        "items": {
-          "minLength": 1,
-          "type": "string",
-        },
-        "type": "array",
-      },
-      "file_filtering_options": {
-        "description": "Whether to respect ignore patterns from .gitignore or .geminiignore",
-        "properties": {
-          "respect_gemini_ignore": {
-            "description": "Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.",
-            "type": "boolean",
-          },
-          "respect_git_ignore": {
-            "description": "Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.",
-            "type": "boolean",
-          },
-        },
-        "type": "object",
-      },
-      "include": {
-        "description": "An array of glob patterns or paths. Examples: ["src/**/*.ts"], ["README.md", "docs/"]",
-        "items": {
-          "minLength": 1,
-          "type": "string",
-        },
-        "minItems": 1,
-        "type": "array",
-      },
-      "recursive": {
-        "default": true,
-        "description": "Optional. Whether to search recursively (primarily controlled by \`**\` in glob patterns). Defaults to true.",
-        "type": "boolean",
-      },
-      "useDefaultExcludes": {
-        "default": true,
-        "description": "Optional. Whether to apply a list of default exclusion patterns (e.g., node_modules, .git, binary files). Defaults to true.",
-        "type": "boolean",
-      },
-    },
-    "required": [
-      "include",
     ],
     "type": "object",
   },
@@ -1290,35 +1277,39 @@ Use this tool when the user's query implies needing the content of several files
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: replace 1`] = `
 {
-  "description": "Replaces text within a file. By default, the tool expects to find and replace exactly ONE occurrence of \`old_string\`. If you want to replace multiple occurrences of the exact same string, set \`allow_multiple\` to true. This tool requires providing significant context around the change to ensure precise targeting.
-The user has the ability to modify the \`new_string\` content. If modified, this will be stated in the response.",
-  "name": "replace",
+  "description": "Performs exact string replacements in files.
+
+Usage:
+- You must use your \`Read\` tool at least once in the conversation before editing. This tool will error if you attempt an edit without reading the file.
+- When editing text from Read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is: spaces + line number + tab. Everything after that tab is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.
+- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.
+- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
+- The edit will FAIL if \`old_string\` is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use \`replace_all\` to change every instance of \`old_string\`.
+- Use \`replace_all\` for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.",
+  "name": "Edit",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
-      "allow_multiple": {
-        "description": "If true, the tool will replace all occurrences of \`old_string\`. If false (default), it will only succeed if exactly one occurrence is found.",
-        "type": "boolean",
-      },
       "file_path": {
-        "description": "The path to the file to modify.",
-        "type": "string",
-      },
-      "instruction": {
-        "description": "A clear, semantic instruction for the code change, acting as a high-quality prompt for an expert LLM assistant. It must be self-contained and explain the goal of the change.",
+        "description": "The absolute path to the file to modify",
         "type": "string",
       },
       "new_string": {
-        "description": "The exact literal text to replace \`old_string\` with, unescaped. Provide the EXACT text. Ensure the resulting code is correct and idiomatic. Do not use omission placeholders like '(rest of methods ...)', '...', or 'unchanged code'; provide exact literal code.",
+        "description": "The text to replace it with (must be different from old_string)",
         "type": "string",
       },
       "old_string": {
-        "description": "The exact literal text to replace, unescaped. If this string is not the exact literal text (i.e. you escaped it) or does not match exactly, the tool will fail.",
+        "description": "The text to replace",
         "type": "string",
+      },
+      "replace_all": {
+        "default": false,
+        "description": "Replace all occurrences of old_string (default false)",
+        "type": "boolean",
       },
     },
     "required": [
       "file_path",
-      "instruction",
       "old_string",
       "new_string",
     ],
@@ -1329,7 +1320,7 @@ The user has the ability to modify the \`new_string\` content. If modified, this
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: run_shell_command 1`] = `
 {
-  "description": "This tool executes a given shell command as \`bash -c <command>\`. To run a command in the background, set the \`is_background\` parameter to true. Do NOT use \`&\` to background commands. Command is executed as a subprocess that leads its own process group. Command process group can be terminated as \`kill -- -PGID\` or signaled as \`kill -s SIGNAL -- -PGID\`.
+  "description": "This tool executes a given shell command as \`bash -c <command>\`. To run a command in the background, set the \`run_in_background\` parameter to true. Do NOT use \`&\` to background commands. Command is executed as a subprocess that leads its own process group. Command process group can be terminated as \`kill -- -PGID\` or signaled as \`kill -s SIGNAL -- -PGID\`.
 
       Efficiency Guidelines:
       - Quiet Flags: Always prefer silent or quiet flags (e.g., \`npm install --silent\`, \`git --no-pager\`) to reduce output volume while still capturing necessary information.
@@ -1343,7 +1334,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
       Signal: Only included if process was terminated by a signal.
       Background PIDs: Only included if background processes were started.
       Process Group PGID: Only included if available.",
-  "name": "run_shell_command",
+  "name": "Bash",
   "parametersJsonSchema": {
     "properties": {
       "command": {
@@ -1354,11 +1345,11 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
         "description": "Brief description of the command for the user. Be specific and concise. Ideally a single sentence. Can be up to 3 sentences for clarity. No line breaks.",
         "type": "string",
       },
-      "dir_path": {
+      "path": {
         "description": "(OPTIONAL) The path of the directory to run the command in. If not provided, the project root directory is used. Must be a directory within the workspace and must already exist.",
         "type": "string",
       },
-      "is_background": {
+      "run_in_background": {
         "description": "Set to true if this command should be run in the background (e.g. for long-running servers or watchers). The command will be started, allowed to run for a brief moment to check for immediate errors, and then moved to the background.",
         "type": "boolean",
       },
@@ -1371,40 +1362,38 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 }
 `;
 
-exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: save_memory 1`] = `
-{
-  "description": "Persists global preferences or facts across ALL future sessions. Use this for recurring instructions like coding styles or tool aliases. Unlike 'write_file', which is for project-specific files, this appends to a global memory file loaded in every workspace. If you are unsure whether a fact should be remembered globally, ask the user first. CRITICAL: Do not use for session-specific context or temporary data.",
-  "name": "save_memory",
-  "parametersJsonSchema": {
-    "additionalProperties": false,
-    "properties": {
-      "fact": {
-        "description": "A concise, global fact or preference (e.g., 'I prefer using tabs'). Do not include local paths or project-specific names.",
-        "type": "string",
-      },
-    },
-    "required": [
-      "fact",
-    ],
-    "type": "object",
-  },
-}
-`;
-
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: web_fetch 1`] = `
 {
-  "description": "Analyzes and extracts information from up to 20 URLs. Ideal for documentation review, technical research, or reading raw code from GitHub. You can provide specific, complex instructions for the extraction (e.g., 'Summarize the breaking changes'). Provides cited answers based on the content. GitHub 'blob' URLs are automatically converted to raw versions for better processing. Supports HTTP/HTTPS only.",
-  "name": "web_fetch",
+  "description": "Fetches content from a specified URL and processes it using an AI model. Takes a URL and a prompt as input, fetches the URL content, converts HTML to markdown, and processes the content with the prompt using a small, fast model. Returns the model's response about the content.
+CRITICAL REQUIREMENT - You MUST follow this:
+- Only include "Sources:" section if using WebSearch tool too
+- This tool WILL FAIL for authenticated or private URLs. Before using this tool, check if the URL points to an authenticated service (e.g., Google Docs, Confluence, Jira, GitHub). If so, look for a specialized MCP tool that provides authenticated access.",
+  "name": "WebFetch",
   "parametersJsonSchema": {
+    "additionalProperties": false,
+    "oneOf": [
+      {
+        "required": [
+          "url",
+        ],
+      },
+      {
+        "required": [
+          "prompt",
+        ],
+      },
+    ],
     "properties": {
       "prompt": {
-        "description": "A string containing the URL(s) and your specific analysis instructions. Be clear about what information you want to find or summarize. Supports up to 20 URLs.",
+        "description": "The prompt to run on the fetched content. Can contain up to 20 URLs.",
+        "type": "string",
+      },
+      "url": {
+        "description": "The URL to fetch content from",
+        "format": "uri",
         "type": "string",
       },
     },
-    "required": [
-      "prompt",
-    ],
     "type": "object",
   },
 }
@@ -1412,17 +1401,33 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: write_file 1`] = `
 {
-  "description": "Writes the complete content to a file, automatically creating missing parent directories. Overwrites existing files. The user has the ability to modify 'content' before it is saved. Best for new or small files; use 'replace' for targeted edits to large files.",
-  "name": "write_file",
+  "description": "Writes a file to the local filesystem.
+
+Usage:
+- This tool will overwrite the existing file if there is one at the provided path.
+- If this is an existing file, you MUST use the Read tool first to read the file. This tool will fail if you did not read the file first.
+- Prefer the Edit tool for modifying existing files — it's safer and more reliable.
+- NEVER create documentation files (*.md) or README files unless explicitly requested by the User.
+- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.",
+  "name": "Write",
   "parametersJsonSchema": {
+    "additionalProperties": false,
     "properties": {
+      "ai_proposed_content": {
+        "description": "Internal: The originally proposed content before user modification.",
+        "type": "string",
+      },
       "content": {
-        "description": "The complete content to write. Provide the full file; do not use placeholders like '// ... rest of code'.",
+        "description": "The content to write to the file. Do not use omission placeholders like '(rest of methods ...)', '...', or 'unchanged code'; provide complete literal content.",
         "type": "string",
       },
       "file_path": {
-        "description": "Path to the file.",
+        "description": "The absolute path to the file to write (must be absolute, not relative)",
         "type": "string",
+      },
+      "modified_by_user": {
+        "description": "Internal: Whether the content was modified by the user.",
+        "type": "boolean",
       },
     },
     "required": [
@@ -1436,70 +1441,32 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: write_todos 1`] = `
 {
-  "description": "This tool can help you list out the current subtasks that are required to be completed for a given user request. The list of subtasks helps you keep track of the current task, organize complex queries and help ensure that you don't miss any steps. With this list, the user can also see the current progress you are making in executing a given task.
+  "description": "Use this tool to create a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
 
-Depending on the task complexity, you should first divide a given task into subtasks and then use this tool to list out the subtasks that are required to be completed for a given user request.
-Each of the subtasks should be clear and distinct. 
+## When to Use This Tool
 
-Use this tool for complex queries that require multiple steps. If you find that the request is actually complex after you have started executing the user task, create a todo list and use it. If execution of the user task requires multiple steps, planning and generally is higher complexity than a simple Q&A, use this tool.
+Use this tool proactively in these scenarios:
 
-DO NOT use this tool for simple tasks that can be completed in less than 2 steps. If the user query is simple and straightforward, do not use the tool. If you can respond with an answer in a single turn then this tool is not required.
+- Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
+- Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
+- Plan mode - When using plan mode, create a task list to track the work
+- User explicitly requests todo list - When the user directly asks you to use the todo list
+- User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
 
-## Task state definitions
+## When NOT to Use This Tool
 
-- pending: Work has not begun on a given subtask.
-- in_progress: Marked just prior to beginning work on a given subtask. You should only have one subtask as in_progress at a time.
-- completed: Subtask was successfully completed with no errors or issues. If the subtask required more steps to complete, update the todo list with the subtasks. All steps should be identified as completed only when they are completed.
-- cancelled: As you update the todo list, some tasks are not required anymore due to the dynamic nature of the task. In this case, mark the subtasks as cancelled.
+Skip using this tool when:
+- There is only a single, straightforward task
+- The task is trivial and tracking it provides no organizational benefit
+- The task can be completed in less than 3 trivial steps
 
+## Task Fields
 
-## Methodology for using this tool
-1. Use this todo list as soon as you receive a user request based on the complexity of the task.
-2. Keep track of every subtask that you update the list with.
-3. Mark a subtask as in_progress before you begin working on it. You should only have one subtask as in_progress at a time.
-4. Update the subtask list as you proceed in executing the task. The subtask list is not static and should reflect your progress and current plans, which may evolve as you acquire new information.
-5. Mark a subtask as completed when you have completed it.
-6. Mark a subtask as cancelled if the subtask is no longer needed.
-7. You must update the todo list as soon as you start, stop or cancel a subtask. Don't batch or wait to update the todo list.
+- **content**: The imperative form describing what needs to be done (e.g., "Fix authentication bug")
+- **activeForm**: Present continuous form shown in the spinner when in_progress (e.g., "Fixing authentication bug")
 
-
-## Examples of When to Use the Todo List
-
-<example>
-User request: Create a website with a React for creating fancy logos using gemini-2.5-flash-image
-
-ToDo list created by the agent:
-1. Initialize a new React project environment (e.g., using Vite).
-2. Design and build the core UI components: a text input (prompt field) for the logo description, selection controls for style parameters (if the API supports them), and an image preview area.
-3. Implement state management (e.g., React Context or Zustand) to manage the user's input prompt, the API loading status (pending, success, error), and the resulting image data.
-4. Create an API service module within the React app (using "fetch" or "axios") to securely format and send the prompt data via an HTTP POST request to the specified "gemini-2.5-flash-image" (Gemini model) endpoint.
-5. Implement asynchronous logic to handle the API call: show a loading indicator while the request is pending, retrieve the generated image (e.g., as a URL or base64 string) upon success, and display any errors.
-6. Display the returned "fancy logo" from the API response in the preview area component.
-7. Add functionality (e.g., a "Download" button) to allow the user to save the generated image file.
-8. Deploy the application to a web server or hosting platform.
-
-<reasoning>
-The agent used the todo list to break the task into distinct, manageable steps:
-1. Building an entire interactive web application from scratch is a highly complex, multi-stage process involving setup, UI development, logic integration, and deployment.
-2. The agent inferred the core functionality required for a "logo creator," such as UI controls for customization (Task 3) and an export feature (Task 7), which must be tracked as distinct goals.
-3. The agent rightly inferred the requirement of an API service model for interacting with the image model endpoint.
-</reasoning>
-</example>
-
-
-## Examples of When NOT to Use the Todo List
-
-<example>
-User request: Ensure that the test <test file> passes.
-
-Agent:
-<Goes into a loop of running the test, identifying errors, and updating the code until the test passes.>
-
-<reasoning>
-The agent did not use the todo list because this task could be completed by a tight loop of execute test->edit->execute test.
-</reasoning>
-</example>",
-  "name": "write_todos",
+All tasks are created with status \`pending\`.",
+  "name": "TodoWrite",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
@@ -1509,8 +1476,14 @@ The agent did not use the todo list because this task could be completed by a ti
           "additionalProperties": false,
           "description": "A single todo item.",
           "properties": {
-            "description": {
-              "description": "The description of the task.",
+            "activeForm": {
+              "description": "Present continuous form shown in spinner when in_progress",
+              "minLength": 1,
+              "type": "string",
+            },
+            "content": {
+              "description": "The imperative form describing what needs to be done",
+              "minLength": 1,
               "type": "string",
             },
             "status": {
@@ -1519,14 +1492,14 @@ The agent did not use the todo list because this task could be completed by a ti
                 "pending",
                 "in_progress",
                 "completed",
-                "cancelled",
               ],
               "type": "string",
             },
           },
           "required": [
-            "description",
+            "content",
             "status",
+            "activeForm",
           ],
           "type": "object",
         },

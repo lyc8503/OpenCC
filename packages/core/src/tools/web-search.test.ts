@@ -67,14 +67,14 @@ describe('WebSearchTool', () => {
     it('should throw an error for an empty query', () => {
       const params: WebSearchToolParams = { query: '' };
       expect(() => tool.build(params)).toThrow(
-        "The 'query' parameter cannot be empty.",
+        'params/query must NOT have fewer than 2 characters',
       );
     });
 
     it('should throw an error for a query with only whitespace', () => {
       const params: WebSearchToolParams = { query: '   ' };
       expect(() => tool.build(params)).toThrow(
-        "The 'query' parameter cannot be empty.",
+        'params/query must NOT have fewer than 2 characters',
       );
     });
   });

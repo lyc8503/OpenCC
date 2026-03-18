@@ -44,7 +44,7 @@ export const TodoTray: React.FC = () => {
     }
     return todos.todos.map((todo) => ({
       status: todo.status,
-      label: todo.description,
+      label: todo.content,
     }));
   }, [todos]);
 

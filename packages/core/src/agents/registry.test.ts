@@ -287,20 +287,20 @@ describe('AgentRegistry', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('should register CLI help agent by default', async () => {
+    it('should register codebase investigator agent by default', async () => {
       const config = makeMockedConfig();
       const registry = new TestableAgentRegistry(config);
 
       await registry.initialize();
 
-      expect(registry.getDefinition('cli_help')).toBeDefined();
+      expect(registry.getDefinition('codebase_investigator')).toBeDefined();
     });
 
-    it('should NOT register CLI help agent if disabled', async () => {
+    it('should NOT register codebase investigator agent if disabled', async () => {
       const config = makeMockedConfig({
         agents: {
           overrides: {
-            cli_help: { enabled: false },
+            codebase_investigator: { enabled: false },
           },
         },
       });
@@ -308,7 +308,7 @@ describe('AgentRegistry', () => {
 
       await registry.initialize();
 
-      expect(registry.getDefinition('cli_help')).toBeUndefined();
+      expect(registry.getDefinition('codebase_investigator')).toBeUndefined();
     });
 
     it('should register generalist agent by default', async () => {

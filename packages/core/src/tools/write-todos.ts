@@ -58,9 +58,7 @@ class WriteTodosToolInvocation extends BaseToolInvocation<
   ): Promise<ToolResult> {
     const todos = this.params.todos ?? [];
     const todoListString = todos
-      .map(
-        (todo, index) => `${index + 1}. [${todo.status}] ${todo.description}`,
-      )
+      .map((todo, index) => `${index + 1}. [${todo.status}] ${todo.content}`)
       .join('\n');
 
     const llmContent =
@@ -110,8 +108,11 @@ export class WriteTodosTool extends BaseDeclarativeTool<
       if (typeof todo !== 'object' || todo === null) {
         return 'Each todo item must be an object';
       }
-      if (typeof todo.description !== 'string' || !todo.description.trim()) {
-        return 'Each todo must have a non-empty description string';
+      if (typeof todo.content !== 'string' || !todo.content.trim()) {
+        return 'Each todo must have a non-empty content string';
+      }
+      if (typeof todo.activeForm !== 'string' || !todo.activeForm.trim()) {
+        return 'Each todo must have a non-empty activeForm string';
       }
       if (!TODO_STATUSES.includes(todo.status)) {
         return `Each todo must have a valid status (${TODO_STATUSES.join(', ')})`;

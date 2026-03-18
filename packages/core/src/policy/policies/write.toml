@@ -28,12 +28,12 @@
 #   999: YOLO mode allow-all (becomes 1.999 in default tier)
 
 [[rule]]
-toolName = "replace"
+toolName = "Edit"
 decision = "ask_user"
 priority = 10
 
 [[rule]]
-toolName = "replace"
+toolName = "Edit"
 decision = "allow"
 priority = 15
 modes = ["autoEdit"]
@@ -44,27 +44,22 @@ name = "allowed-path"
 required_context = ["environment"]
 
 [[rule]]
-toolName = "save_memory"
+toolName = "Bash"
 decision = "ask_user"
 priority = 10
 
 [[rule]]
-toolName = "run_shell_command"
+toolName = "Write"
 decision = "ask_user"
 priority = 10
 
 [[rule]]
-toolName = "write_file"
+toolName = "Skill"
 decision = "ask_user"
 priority = 10
 
 [[rule]]
-toolName = "activate_skill"
-decision = "ask_user"
-priority = 10
-
-[[rule]]
-toolName = "write_file"
+toolName = "Write"
 decision = "allow"
 priority = 15
 modes = ["autoEdit"]
@@ -75,6 +70,6 @@ name = "allowed-path"
 required_context = ["environment"]
 
 [[rule]]
-toolName = "web_fetch"
+toolName = "WebFetch"
 decision = "ask_user"
 priority = 10

@@ -10,7 +10,7 @@ import type { Config } from '../config/config.js';
 import {
   getAllGeminiMdFilenames,
   DEFAULT_CONTEXT_FILENAME,
-} from '../tools/memoryTool.js';
+} from '../config/memory.js';
 import { PREVIEW_GEMINI_MODEL } from '../config/models.js';
 import { ApprovalMode } from '../policy/types.js';
 import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
@@ -19,7 +19,7 @@ import type { CallableTool } from '@google/genai';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 
-vi.mock('../tools/memoryTool.js', async (importOriginal) => {
+vi.mock('../config/memory.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...(actual as object),
@@ -177,9 +177,9 @@ describe('PromptProvider', () => {
 
     it('should include write constraint message in plan mode prompt', () => {
       const mockTools = [
-        new MockTool({ name: 'glob', displayName: 'Glob' }),
-        new MockTool({ name: 'write_file', displayName: 'WriteFile' }),
-        new MockTool({ name: 'replace', displayName: 'Replace' }),
+        new MockTool({ name: 'Glob', displayName: 'Glob' }),
+        new MockTool({ name: 'Write', displayName: 'Write' }),
+        new MockTool({ name: 'Edit', displayName: 'Edit' }),
       ];
       (mockConfig.getToolRegistry as ReturnType<typeof vi.fn>).mockReturnValue({
         getAllToolNames: vi.fn().mockReturnValue(mockTools.map((t) => t.name)),
@@ -190,7 +190,7 @@ describe('PromptProvider', () => {
       const prompt = provider.getCoreSystemPrompt(mockConfig);
 
       expect(prompt).toContain(
-        '`write_file` and `replace` may ONLY be used to write .md plan files',
+        '`Write` and `Edit` may ONLY be used to write .md plan files',
       );
       expect(prompt).toContain('/tmp/project-temp/plans/');
     });

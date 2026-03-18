@@ -68,8 +68,9 @@ export async function buildTodosReturnDisplay(
   const addTask = (task: TrackerTask, depth: number, visited: Set<string>) => {
     if (visited.has(task.id)) {
       todos.push({
-        description: `${'  '.repeat(depth)}[CYCLE DETECTED: ${task.id}]`,
+        content: `${'  '.repeat(depth)}[CYCLE DETECTED: ${task.id}]`,
         status: 'cancelled',
+        activeForm: 'Processing task',
       });
       return;
     }
@@ -83,9 +84,9 @@ export async function buildTodosReturnDisplay(
     }
 
     const indent = '  '.repeat(depth);
-    const description = `${indent}${task.type}: ${task.title} (${task.id})`;
+    const content = `${indent}${task.type}: ${task.title} (${task.id})`;
 
-    todos.push({ description, status });
+    todos.push({ content, status, activeForm: `Processing ${task.title}` });
 
     const children = childrenMap.get(task.id) ?? [];
     children.sort(sortTasks);

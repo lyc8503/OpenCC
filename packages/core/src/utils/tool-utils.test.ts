@@ -155,11 +155,7 @@ describe('doesToolInvocationMatch', () => {
       params: { command: 'git status' },
     } as AnyToolInvocation;
     const patterns = ['ShellTool(git status)'];
-    const result = doesToolInvocationMatch(
-      'run_shell_command',
-      invocation,
-      patterns,
-    );
+    const result = doesToolInvocationMatch('Bash', invocation, patterns);
     expect(result).toBe(true);
   });
 
@@ -177,11 +173,7 @@ describe('doesToolInvocationMatch', () => {
       params: { command: 'git status -v' },
     } as AnyToolInvocation;
     const patterns = ['ShellTool(git status)'];
-    const result = doesToolInvocationMatch(
-      'run_shell_command',
-      invocation,
-      patterns,
-    );
+    const result = doesToolInvocationMatch('Bash', invocation, patterns);
     expect(result).toBe(true);
   });
 
@@ -196,7 +188,7 @@ describe('doesToolInvocationMatch', () => {
     } as AnyToolInvocation;
 
     it('should match by tool name', () => {
-      const patterns = ['read_file'];
+      const patterns = ['Read'];
       const result = doesToolInvocationMatch(
         readFileTool,
         invocation,
@@ -226,8 +218,8 @@ describe('doesToolInvocationMatch', () => {
     });
 
     it('should match by tool name when passed as a string', () => {
-      const patterns = ['read_file'];
-      const result = doesToolInvocationMatch('read_file', invocation, patterns);
+      const patterns = ['Read'];
+      const result = doesToolInvocationMatch('Read', invocation, patterns);
       expect(result).toBe(true);
     });
   });

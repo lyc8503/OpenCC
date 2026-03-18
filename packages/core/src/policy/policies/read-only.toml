@@ -28,31 +28,26 @@
 #   999: YOLO mode allow-all (becomes 1.999 in default tier)
 
 [[rule]]
-toolName = "glob"
+toolName = "Glob"
 decision = "allow"
 priority = 50
 
 [[rule]]
-toolName = "grep_search"
+toolName = "Grep"
 decision = "allow"
 priority = 50
 
 [[rule]]
-toolName = "list_directory"
+toolName = "Read"
 decision = "allow"
 priority = 50
 
 [[rule]]
-toolName = "read_file"
+toolName = "WebSearch"
 decision = "allow"
 priority = 50
 
 [[rule]]
-toolName = "google_web_search"
-decision = "allow"
-priority = 50
-
-[[rule]]
-toolName = ["codebase_investigator", "cli_help", "get_internal_docs"]
+toolName = ["codebase_investigator", "cli_help"]
 decision = "allow"
 priority = 50

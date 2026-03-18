@@ -26,7 +26,6 @@ import {
   StreamEventType,
   ToolCallEvent,
   debugLogger,
-  ReadManyFilesTool,
   REFERENCE_CONTENT_START,
   resolveModel,
   createWorkingStdio,
@@ -48,6 +47,7 @@ import {
   PREVIEW_GEMINI_MODEL_AUTO,
   getDisplayString,
 } from '@google/gemini-cli-core';
+import { readManyFiles } from '../utils/readManyFiles.js';
 import * as acp from '@agentclientprotocol/sdk';
 import { AcpFileSystemService } from './fileSystemService.js';
 import { getAcpErrorMessage } from './acpErrors.js';
@@ -1127,15 +1127,7 @@ export class Session {
     const ignoredPaths: string[] = [];
 
     const toolRegistry = this.config.getToolRegistry();
-    const readManyFilesTool = new ReadManyFilesTool(
-      this.config,
-      this.config.getMessageBus(),
-    );
     const globTool = toolRegistry.getTool('glob');
-
-    if (!readManyFilesTool) {
-      throw new Error('Error: read_many_files tool not found.');
-    }
 
     for (const atPathPart of atPathCommandParts) {
       const pathName = atPathPart.fileData!.fileUri;
@@ -1293,65 +1285,66 @@ export class Session {
     }
 
     if (pathSpecsToRead.length > 0) {
-      const toolArgs = {
-        include: pathSpecsToRead,
-      };
-
-      const callId = `${readManyFilesTool.name}-${Date.now()}`;
+      const callId = `read_many_files-${Date.now()}`;
 
       try {
-        const invocation = readManyFilesTool.build(toolArgs);
-
         await this.sendUpdate({
           sessionUpdate: 'tool_call',
           toolCallId: callId,
           status: 'in_progress',
-          title: invocation.getDescription(),
+          title: `Reading ${pathSpecsToRead.length} path spec(s): ${contentLabelsForDisplay.join(', ')}`,
           content: [],
-          locations: invocation.toolLocations(),
-          kind: toAcpToolKind(readManyFilesTool.kind),
+          locations: [],
+          kind: 'read',
         });
 
-        const result = await invocation.execute(abortSignal);
-        const content = toToolCallContent(result) || {
+        // Use readManyFiles utility for glob/ignore support
+        const result = await readManyFiles(
+          {
+            include: pathSpecsToRead,
+          },
+          this.config,
+          this.config.getFileService(),
+          abortSignal,
+        );
+
+        const content: {
+          type: 'content';
+          content: { type: 'text'; text: string };
+        } = {
           type: 'content',
           content: {
             type: 'text',
-            text: `Successfully read: ${contentLabelsForDisplay.join(', ')}`,
+            text:
+              result.files.length > 0
+                ? `Successfully read ${result.files.length} file(s)` +
+                  (result.skipped.length > 0
+                    ? `, skipped ${result.skipped.length}`
+                    : '')
+                : `Successfully read: ${contentLabelsForDisplay.join(', ')}`,
           },
         };
+
         await this.sendUpdate({
           sessionUpdate: 'tool_call_update',
           toolCallId: callId,
           status: 'completed',
-          content: content ? [content] : [],
+          content: [content],
         });
-        if (Array.isArray(result.llmContent)) {
-          const fileContentRegex = /^--- (.*?) ---\n\n([\s\S]*?)\n\n$/;
+
+        if (result.files.length > 0) {
           processedQueryParts.push({
             text: `\n${REFERENCE_CONTENT_START}`,
           });
-          for (const part of result.llmContent) {
-            if (typeof part === 'string') {
-              const match = fileContentRegex.exec(part);
-              if (match) {
-                const filePathSpecInContent = match[1]; // This is a resolved pathSpec
-                const fileActualContent = match[2].trim();
-                processedQueryParts.push({
-                  text: `\nContent from @${filePathSpecInContent}:\n`,
-                });
-                processedQueryParts.push({ text: fileActualContent });
-              } else {
-                processedQueryParts.push({ text: part });
-              }
-            } else {
-              // part is a Part object.
-              processedQueryParts.push(part);
-            }
+          for (const file of result.files) {
+            processedQueryParts.push({
+              text: `\nContent from @${file.relativePath}:\n`,
+            });
+            processedQueryParts.push({ text: file.content });
           }
         } else {
           debugLogger.warn(
-            'read_many_files tool returned no content or empty content.',
+            'read_many_files returned no content or empty content.',
           );
         }
       } catch (error: unknown) {

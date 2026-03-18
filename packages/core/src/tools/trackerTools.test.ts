@@ -229,9 +229,21 @@ describe('Tracker Tools Integration', () => {
       const display = await buildTodosReturnDisplay(mockService);
 
       expect(display.todos).toEqual([
-        { description: `task: T3 (t3)`, status: 'in_progress' },
-        { description: `task: T2 (t2)`, status: 'pending' },
-        { description: `task: T1 (t1)`, status: 'completed' },
+        {
+          content: `task: T3 (t3)`,
+          status: 'in_progress',
+          activeForm: 'Processing T3',
+        },
+        {
+          content: `task: T2 (t2)`,
+          status: 'pending',
+          activeForm: 'Processing T2',
+        },
+        {
+          content: `task: T1 (t1)`,
+          status: 'completed',
+          activeForm: 'Processing T1',
+        },
       ]);
     });
 
@@ -255,12 +267,14 @@ describe('Tracker Tools Integration', () => {
 
       expect(display.todos).toEqual([
         {
-          description: `task: Parent (p1)`,
+          content: `task: Parent (p1)`,
           status: 'pending',
+          activeForm: 'Processing Parent',
         },
         {
-          description: `  [CYCLE DETECTED: p1]`,
+          content: `  [CYCLE DETECTED: p1]`,
           status: 'cancelled',
+          activeForm: 'Processing task',
         },
       ]);
     });

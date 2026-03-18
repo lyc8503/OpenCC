@@ -16,9 +16,17 @@ describe('WriteTodosTool', () => {
     it('should not throw for valid parameters', async () => {
       const params: WriteTodosToolParams = {
         todos: [
-          { description: 'Task 1', status: 'pending' },
-          { description: 'Task 2', status: 'in_progress' },
-          { description: 'Task 3', status: 'completed' },
+          { content: 'Task 1', status: 'pending', activeForm: 'Doing task 1' },
+          {
+            content: 'Task 2',
+            status: 'in_progress',
+            activeForm: 'Doing task 2',
+          },
+          {
+            content: 'Task 3',
+            status: 'completed',
+            activeForm: 'Doing task 3',
+          },
         ],
       };
       await expect(tool.buildAndExecute(params, signal)).resolves.toBeDefined();
@@ -49,18 +57,24 @@ describe('WriteTodosTool', () => {
       );
     });
 
-    it('should throw an error if a todo description is missing or empty', async () => {
+    it('should throw an error if a todo content is missing or empty', async () => {
       const params: WriteTodosToolParams = {
-        todos: [{ description: '  ', status: 'pending' }],
+        todos: [{ content: '  ', status: 'pending', activeForm: 'Doing task' }],
       };
       await expect(tool.buildAndExecute(params, signal)).rejects.toThrow(
-        'Each todo must have a non-empty description string',
+        'Each todo must have a non-empty content string',
       );
     });
 
     it('should throw an error if a todo status is invalid', async () => {
       const params = {
-        todos: [{ description: 'Task 1', status: 'invalid-status' }],
+        todos: [
+          {
+            content: 'Task 1',
+            status: 'invalid-status',
+            activeForm: 'Doing task 1',
+          },
+        ],
       } as unknown as WriteTodosToolParams;
       await expect(tool.buildAndExecute(params, signal)).rejects.toThrow(
         'params/todos/0/status must be equal to one of the allowed values',
@@ -70,8 +84,16 @@ describe('WriteTodosTool', () => {
     it('should throw an error if more than one task is in_progress', async () => {
       const params: WriteTodosToolParams = {
         todos: [
-          { description: 'Task 1', status: 'in_progress' },
-          { description: 'Task 2', status: 'in_progress' },
+          {
+            content: 'Task 1',
+            status: 'in_progress',
+            activeForm: 'Doing task 1',
+          },
+          {
+            content: 'Task 2',
+            status: 'in_progress',
+            activeForm: 'Doing task 2',
+          },
         ],
       };
       await expect(tool.buildAndExecute(params, signal)).rejects.toThrow(
@@ -93,9 +115,21 @@ describe('WriteTodosTool', () => {
     it('should return a formatted todo list on success', async () => {
       const params: WriteTodosToolParams = {
         todos: [
-          { description: 'First task', status: 'completed' },
-          { description: 'Second task', status: 'in_progress' },
-          { description: 'Third task', status: 'pending' },
+          {
+            content: 'First task',
+            status: 'completed',
+            activeForm: 'Doing first task',
+          },
+          {
+            content: 'Second task',
+            status: 'in_progress',
+            activeForm: 'Doing second task',
+          },
+          {
+            content: 'Third task',
+            status: 'pending',
+            activeForm: 'Doing third task',
+          },
         ],
       };
       const result = await tool.buildAndExecute(params, signal);

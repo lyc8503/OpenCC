@@ -20,7 +20,7 @@ import { debugLogger } from './debugLogger.js';
 import type { SandboxManager } from '../services/sandboxManager.js';
 import { NoopSandboxManager } from '../services/sandboxManager.js';
 
-export const SHELL_TOOL_NAMES = ['run_shell_command', 'ShellTool'];
+export const SHELL_TOOL_NAMES = ['Bash', 'ShellTool'];
 
 /**
  * An identifier for the shell type.
