@@ -12,7 +12,6 @@ import {
   loadApiKey,
   debugLogger,
   isAccountSuspendedError,
-  ProjectIdRequiredError,
 } from '@google/gemini-cli-core';
 import { getErrorMessage } from '@google/gemini-cli-core';
 import { AuthState } from '../types.js';
@@ -29,8 +28,8 @@ export function validateAuthMethodWithSettings(
   if (settings.merged.security.auth.useExternal) {
     return null;
   }
-  // If using Gemini API key, we don't validate it here as we might need to prompt for it.
-  if (authType === AuthType.USE_GEMINI) {
+  // If using API key, we don't validate it here as we might need to prompt for it.
+  if (authType === AuthType.USE_API_KEY) {
     return null;
   }
   return validateAuthMethod(authType);
@@ -93,9 +92,9 @@ export const useAuthCommand = (
 
       const authType = settings.merged.security.auth.selectedType;
       if (!authType) {
-        if (process.env['GEMINI_API_KEY']) {
+        if (process.env['OPENAI_API_KEY'] || process.env['GEMINI_API_KEY']) {
           onAuthError(
-            'Existing API key detected (GEMINI_API_KEY). Select "Gemini API Key" option to use it.',
+            'Existing API key detected. Select "Use API Key" option to use it.',
           );
         } else {
           onAuthError('No authentication method selected.');
@@ -103,7 +102,7 @@ export const useAuthCommand = (
         return;
       }
 
-      if (authType === AuthType.USE_GEMINI) {
+      if (authType === AuthType.USE_API_KEY) {
         const key = await reloadApiKey(); // Use the unified function
         if (!key) {
           setAuthState(AuthState.AwaitingApiKeyInput);
@@ -144,10 +143,6 @@ export const useAuthCommand = (
             appealUrl: suspendedError.appealUrl,
             appealLinkText: suspendedError.appealLinkText,
           });
-        } else if (e instanceof ProjectIdRequiredError) {
-          // OAuth succeeded but account setup requires project ID
-          // Show the error message directly without "Failed to login" prefix
-          onAuthError(getErrorMessage(e));
         } else {
           onAuthError(`Failed to sign in. Message: ${getErrorMessage(e)}`);
         }

@@ -67,10 +67,7 @@ export function handleError(
   config: Config,
   customErrorCode?: string | number,
 ): never {
-  const errorMessage = parseAndFormatApiError(
-    error,
-    config.getContentGeneratorConfig()?.authType,
-  );
+  const errorMessage = parseAndFormatApiError(error);
 
   if (config.getOutputFormat() === OutputFormat.STREAM_JSON) {
     const streamFormatter = new StreamJsonFormatter();

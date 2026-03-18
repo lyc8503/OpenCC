@@ -14,9 +14,7 @@ import {
 import { delay, createAbortError } from './delay.js';
 import { debugLogger } from './debugLogger.js';
 import { getErrorStatus, ModelNotFoundError } from './httpErrors.js';
-import type { RetryAvailabilityContext } from '../availability/modelPolicy.js';
 
-export type { RetryAvailabilityContext };
 export const DEFAULT_MAX_ATTEMPTS = 10;
 
 export interface RetryOptions {
@@ -35,7 +33,6 @@ export interface RetryOptions {
   authType?: string;
   retryFetchErrors?: boolean;
   signal?: AbortSignal;
-  getAvailabilityContext?: () => RetryAvailabilityContext | undefined;
   onRetry?: (attempt: number, error: unknown, delayMs: number) => void;
 }
 
@@ -222,7 +219,6 @@ export async function retryWithBackoff<T>(
     shouldRetryOnContent,
     retryFetchErrors,
     signal,
-    getAvailabilityContext,
     onRetry,
   } = {
     ...DEFAULT_RETRY_OPTIONS,
@@ -254,11 +250,6 @@ export async function retryWithBackoff<T>(
         await delay(delayWithJitter, signal);
         currentDelay = Math.min(maxDelayMs, currentDelay * 2);
         continue;
-      }
-
-      const successContext = getAvailabilityContext?.();
-      if (successContext) {
-        successContext.service.markHealthy(successContext.policy.model);
       }
 
       return result;

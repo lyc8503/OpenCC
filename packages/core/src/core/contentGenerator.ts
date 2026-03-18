@@ -1,34 +1,50 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  GoogleGenAI,
-  type CountTokensResponse,
-  type GenerateContentResponse,
-  type GenerateContentParameters,
-  type CountTokensParameters,
-  type EmbedContentResponse,
-  type EmbedContentParameters,
-} from '@google/genai';
-import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
+/**
+ * Content Generator module.
+ * Provides OpenAI API compatible content generation with Gemini API compatibility.
+ */
+
 import type { Config } from '../config/config.js';
 import { loadApiKey } from './apiKeyCredentialStorage.js';
-
-import type { UserTierId, GeminiUserTier } from '../code_assist/types.js';
 import { LoggingContentGenerator } from './loggingContentGenerator.js';
-import { InstallationManager } from '../utils/installationManager.js';
 import { FakeContentGenerator } from './fakeContentGenerator.js';
 import { parseCustomHeaders } from '../utils/customHeaderUtils.js';
 import { determineSurface } from '../utils/surface.js';
 import { RecordingContentGenerator } from './recordingContentGenerator.js';
-import { getVersion, resolveModel } from '../../index.js';
+import { getVersion } from '../utils/version.js';
 import type { LlmRole } from '../telemetry/llmRole.js';
+import {
+  OpenAIContentGenerator,
+  type OpenAIStreamChunk,
+} from './openaiClient.js';
+import {
+  convertGeminiToOpenAI,
+  convertOpenAIToGemini,
+  convertStreamChunkToGemini,
+} from './geminiOpenAIConverter.js';
+import { resolveModel, DEFAULT_MODEL } from '../config/openaiModels.js';
+import type {
+  GenerateContentParameters,
+  GenerateContentResponse,
+} from '@google/genai';
 
 /**
- * Interface abstracting the core functionalities for generating content and counting tokens.
+ * Re-export types for consumers.
+ */
+export type {
+  OpenAIChatParams,
+  OpenAIChatResponse,
+  OpenAIStreamChunk,
+} from './openaiClient.js';
+
+/**
+ * Interface abstracting the core functionalities for generating content.
+ * Uses Gemini-compatible types for backward compatibility.
  */
 export interface ContentGenerator {
   generateContent(
@@ -43,237 +59,217 @@ export interface ContentGenerator {
     role: LlmRole,
   ): Promise<AsyncGenerator<GenerateContentResponse>>;
 
-  countTokens(request: CountTokensParameters): Promise<CountTokensResponse>;
+  countTokens?(
+    request: import('@google/genai').CountTokensParameters,
+  ): Promise<import('@google/genai').CountTokensResponse>;
 
-  embedContent(request: EmbedContentParameters): Promise<EmbedContentResponse>;
-
-  userTier?: UserTierId;
-
-  userTierName?: string;
-
-  paidTier?: GeminiUserTier;
-}
-
-export enum AuthType {
-  LOGIN_WITH_GOOGLE = 'oauth-personal',
-  USE_GEMINI = 'gemini-api-key',
-  USE_VERTEX_AI = 'vertex-ai',
-  LEGACY_CLOUD_SHELL = 'cloud-shell',
-  COMPUTE_ADC = 'compute-default-credentials',
-  GATEWAY = 'gateway',
+  embedContent?(
+    request: import('@google/genai').EmbedContentParameters,
+  ): Promise<import('@google/genai').EmbedContentResponse>;
 }
 
 /**
- * Detects the best authentication type based on environment variables.
- *
- * Checks in order:
- * 1. GOOGLE_GENAI_USE_GCA=true -> LOGIN_WITH_GOOGLE
- * 2. GOOGLE_GENAI_USE_VERTEXAI=true -> USE_VERTEX_AI
- * 3. GEMINI_API_KEY -> USE_GEMINI
+ * Authentication types - simplified to API key based auth.
+ */
+export enum AuthType {
+  USE_API_KEY = 'api-key',
+}
+
+/**
+ * Detects the authentication type from environment variables.
  */
 export function getAuthTypeFromEnv(): AuthType | undefined {
-  if (process.env['GOOGLE_GENAI_USE_GCA'] === 'true') {
-    return AuthType.LOGIN_WITH_GOOGLE;
+  if (process.env['OPENAI_API_KEY']) {
+    return AuthType.USE_API_KEY;
   }
-  if (process.env['GOOGLE_GENAI_USE_VERTEXAI'] === 'true') {
-    return AuthType.USE_VERTEX_AI;
-  }
+  // Also support legacy GEMINI_API_KEY for backward compatibility
   if (process.env['GEMINI_API_KEY']) {
-    return AuthType.USE_GEMINI;
-  }
-  if (
-    process.env['CLOUD_SHELL'] === 'true' ||
-    process.env['GEMINI_CLI_USE_COMPUTE_ADC'] === 'true'
-  ) {
-    return AuthType.COMPUTE_ADC;
+    return AuthType.USE_API_KEY;
   }
   return undefined;
 }
 
+/**
+ * Configuration for content generator.
+ */
 export type ContentGeneratorConfig = {
   apiKey?: string;
-  vertexai?: boolean;
+  baseUrl?: string;
   authType?: AuthType;
   proxy?: string;
-  baseUrl?: string;
   customHeaders?: Record<string, string>;
+  organization?: string;
 };
 
+/**
+ * Creates the content generator configuration.
+ */
 export async function createContentGeneratorConfig(
   config: Config,
-  authType: AuthType | undefined,
+  _authType: AuthType | undefined,
   apiKey?: string,
   baseUrl?: string,
   customHeaders?: Record<string, string>,
 ): Promise<ContentGeneratorConfig> {
-  const geminiApiKey =
+  const resolvedApiKey =
     apiKey ||
+    process.env['OPENAI_API_KEY'] ||
     process.env['GEMINI_API_KEY'] ||
     (await loadApiKey()) ||
     undefined;
-  const googleApiKey = process.env['GOOGLE_API_KEY'] || undefined;
-  const googleCloudProject =
-    process.env['GOOGLE_CLOUD_PROJECT'] ||
-    process.env['GOOGLE_CLOUD_PROJECT_ID'] ||
+
+  const resolvedBaseUrl =
+    baseUrl ||
+    process.env['OPENAI_BASE_URL'] ||
+    process.env['GEMINI_BASE_URL'] ||
     undefined;
-  const googleCloudLocation = process.env['GOOGLE_CLOUD_LOCATION'] || undefined;
 
-  const contentGeneratorConfig: ContentGeneratorConfig = {
-    authType,
+  return {
+    apiKey: resolvedApiKey,
+    baseUrl: resolvedBaseUrl,
+    authType: AuthType.USE_API_KEY,
     proxy: config?.getProxy(),
-    baseUrl,
     customHeaders,
+    organization: process.env['OPENAI_ORG_ID'],
   };
-
-  // If we are using Google auth or we are in Cloud Shell, there is nothing else to validate for now
-  if (
-    authType === AuthType.LOGIN_WITH_GOOGLE ||
-    authType === AuthType.COMPUTE_ADC
-  ) {
-    return contentGeneratorConfig;
-  }
-
-  if (authType === AuthType.USE_GEMINI && geminiApiKey) {
-    contentGeneratorConfig.apiKey = geminiApiKey;
-    contentGeneratorConfig.vertexai = false;
-
-    return contentGeneratorConfig;
-  }
-
-  if (
-    authType === AuthType.USE_VERTEX_AI &&
-    (googleApiKey || (googleCloudProject && googleCloudLocation))
-  ) {
-    contentGeneratorConfig.apiKey = googleApiKey;
-    contentGeneratorConfig.vertexai = true;
-
-    return contentGeneratorConfig;
-  }
-
-  return contentGeneratorConfig;
 }
 
+/**
+ * Wrapper that converts between Gemini and OpenAI formats.
+ */
+class OpenAIWrapper implements ContentGenerator {
+  private generator: OpenAIContentGenerator;
+
+  constructor(generator: OpenAIContentGenerator) {
+    this.generator = generator;
+  }
+
+  async generateContent(
+    request: GenerateContentParameters,
+    userPromptId: string,
+    role: LlmRole,
+  ): Promise<GenerateContentResponse> {
+    const openaiParams = convertGeminiToOpenAI(request);
+    const response = await this.generator.generateContent(
+      openaiParams,
+      userPromptId,
+      role,
+    );
+    return convertOpenAIToGemini(response);
+  }
+
+  async generateContentStream(
+    request: GenerateContentParameters,
+    userPromptId: string,
+    role: LlmRole,
+  ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    const openaiParams = convertGeminiToOpenAI(request);
+    const stream = await this.generator.generateContentStream(
+      openaiParams,
+      userPromptId,
+      role,
+    );
+    // Return an async generator that wraps the stream
+    return this._wrapStream(stream);
+  }
+
+  private async *_wrapStream(
+    stream: AsyncGenerator<OpenAIStreamChunk>,
+  ): AsyncGenerator<GenerateContentResponse> {
+    for await (const chunk of stream) {
+      yield convertStreamChunkToGemini(chunk);
+    }
+  }
+
+  async countTokens(
+    request: import('@google/genai').CountTokensParameters,
+  ): Promise<import('@google/genai').CountTokensResponse> {
+    // Convert contents to OpenAI format for token counting
+    const contents = Array.isArray(request.contents)
+      ? request.contents
+      : [request.contents];
+    const messages = contents.flatMap((content) => {
+      if (typeof content === 'string') return [];
+      if (!('parts' in content)) return [];
+      return (content.parts || []).map(
+        (part: import('@google/genai').Part) => ({
+          role: (content.role || 'user') as 'system' | 'user' | 'assistant',
+          content: part.text || '',
+        }),
+      );
+    });
+    const result = await this.generator.countTokens(messages, request.model);
+    return {
+      totalTokens: result.prompt_tokens,
+    };
+  }
+}
+
+/**
+ * Creates a content generator instance.
+ */
 export async function createContentGenerator(
   config: ContentGeneratorConfig,
   gcConfig: Config,
-  sessionId?: string,
+  _sessionId?: string,
 ): Promise<ContentGenerator> {
-  const generator = await (async () => {
-    if (gcConfig.fakeResponses) {
-      const fakeGenerator = await FakeContentGenerator.fromFile(
-        gcConfig.fakeResponses,
-      );
-      return new LoggingContentGenerator(fakeGenerator, gcConfig);
-    }
-    const version = await getVersion();
-    const model = resolveModel(
-      gcConfig.getModel(),
-      config.authType === AuthType.USE_GEMINI ||
-        config.authType === AuthType.USE_VERTEX_AI ||
-        ((await gcConfig.getGemini31Launched?.()) ?? false),
+  // Handle fake responses for testing
+  if (gcConfig.fakeResponses) {
+    const fakeGenerator = await FakeContentGenerator.fromFile(
+      gcConfig.fakeResponses,
     );
-    const customHeadersEnv =
-      process.env['GEMINI_CLI_CUSTOM_HEADERS'] || undefined;
-    const clientName = gcConfig.getClientName();
-    const userAgentPrefix = clientName
-      ? `GeminiCLI-${clientName}`
-      : 'GeminiCLI';
-    const surface = determineSurface();
-    const userAgent = `${userAgentPrefix}/${version}/${model} (${process.platform}; ${process.arch}; ${surface})`;
-    const customHeadersMap = parseCustomHeaders(customHeadersEnv);
-    const apiKeyAuthMechanism =
-      process.env['GEMINI_API_KEY_AUTH_MECHANISM'] || 'x-goog-api-key';
-    const apiVersionEnv = process.env['GOOGLE_GENAI_API_VERSION'];
-
-    const baseHeaders: Record<string, string> = {
-      ...customHeadersMap,
-      'User-Agent': userAgent,
-    };
-
-    if (
-      apiKeyAuthMechanism === 'bearer' &&
-      (config.authType === AuthType.USE_GEMINI ||
-        config.authType === AuthType.USE_VERTEX_AI) &&
-      config.apiKey
-    ) {
-      baseHeaders['Authorization'] = `Bearer ${config.apiKey}`;
-    }
-    if (
-      config.authType === AuthType.LOGIN_WITH_GOOGLE ||
-      config.authType === AuthType.COMPUTE_ADC
-    ) {
-      const httpOptions = { headers: baseHeaders };
-      return new LoggingContentGenerator(
-        await createCodeAssistContentGenerator(
-          httpOptions,
-          config.authType,
-          gcConfig,
-          sessionId,
-        ),
-        gcConfig,
-      );
-    }
-
-    if (
-      config.authType === AuthType.USE_GEMINI ||
-      config.authType === AuthType.USE_VERTEX_AI ||
-      config.authType === AuthType.GATEWAY
-    ) {
-      let headers: Record<string, string> = { ...baseHeaders };
-      if (config.customHeaders) {
-        headers = { ...headers, ...config.customHeaders };
-      }
-      if (gcConfig?.getUsageStatisticsEnabled()) {
-        const installationManager = new InstallationManager();
-        const installationId = installationManager.getInstallationId();
-        headers = {
-          ...headers,
-          'x-gemini-api-privileged-user-id': `${installationId}`,
-        };
-      }
-      let baseUrl = config.baseUrl;
-      if (!baseUrl) {
-        const envBaseUrl = config.vertexai
-          ? process.env['GOOGLE_VERTEX_BASE_URL']
-          : process.env['GOOGLE_GEMINI_BASE_URL'];
-        if (envBaseUrl) {
-          validateBaseUrl(envBaseUrl);
-          baseUrl = envBaseUrl;
-        }
-      } else {
-        validateBaseUrl(baseUrl);
-      }
-      const httpOptions: {
-        baseUrl?: string;
-        headers: Record<string, string>;
-      } = { headers };
-
-      if (baseUrl) {
-        httpOptions.baseUrl = baseUrl;
-      }
-
-      const googleGenAI = new GoogleGenAI({
-        apiKey: config.apiKey === '' ? undefined : config.apiKey,
-        vertexai: config.vertexai,
-        httpOptions,
-        ...(apiVersionEnv && { apiVersion: apiVersionEnv }),
-      });
-      return new LoggingContentGenerator(googleGenAI.models, gcConfig);
-    }
-    throw new Error(
-      `Error creating contentGenerator: Unsupported authType: ${config.authType}`,
-    );
-  })();
-
-  if (gcConfig.recordResponses) {
-    return new RecordingContentGenerator(generator, gcConfig.recordResponses);
+    return new LoggingContentGenerator(fakeGenerator, gcConfig);
   }
 
-  return generator;
+  const version = await getVersion();
+  const model = resolveModel(gcConfig.getModel() || DEFAULT_MODEL);
+  const customHeadersEnv =
+    process.env['CLI_CUSTOM_HEADERS'] ||
+    process.env['GEMINI_CLI_CUSTOM_HEADERS'] ||
+    undefined;
+  const clientName = gcConfig.getClientName();
+  const userAgentPrefix = clientName ? `CLI-${clientName}` : 'OpenCLI';
+  const surface = determineSurface();
+  const userAgent = `${userAgentPrefix}/${version}/${model} (${process.platform}; ${process.arch}; ${surface})`;
+  const customHeadersMap = parseCustomHeaders(customHeadersEnv);
+
+  const baseHeaders: Record<string, string> = {
+    ...customHeadersMap,
+    'User-Agent': userAgent,
+  };
+
+  if (config.customHeaders) {
+    Object.assign(baseHeaders, config.customHeaders);
+  }
+
+  const openaiGenerator = new OpenAIContentGenerator(
+    {
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
+      organization: config.organization,
+      defaultHeaders: baseHeaders,
+    },
+    model,
+  );
+
+  const generator = new OpenAIWrapper(openaiGenerator);
+  const loggingGenerator = new LoggingContentGenerator(generator, gcConfig);
+
+  if (gcConfig.recordResponses) {
+    return new RecordingContentGenerator(
+      loggingGenerator,
+      gcConfig.recordResponses,
+    );
+  }
+
+  return loggingGenerator;
 }
 
 const LOCAL_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]'];
 
+/**
+ * Validates a base URL.
+ */
 export function validateBaseUrl(baseUrl: string): void {
   let url: URL;
   try {

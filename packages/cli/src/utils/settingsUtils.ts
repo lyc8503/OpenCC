@@ -12,7 +12,7 @@ import {
   type SettingsType,
   type SettingsValue,
 } from '../config/settingsSchema.js';
-import { ExperimentFlags, type Config } from '@google/gemini-cli-core';
+import type { Config } from '@google/gemini-cli-core';
 
 // The schema is now nested, but many parts of the UI and logic work better
 // with a flattened structure and dot-notation keys. This section flattens the
@@ -82,24 +82,12 @@ export function getDefaultValue(key: string): SettingsValue {
 }
 
 /**
- * Get the effective default value for a setting, checking experiment values when available.
- * For settings like Context Compression Threshold, this will return the experiment value if set,
- * otherwise falls back to the schema default.
+ * Get the effective default value for a setting.
  */
 export function getEffectiveDefaultValue(
   key: string,
-  config?: Config,
+  _config?: Config,
 ): SettingsValue {
-  if (key === 'model.compressionThreshold' && config) {
-    const experiments = config.getExperiments();
-    const experimentValue =
-      experiments?.flags[ExperimentFlags.CONTEXT_COMPRESSION_THRESHOLD]
-        ?.floatValue;
-    if (experimentValue !== undefined && experimentValue !== 0) {
-      return experimentValue;
-    }
-  }
-
   return getDefaultValue(key);
 }
 

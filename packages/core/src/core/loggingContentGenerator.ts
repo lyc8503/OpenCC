@@ -25,18 +25,14 @@ import {
 } from '../telemetry/types.js';
 import type { LlmRole } from '../telemetry/llmRole.js';
 import type { Config } from '../config/config.js';
-import type { UserTierId, GeminiUserTier } from '../code_assist/types.js';
 import {
   logApiError,
   logApiRequest,
   logApiResponse,
 } from '../telemetry/loggers.js';
 import type { ContentGenerator } from './contentGenerator.js';
-import { CodeAssistServer } from '../code_assist/server.js';
-import { toContents } from '../code_assist/converter.js';
 import { isStructuredError } from '../utils/quotaErrorDetection.js';
 import { runInDevTraceSpan, type SpanMetadata } from '../telemetry/trace.js';
-import { debugLogger } from '../utils/debugLogger.js';
 import { isAbortError, getErrorType } from '../utils/errors.js';
 import {
   GeminiCliOperation,
@@ -50,6 +46,7 @@ import {
 import { safeJsonStringify } from '../utils/safeJsonStringify.js';
 import { isMcpToolName } from '../tools/mcp-tool.js';
 import { estimateTokenCountSync } from '../utils/tokenCalculation.js';
+import { normalizeContents } from '../utils/generateContentResponseUtilities.js';
 
 interface StructuredError {
   status: number;
@@ -156,18 +153,6 @@ export class LoggingContentGenerator implements ContentGenerator {
     return this.wrapped;
   }
 
-  get userTier(): UserTierId | undefined {
-    return this.wrapped.userTier;
-  }
-
-  get userTierName(): string | undefined {
-    return this.wrapped.userTierName;
-  }
-
-  get paidTier(): GeminiUserTier | undefined {
-    return this.wrapped.paidTier;
-  }
-
   private logApiRequest(
     contents: Content[],
     model: string,
@@ -194,36 +179,29 @@ export class LoggingContentGenerator implements ContentGenerator {
   }
 
   private _getEndpointUrl(
-    req: GenerateContentParameters,
-    method: 'generateContent' | 'generateContentStream',
+    _req: GenerateContentParameters,
+    _method: 'generateContent' | 'generateContentStream',
   ): ServerDetails {
-    // Case 1: Authenticated with a Google account (`gcloud auth login`).
-    // Requests are routed through the internal CodeAssistServer.
-    if (this.wrapped instanceof CodeAssistServer) {
-      const url = new URL(this.wrapped.getMethodUrl(method));
-      const port = url.port
-        ? parseInt(url.port, 10)
-        : url.protocol === 'https:'
-          ? 443
-          : 80;
-      return { address: url.hostname, port };
-    }
-
     const genConfig = this.config.getContentGeneratorConfig();
+    const baseUrl = genConfig?.baseUrl;
 
-    // Case 2: Using an API key for Vertex AI.
-    if (genConfig?.vertexai) {
-      const location = process.env['GOOGLE_CLOUD_LOCATION'];
-      if (location) {
-        return { address: `${location}-aiplatform.googleapis.com`, port: 443 };
-      } else {
-        return { address: 'unknown', port: 0 };
+    // If a custom base URL is configured, parse it
+    if (baseUrl) {
+      try {
+        const url = new URL(baseUrl);
+        const port = url.port
+          ? parseInt(url.port, 10)
+          : url.protocol === 'https:'
+            ? 443
+            : 80;
+        return { address: url.hostname, port };
+      } catch {
+        // Invalid URL, fall through to defaults
       }
     }
 
-    // Case 3: Default to the public Gemini API endpoint.
-    // This is used when an API key is provided but not for Vertex AI.
-    return { address: `generativelanguage.googleapis.com`, port: 443 };
+    // Default endpoint for OpenAI-compatible APIs
+    return { address: 'api.openai.com', port: 443 };
   }
 
   private _logApiResponse(
@@ -362,7 +340,7 @@ export class LoggingContentGenerator implements ContentGenerator {
         spanMetadata.input = req.contents;
 
         const startTime = Date.now();
-        const contents: Content[] = toContents(req.contents);
+        const contents: Content[] = normalizeContents(req.contents);
         const serverDetails = this._getEndpointUrl(req, 'generateContent');
         this.logApiRequest(
           contents,
@@ -404,9 +382,6 @@ export class LoggingContentGenerator implements ContentGenerator {
             req.config,
             serverDetails,
           );
-          this.config
-            .refreshUserQuotaIfStale()
-            .catch((e) => debugLogger.debug('quota refresh failed', e));
           return response;
         } catch (error) {
           spanMetadata.error = error;
@@ -457,14 +432,8 @@ export class LoggingContentGenerator implements ContentGenerator {
           'generateContentStream',
         );
 
-        // For debugging: Capture the latest main agent request payload.
-        // Main agent prompt IDs end with exactly 8 hashes and a turn counter (e.g. "...########1")
-        if (/########\d+$/.test(userPromptId)) {
-          this.config.setLatestApiRequest(req);
-        }
-
         this.logApiRequest(
-          toContents(req.contents),
+          normalizeContents(req.contents),
           req.model,
           userPromptId,
           role,
@@ -489,7 +458,7 @@ export class LoggingContentGenerator implements ContentGenerator {
             error,
             req.model,
             userPromptId,
-            toContents(req.contents),
+            normalizeContents(req.contents),
             role,
             req.config,
             serverDetails,
@@ -523,7 +492,7 @@ export class LoggingContentGenerator implements ContentGenerator {
 
     let lastUsageMetadata: GenerateContentResponseUsageMetadata | undefined;
     const serverDetails = this._getEndpointUrl(req, 'generateContentStream');
-    const requestContents: Content[] = toContents(req.contents);
+    const requestContents: Content[] = normalizeContents(req.contents);
     try {
       for await (const response of stream) {
         responses.push(response);
@@ -555,9 +524,6 @@ export class LoggingContentGenerator implements ContentGenerator {
         req.config,
         serverDetails,
       );
-      this.config
-        .refreshUserQuotaIfStale()
-        .catch((e) => debugLogger.debug('quota refresh failed', e));
       spanMetadata.output = responses.map(
         (response) => response.candidates?.[0]?.content ?? null,
       );
@@ -587,12 +553,18 @@ export class LoggingContentGenerator implements ContentGenerator {
   }
 
   async countTokens(req: CountTokensParameters): Promise<CountTokensResponse> {
+    if (!this.wrapped.countTokens) {
+      throw new Error('countTokens is not supported');
+    }
     return this.wrapped.countTokens(req);
   }
 
   async embedContent(
     req: EmbedContentParameters,
   ): Promise<EmbedContentResponse> {
+    if (!this.wrapped.embedContent) {
+      throw new Error('embedContent is not supported');
+    }
     return runInDevTraceSpan(
       {
         operation: GeminiCliOperation.LLMCall,
@@ -602,7 +574,7 @@ export class LoggingContentGenerator implements ContentGenerator {
       },
       async ({ metadata: spanMetadata }) => {
         spanMetadata.input = req.contents;
-        const output = await this.wrapped.embedContent(req);
+        const output = await this.wrapped.embedContent!(req);
         spanMetadata.output = output;
         return output;
       },

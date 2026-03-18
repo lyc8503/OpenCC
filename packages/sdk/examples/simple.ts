@@ -27,8 +27,10 @@ async function main() {
     tools: [myTool],
   });
 
+  const session = agent.session();
+
   console.log("Sending prompt: 'add 5 + 6'");
-  for await (const chunk of agent.sendStream(
+  for await (const chunk of session.sendStream(
     'add 5 + 6 and tell me a story involving the result',
   )) {
     console.log(JSON.stringify(chunk, null, 2));

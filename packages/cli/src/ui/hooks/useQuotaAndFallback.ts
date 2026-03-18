@@ -5,7 +5,6 @@
  */
 
 import {
-  AuthType,
   type Config,
   type FallbackModelHandler,
   type FallbackIntent,
@@ -13,12 +12,8 @@ import {
   type ValidationIntent,
   TerminalQuotaError,
   ModelNotFoundError,
-  type UserTierId,
-  VALID_GEMINI_MODELS,
-  isProModel,
-  isOverageEligibleModel,
-  getDisplayString,
-  type GeminiUserTier,
+  getModelDisplayName,
+  VALID_MODELS,
 } from '@google/gemini-cli-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type UseHistoryManagerReturn } from './useHistoryManager.js';
@@ -26,19 +21,12 @@ import { MessageType } from '../types.js';
 import {
   type ProQuotaDialogRequest,
   type ValidationDialogRequest,
-  type OverageMenuDialogRequest,
-  type OverageMenuIntent,
-  type EmptyWalletDialogRequest,
-  type EmptyWalletIntent,
 } from '../contexts/UIStateContext.js';
 import type { LoadedSettings } from '../../config/settings.js';
-import { handleCreditsFlow } from './creditsFlowHandler.js';
 
 interface UseQuotaAndFallbackArgs {
   config: Config;
   historyManager: UseHistoryManagerReturn;
-  userTier: UserTierId | undefined;
-  paidTier: GeminiUserTier | null | undefined;
   settings: LoadedSettings;
   setModelSwitchedFromQuotaError: (value: boolean) => void;
   onShowAuthSelection: () => void;
@@ -48,8 +36,6 @@ interface UseQuotaAndFallbackArgs {
 export function useQuotaAndFallback({
   config,
   historyManager,
-  userTier,
-  paidTier,
   settings,
   setModelSwitchedFromQuotaError,
   onShowAuthSelection,
@@ -59,11 +45,6 @@ export function useQuotaAndFallback({
     useState<ProQuotaDialogRequest | null>(null);
   const [validationRequest, setValidationRequest] =
     useState<ValidationDialogRequest | null>(null);
-  // G1 AI Credits dialog states
-  const [overageMenuRequest, setOverageMenuRequest] =
-    useState<OverageMenuDialogRequest | null>(null);
-  const [emptyWalletRequest, setEmptyWalletRequest] =
-    useState<EmptyWalletDialogRequest | null>(null);
   const isDialogPending = useRef(false);
   const isValidationPending = useRef(false);
 
@@ -79,48 +60,12 @@ export function useQuotaAndFallback({
       let message: string;
       let isTerminalQuotaError = false;
       let isModelNotFoundError = false;
-      const usageLimitReachedModel = isProModel(failedModel)
-        ? 'all Pro models'
-        : failedModel;
+      const usageLimitReachedModel = failedModel;
 
       if (error instanceof TerminalQuotaError) {
         isTerminalQuotaError = true;
 
-        const isInsufficientCredits = error.isInsufficientCredits;
-
-        // G1 Credits Flow: Only apply if user has a tier that supports credits
-        // (paidTier?.availableCredits indicates the user is a G1 subscriber)
-        // Skip if the error explicitly says they have insufficient credits (e.g. they
-        // just exhausted them or zero balance cache is delayed).
-        if (
-          !isInsufficientCredits &&
-          paidTier?.availableCredits &&
-          isOverageEligibleModel(failedModel)
-        ) {
-          const resetTime = error.retryDelayMs
-            ? getResetTimeMessage(error.retryDelayMs)
-            : undefined;
-
-          const overageStrategy = config.getBillingSettings().overageStrategy;
-
-          const creditsResult = await handleCreditsFlow({
-            config,
-            paidTier,
-            overageStrategy,
-            failedModel,
-            fallbackModel,
-            usageLimitReachedModel,
-            resetTime,
-            historyManager,
-            setModelSwitchedFromQuotaError,
-            isDialogPending,
-            setOverageMenuRequest,
-            setEmptyWalletRequest,
-          });
-          if (creditsResult) return creditsResult;
-        }
-
-        // Default: Show existing ProQuotaDialog (for overageStrategy: 'never' or non-G1 users)
+        // Default: Show existing ProQuotaDialog
         const messageLines = [
           `Usage limit reached for ${usageLimitReachedModel}.`,
           error.retryDelayMs
@@ -128,16 +73,13 @@ export function useQuotaAndFallback({
             : null,
           `/stats model for usage details`,
           `/model to switch models.`,
-          contentGeneratorConfig?.authType === AuthType.LOGIN_WITH_GOOGLE
-            ? `/auth to switch to API key.`
-            : null,
         ].filter(Boolean);
         message = messageLines.join('\n');
       } else if (error instanceof ModelNotFoundError) {
         isModelNotFoundError = true;
-        if (VALID_GEMINI_MODELS.has(failedModel)) {
+        if (VALID_MODELS.has(failedModel)) {
           const messageLines = [
-            `It seems like you don't have access to ${getDisplayString(failedModel)}.`,
+            `It seems like you don't have access to ${getModelDisplayName(failedModel)}.`,
             `Your admin might have disabled the access. Contact them to enable the Preview Release Channel.`,
           ];
           message = messageLines.join('\n');
@@ -168,7 +110,6 @@ export function useQuotaAndFallback({
       }
 
       setModelSwitchedFromQuotaError(true);
-      config.setQuotaErrorOccurred(true);
 
       if (isDialogPending.current) {
         return 'stop'; // A dialog is already active, so just stop this request.
@@ -196,8 +137,6 @@ export function useQuotaAndFallback({
   }, [
     config,
     historyManager,
-    userTier,
-    paidTier,
     settings,
     setModelSwitchedFromQuotaError,
     onShowAuthSelection,
@@ -246,7 +185,6 @@ export function useQuotaAndFallback({
       if (choice === 'retry_always' || choice === 'retry_once') {
         // Reset quota error flags to allow the agent loop to continue.
         setModelSwitchedFromQuotaError(false);
-        config.setQuotaErrorOccurred(false);
 
         if (choice === 'retry_always') {
           historyManager.addItem(
@@ -280,38 +218,11 @@ export function useQuotaAndFallback({
     [validationRequest, onShowAuthSelection],
   );
 
-  // Handler for overage menu dialog (G1 AI Credits flow)
-  const handleOverageMenuChoice = useCallback(
-    (choice: OverageMenuIntent) => {
-      if (!overageMenuRequest) return;
-
-      overageMenuRequest.resolve(choice);
-      // State will be cleared by the effect callback after the promise resolves
-    },
-    [overageMenuRequest],
-  );
-
-  // Handler for empty wallet dialog (G1 AI Credits flow)
-  const handleEmptyWalletChoice = useCallback(
-    (choice: EmptyWalletIntent) => {
-      if (!emptyWalletRequest) return;
-
-      emptyWalletRequest.resolve(choice);
-      // State will be cleared by the effect callback after the promise resolves
-    },
-    [emptyWalletRequest],
-  );
-
   return {
     proQuotaRequest,
     handleProQuotaChoice,
     validationRequest,
     handleValidationChoice,
-    // G1 AI Credits
-    overageMenuRequest,
-    handleOverageMenuChoice,
-    emptyWalletRequest,
-    handleEmptyWalletChoice,
   };
 }
 

@@ -12,13 +12,14 @@ import {
   type AuthType,
   type EditorType,
   type AgentDefinition,
+  type FallbackIntent,
+  type ValidationIntent,
 } from '@google/gemini-cli-core';
 import { type LoadableSettingScope } from '../../config/settings.js';
 import type { AuthState } from '../types.js';
 import { type PermissionsDialogProps } from '../components/PermissionsModifyTrustDialog.js';
 import type { SessionInfo } from '../../utils/sessionUtils.js';
 import { type NewAgentsChoice } from '../components/NewAgentsNotification.js';
-import type { OverageMenuIntent, EmptyWalletIntent } from './UIStateContext.js';
 
 export interface UIActions {
   handleThemeSelect: (
@@ -59,12 +60,8 @@ export interface UIActions {
   refreshStatic: () => void;
   handleFinalSubmit: (value: string) => Promise<void>;
   handleClearScreen: () => void;
-  handleProQuotaChoice: (
-    choice: 'retry_later' | 'retry_once' | 'retry_always' | 'upgrade',
-  ) => void;
-  handleValidationChoice: (choice: 'verify' | 'change_auth' | 'cancel') => void;
-  handleOverageMenuChoice: (choice: OverageMenuIntent) => void;
-  handleEmptyWalletChoice: (choice: EmptyWalletIntent) => void;
+  handleProQuotaChoice: (choice: FallbackIntent) => void;
+  handleValidationChoice: (choice: ValidationIntent) => void;
   openSessionBrowser: () => void;
   closeSessionBrowser: () => void;
   handleResumeSession: (session: SessionInfo) => Promise<void>;

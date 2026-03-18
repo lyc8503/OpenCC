@@ -17,7 +17,7 @@ import {
 } from '../types.js';
 import { disableSkill, enableSkill } from '../../utils/skillSettings.js';
 
-import { getAdminErrorMessage, getErrorMessage } from '@google/gemini-cli-core';
+import { getErrorMessage } from '@google/gemini-cli-core';
 import {
   linkSkill,
   renderSkillActionFeedback,
@@ -155,10 +155,7 @@ async function disableAction(
     context.ui.addItem(
       {
         type: MessageType.ERROR,
-        text: getAdminErrorMessage(
-          'Agent skills',
-          context.services.config ?? undefined,
-        ),
+        text: 'Agent skills are disabled by your administrator.',
       },
       Date.now(),
     );
@@ -216,10 +213,7 @@ async function enableAction(
     context.ui.addItem(
       {
         type: MessageType.ERROR,
-        text: getAdminErrorMessage(
-          'Agent skills',
-          context.services.config ?? undefined,
-        ),
+        text: 'Agent skills are disabled by your administrator.',
       },
       Date.now(),
     );

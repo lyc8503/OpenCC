@@ -27,7 +27,6 @@ import type {
 } from '../types.js';
 import { MessageType } from '../types.js';
 import { exportHistoryToFile } from '../utils/historyExportUtils.js';
-import { convertToRestPayload } from '@google/gemini-cli-core';
 
 const CHECKPOINT_MENU_GROUP = 'checkpoints';
 
@@ -343,38 +342,12 @@ export const debugCommand: SlashCommand = {
   description: 'Export the most recent API request as a JSON payload',
   kind: CommandKind.BUILT_IN,
   autoExecute: true,
-  action: async (context): Promise<MessageActionReturn> => {
-    const req = context.services.config?.getLatestApiRequest();
-    if (!req) {
-      return {
-        type: 'message',
-        messageType: 'error',
-        content: 'No recent API request found to export.',
-      };
-    }
-
-    const restPayload = convertToRestPayload(req);
-    const filename = `gcli-request-${Date.now()}.json`;
-    const filePath = path.join(process.cwd(), filename);
-
-    try {
-      await fsPromises.writeFile(
-        filePath,
-        JSON.stringify(restPayload, null, 2),
-      );
-      return {
-        type: 'message',
-        messageType: 'info',
-        content: `Debug API request saved to ${filename}`,
-      };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      return {
-        type: 'message',
-        messageType: 'error',
-        content: `Error saving debug request: ${errorMessage}`,
-      };
-    }
+  action: async (_context): Promise<MessageActionReturn> => {
+    return {
+      type: 'message',
+      messageType: 'error',
+      content: 'Debug API request export is not available in this version.',
+    };
   },
 };
 

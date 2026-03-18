@@ -18,7 +18,6 @@ import {
   Storage,
   coreEvents,
   homedir,
-  type AdminControlsSettings,
   createCache,
 } from '@google/gemini-cli-core';
 import stripJsonComments from 'strip-json-comments';
@@ -201,6 +200,29 @@ export interface SettingsFile {
   path: string;
   rawJson?: string;
   readOnly?: boolean;
+}
+
+/**
+ * Admin controls settings from remote configuration.
+ * This is a simplified version for local use when the core type is not available.
+ */
+export interface AdminControlsSettings {
+  strictModeDisabled?: boolean;
+  mcpSetting?: {
+    mcpEnabled?: boolean;
+    mcpConfig?: {
+      mcpServers?: Record<
+        string, // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        any
+      >;
+    };
+  };
+  cliFeatureSetting?: {
+    extensionsSetting?: {
+      extensionsEnabled?: boolean;
+    };
+    unmanagedCapabilitiesEnabled?: boolean;
+  };
 }
 
 function setNestedProperty(

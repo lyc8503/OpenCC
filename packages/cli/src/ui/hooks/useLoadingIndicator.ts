@@ -9,7 +9,7 @@ import { useTimer } from './useTimer.js';
 import { usePhraseCycler } from './usePhraseCycler.js';
 import { useState, useEffect, useRef } from 'react';
 import {
-  getDisplayString,
+  getModelDisplayName,
   type RetryAttemptPayload,
 } from '@google/gemini-cli-core';
 import type { LoadingPhrasesMode } from '../../config/settings.js';
@@ -78,7 +78,7 @@ export const useLoadingIndicator = ({
       ? retryStatus.attempt >= LOW_VERBOSITY_RETRY_HINT_ATTEMPT_THRESHOLD
         ? "This is taking a bit longer, we're still on it."
         : null
-      : `Trying to reach ${getDisplayString(retryStatus.model)} (Attempt ${retryStatus.attempt + 1}/${retryStatus.maxAttempts})`
+      : `Trying to reach ${getModelDisplayName(retryStatus.model)} (Attempt ${retryStatus.attempt + 1}/${retryStatus.maxAttempts})`
     : null;
 
   return {

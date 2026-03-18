@@ -16,7 +16,6 @@
  */
 
 import type { Config } from '../../config/config.js';
-import { AuthType } from '../../core/contentGenerator.js';
 import type { LocalAgentDefinition } from '../types.js';
 import type { MessageBus } from '../../confirmation-bus/message-bus.js';
 import type { AnyDeclarativeTool } from '../../tools/tools.js';
@@ -124,15 +123,8 @@ export async function createBrowserAgentDefinition(
         `The installed chrome-devtools-mcp version may be too old.`
       );
     }
-    const authType = config.getContentGeneratorConfig()?.authType;
-    const blockedAuthTypes = new Set([
-      AuthType.LOGIN_WITH_GOOGLE,
-      AuthType.LEGACY_CLOUD_SHELL,
-      AuthType.COMPUTE_ADC,
-    ]);
-    if (authType && blockedAuthTypes.has(authType)) {
-      return 'Visual agent model not available for current auth type.';
-    }
+    // With OpenAI-based auth, all auth types work
+    // Vision is always available with API key auth
     return undefined;
   }
 

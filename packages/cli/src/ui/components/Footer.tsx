@@ -10,7 +10,7 @@ import { theme } from '../semantic-colors.js';
 import {
   shortenPath,
   tildeifyPath,
-  getDisplayString,
+  getModelDisplayName,
   checkExhaustive,
 } from '@google/gemini-cli-core';
 import { ConsoleSummaryDisplay } from './ConsoleSummaryDisplay.js';
@@ -308,7 +308,7 @@ export const Footer: React.FC = () => {
         break;
       }
       case 'model-name': {
-        const str = getDisplayString(model);
+        const str = getModelDisplayName(model);
         addCol(
           id,
           header,

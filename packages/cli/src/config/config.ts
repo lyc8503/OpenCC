@@ -27,16 +27,12 @@ import {
   loadServerHierarchicalMemory,
   ASK_USER_TOOL_NAME,
   getVersion,
-  PREVIEW_GEMINI_MODEL_AUTO,
+  DEFAULT_MODEL,
   type HierarchicalMemory,
   coreEvents,
-  GEMINI_MODEL_ALIAS_AUTO,
-  getAdminErrorMessage,
   isHeadlessMode,
   Config,
   resolveToRealPath,
-  applyAdminAllowlist,
-  getAdminBlockedMcpServersMessage,
   type HookDefinition,
   type HookEventName,
   type OutputFormat,
@@ -583,7 +579,7 @@ export async function loadCliConfig(
         );
       }
       throw new FatalConfigError(
-        getAdminErrorMessage('YOLO mode', undefined /* config */),
+        'YOLO mode is disabled by administrator settings.',
       );
     }
   } else if (approvalMode === ApprovalMode.YOLO) {
@@ -668,14 +664,14 @@ export async function loadCliConfig(
   );
   policyEngineConfig.nonInteractive = !interactive;
 
-  const defaultModel = PREVIEW_GEMINI_MODEL_AUTO;
+  // Model selection: OPENAI_MODEL env var takes precedence, then CLI arg, then settings
   const specifiedModel =
-    argv.model || process.env['GEMINI_MODEL'] || settings.model?.name;
+    process.env['OPENAI_MODEL'] ||
+    argv.model ||
+    process.env['GEMINI_MODEL'] ||
+    settings.model?.name;
 
-  const resolvedModel =
-    specifiedModel === GEMINI_MODEL_ALIAS_AUTO
-      ? defaultModel
-      : specifiedModel || defaultModel;
+  const resolvedModel = specifiedModel || DEFAULT_MODEL;
   const sandboxConfig = await loadSandboxConfig(settings, argv);
   const screenReader =
     argv.screenReader !== undefined
@@ -698,18 +694,10 @@ export async function loadCliConfig(
   let mcpServerCommand = mcpEnabled ? settings.mcp?.serverCommand : undefined;
   let mcpServers = mcpEnabled ? settings.mcpServers : {};
 
+  // If admin allowlist is configured, use it as the MCP servers config
   if (mcpEnabled && adminAllowlist && Object.keys(adminAllowlist).length > 0) {
-    const result = applyAdminAllowlist(mcpServers, adminAllowlist);
-    mcpServers = result.mcpServers;
+    mcpServers = adminAllowlist;
     mcpServerCommand = undefined;
-
-    if (result.blockedServerNames && result.blockedServerNames.length > 0) {
-      const message = getAdminBlockedMcpServersMessage(
-        result.blockedServerNames,
-        undefined,
-      );
-      coreEvents.emitConsoleLog('warn', message);
-    }
   }
 
   const isAcpMode = !!argv.acp || !!argv.experimentalAcp;
@@ -845,7 +833,6 @@ export async function loadCliConfig(
     fakeResponses: argv.fakeResponses,
     recordResponses: argv.recordResponses,
     retryFetchErrors: settings.general?.retryFetchErrors,
-    billing: settings.billing,
     maxAttempts: settings.general?.maxAttempts,
     ptyInfo: ptyInfo?.name,
     disableLLMCorrection: settings.tools?.disableLLMCorrection,

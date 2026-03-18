@@ -30,10 +30,7 @@ import { getCoreSystemPrompt } from './prompts.js';
 import { checkNextSpeaker } from '../utils/nextSpeakerChecker.js';
 import { reportError } from '../utils/errorReporting.js';
 import { GeminiChat } from './geminiChat.js';
-import {
-  retryWithBackoff,
-  type RetryAvailabilityContext,
-} from '../utils/retry.js';
+import { retryWithBackoff } from '../utils/retry.js';
 import type { ValidationRequiredError } from '../utils/googleQuotaErrors.js';
 import { getErrorMessage, isAbortError } from '../utils/errors.js';
 import { tokenLimit } from './tokenLimits.js';
@@ -66,10 +63,7 @@ import { debugLogger } from '../utils/debugLogger.js';
 import type { ModelConfigKey } from '../services/modelConfigService.js';
 import { ToolOutputMaskingService } from '../services/toolOutputMaskingService.js';
 import { calculateRequestTokenCount } from '../utils/tokenCalculation.js';
-import {
-  applyModelSelection,
-  createAvailabilityContextProvider,
-} from '../availability/policyHelpers.js';
+import { applyModelSelection } from '../utils/modelSelection.js';
 import {
   getDisplayString,
   resolveModel,
@@ -820,10 +814,7 @@ export class GeminiClient {
     }
 
     if (!turn.pendingToolCalls.length && signal && !signal.aborted) {
-      if (
-        !this.config.getQuotaErrorOccurred() &&
-        !this.config.getSkipNextSpeakerCheck()
-      ) {
+      if (!this.config.getSkipNextSpeakerCheck()) {
         const nextSpeakerCheck = await checkNextSpeaker(
           this.getChat(),
           this.config.getBaseLlmClient(),
@@ -864,10 +855,6 @@ export class GeminiClient {
     displayContent?: PartListUnion,
     stopHookActive: boolean = false,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
-    if (!isInvalidStreamRetry) {
-      this.config.resetTurn();
-    }
-
     const hooksEnabled = this.config.getEnableHooks();
     const messageBus = this.context.messageBus;
 
@@ -1039,13 +1026,6 @@ export class GeminiClient {
         currentAttemptGenerateContentConfig = newConfig;
       }
 
-      // Define callback to refresh context based on currentAttemptModel which might be updated by fallback handler
-      const getAvailabilityContext: () => RetryAvailabilityContext | undefined =
-        createAvailabilityContextProvider(
-          this.config,
-          () => currentAttemptModel,
-        );
-
       let initialActiveModel = this.config.getActiveModel();
 
       const apiCall = () => {
@@ -1112,7 +1092,6 @@ export class GeminiClient {
         authType: this.config.getContentGeneratorConfig()?.authType,
         maxAttempts: availabilityMaxAttempts,
         retryFetchErrors: this.config.getRetryFetchErrors(),
-        getAvailabilityContext,
         onRetry: (attempt, error, delayMs) => {
           coreEvents.emitRetryAttempt({
             attempt,

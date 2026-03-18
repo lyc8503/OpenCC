@@ -9,6 +9,7 @@ import type {
   Part,
   FunctionCall,
   PartListUnion,
+  Content,
 } from '@google/genai';
 import { getResponseText } from './partUtils.js';
 import { supportsMultimodalFunctionResponse } from '../config/models.js';
@@ -32,7 +33,11 @@ function createFunctionResponsePart(
   };
 }
 
-function toParts(input: PartListUnion): Part[] {
+/**
+ * Converts PartListUnion to an array of Parts.
+ * This is a utility function for handling various part input formats.
+ */
+export function toParts(input: PartListUnion): Part[] {
   const parts: Part[] = [];
   for (const part of Array.isArray(input) ? input : [input]) {
     if (typeof part === 'string') {
@@ -42,6 +47,45 @@ function toParts(input: PartListUnion): Part[] {
     }
   }
   return parts;
+}
+
+/**
+ * Converts PartListUnion to Content array (user role).
+ * Used for converting message inputs to Gemini API format.
+ */
+export function toContents(input: PartListUnion): Content[] {
+  return [{ role: 'user', parts: toParts(input) }];
+}
+
+/**
+ * Normalizes ContentListUnion to Content array.
+ * Handles string, Content, and Content[] inputs.
+ */
+export function normalizeContents(
+  input: import('@google/genai').ContentListUnion,
+): Content[] {
+  if (typeof input === 'string') {
+    return [{ role: 'user', parts: [{ text: input }] }];
+  }
+  if (Array.isArray(input)) {
+    return input.map((item) => {
+      if (typeof item === 'string') {
+        return { role: 'user' as const, parts: [{ text: item }] };
+      }
+      // Ensure it's a Content object with role
+      if ('role' in item) {
+        return item as Content;
+      }
+      // If it's a Part-like object without role, wrap it
+      return { role: 'user' as const, parts: [item as Part] };
+    });
+  }
+  // Single Content object - ensure it has role
+  if ('role' in input) {
+    return [input as Content];
+  }
+  // Single Part-like object
+  return [{ role: 'user' as const, parts: [input as Part] }];
 }
 
 export function convertToFunctionResponse(

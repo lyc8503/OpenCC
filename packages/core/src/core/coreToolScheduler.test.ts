@@ -252,7 +252,6 @@ function createMockConfig(overrides: Partial<Config> = {}): Config {
     discoverTools: async () => {},
     getAllTools: () => [],
     getToolsByServer: () => [],
-    getExperiments: () => {},
   } as unknown as ToolRegistry;
 
   const baseConfig = {
@@ -287,7 +286,6 @@ function createMockConfig(overrides: Partial<Config> = {}): Config {
     getGeminiClient: () => null,
     getMessageBus: () => createMockMessageBus(),
     getEnableHooks: () => false,
-    getExperiments: () => {},
   } as unknown as Config;
 
   const finalConfig = { ...baseConfig, ...overrides } as Config;

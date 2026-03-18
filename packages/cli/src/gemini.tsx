@@ -14,11 +14,9 @@ import {
   type UserFeedbackPayload,
   sessionId,
   logUserPrompt,
-  AuthType,
   UserPromptEvent,
   coreEvents,
   CoreEvent,
-  getOauthClient,
   patchStdio,
   writeToStdout,
   writeToStderr,
@@ -27,9 +25,7 @@ import {
   ExitCodes,
   SessionStartSource,
   SessionEndReason,
-  ValidationCancelledError,
   ValidationRequiredError,
-  type AdminControlsSettings,
   debugLogger,
 } from '@google/gemini-cli-core';
 
@@ -43,7 +39,6 @@ import dns from 'node:dns';
 import { start_sandbox } from './utils/sandbox.js';
 import {
   loadSettings,
-  SettingScope,
   type DnsResolutionOrder,
   type LoadedSettings,
 } from './config/settings.js';
@@ -283,22 +278,7 @@ export async function main() {
     validateDnsResolutionOrder(settings.merged.advanced.dnsResolutionOrder),
   );
 
-  // Set a default auth type if one isn't set or is set to a legacy type
-  if (
-    !settings.merged.security.auth.selectedType ||
-    settings.merged.security.auth.selectedType === AuthType.LEGACY_CLOUD_SHELL
-  ) {
-    if (
-      process.env['CLOUD_SHELL'] === 'true' ||
-      process.env['GEMINI_CLI_USE_COMPUTE_ADC'] === 'true'
-    ) {
-      settings.setValue(
-        SettingScope.User,
-        'security.auth.selectedType',
-        AuthType.COMPUTE_ADC,
-      );
-    }
-  }
+  // Set a default auth type if one isn't set
 
   const partialConfig = await loadCliConfig(settings.merged, sessionId, argv, {
     projectHooks: settings.workspace.settings.hooks,
@@ -335,12 +315,6 @@ export async function main() {
         await partialConfig.refreshAuth(authType);
       }
     } catch (err) {
-      if (err instanceof ValidationCancelledError) {
-        // User cancelled verification, exit immediately.
-        await runExitCleanup();
-        process.exit(ExitCodes.SUCCESS);
-      }
-
       // If validation is required, we don't treat it as a fatal failure.
       // We allow the app to start, and the React-based ValidationDialog
       // will handle it.
@@ -349,12 +323,6 @@ export async function main() {
         initialAuthFailed = true;
       }
     }
-  }
-
-  const remoteAdminSettings = partialConfig.getRemoteAdminSettings();
-  // Set remote admin settings if returned from CCPA.
-  if (remoteAdminSettings) {
-    settings.setRemoteAdminSettings(remoteAdminSettings);
   }
 
   // Run deferred command now that we have admin settings.
@@ -415,7 +383,7 @@ export async function main() {
     } else {
       // Relaunch app so we always have a child process that can be internally
       // restarted if needed.
-      await relaunchAppInChildProcess(memoryArgs, [], remoteAdminSettings);
+      await relaunchAppInChildProcess(memoryArgs, [], undefined);
     }
   }
 
@@ -519,15 +487,6 @@ export async function main() {
     const initAppHandle = startupProfiler.start('initialize_app');
     const initializationResult = await initializeApp(config, settings);
     initAppHandle?.end();
-
-    if (
-      settings.merged.security.auth.selectedType ===
-        AuthType.LOGIN_WITH_GOOGLE &&
-      config.isBrowserLaunchSuppressed()
-    ) {
-      // Do oauth before app renders to make copying the link possible.
-      await getOauthClient(settings.merged.security.auth.selectedType, config);
-    }
 
     if (config.getAcpMode()) {
       return runAcpClient(config, settings, argv);
@@ -722,32 +681,22 @@ export function initializeOutputListenersAndFlush() {
 }
 
 function setupAdminControlsListener() {
-  let pendingSettings: AdminControlsSettings | undefined;
-  let config: Config | undefined;
-
   const messageHandler = (msg: unknown) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     const message = msg as {
       type?: string;
-      settings?: AdminControlsSettings;
     };
-    if (message?.type === 'admin-settings' && message.settings) {
-      if (config) {
-        config.setRemoteAdminSettings(message.settings);
-      } else {
-        pendingSettings = message.settings;
-      }
+    // Admin controls handling has been removed
+    if (message?.type === 'admin-settings') {
+      // No longer processing admin settings
     }
   };
 
   process.on('message', messageHandler);
 
   return {
-    setConfig: (newConfig: Config) => {
-      config = newConfig;
-      if (pendingSettings) {
-        config.setRemoteAdminSettings(pendingSettings);
-      }
+    setConfig: (_config: Config) => {
+      // No longer needed, but kept for API compatibility
     },
     cleanup: () => {
       process.off('message', messageHandler);

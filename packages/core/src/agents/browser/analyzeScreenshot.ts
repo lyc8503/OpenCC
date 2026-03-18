@@ -119,12 +119,6 @@ class AnalyzeScreenshotInvocation extends BaseToolInvocation<
       const response = await contentGenerator.generateContent(
         {
           model: visualModel,
-          config: {
-            temperature: 0,
-            topP: 0.95,
-            systemInstruction: VISUAL_SYSTEM_PROMPT,
-            abortSignal: signal,
-          },
           contents: [
             {
               role: 'user',
@@ -141,17 +135,21 @@ class AnalyzeScreenshotInvocation extends BaseToolInvocation<
               ],
             },
           ],
+          config: {
+            systemInstruction: VISUAL_SYSTEM_PROMPT,
+            temperature: 0,
+            topP: 0.95,
+          },
         },
         'visual-analysis',
         LlmRole.UTILITY_TOOL,
       );
 
-      // Extract text from response
+      // Extract text from response using Gemini API format
       const responseText =
         response.candidates?.[0]?.content?.parts
-          ?.filter((p) => p.text)
-          .map((p) => p.text)
-          .join('\n') ?? '';
+          ?.map((p) => p.text || '')
+          .join('') ?? '';
 
       if (!responseText) {
         return {

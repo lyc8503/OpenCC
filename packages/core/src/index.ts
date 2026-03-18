@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// Export OpenAI models
+export * from './config/openaiModels.js';
+
 // Export config
 export * from './config/config.js';
 export * from './config/agent-loop-context.js';
 export * from './config/memory.js';
 export * from './config/defaultModelConfigs.js';
-export * from './config/models.js';
 export * from './config/constants.js';
 export * from './output/types.js';
 export * from './output/json-formatter.js';
@@ -21,7 +23,6 @@ export * from './policy/config.js';
 export * from './policy/integrity.js';
 export * from './config/extensions/integrity.js';
 export * from './config/extensions/integrityTypes.js';
-export * from './billing/index.js';
 export * from './confirmation-bus/types.js';
 export * from './confirmation-bus/message-bus.js';
 
@@ -52,14 +53,8 @@ export * from './core/recordingContentGenerator.js';
 export * from './fallback/types.js';
 export * from './fallback/handler.js';
 
-export * from './code_assist/codeAssist.js';
-export * from './code_assist/oauth2.js';
-export * from './code_assist/server.js';
-export * from './code_assist/setup.js';
-export * from './code_assist/types.js';
-export * from './code_assist/telemetry.js';
-export * from './code_assist/admin/admin_controls.js';
-export * from './code_assist/admin/mcpUtils.js';
+// Export OpenAI client
+export * from './core/openaiClient.js';
 export * from './core/apiKeyCredentialStorage.js';
 
 // Export utilities
@@ -211,8 +206,6 @@ export { OAuthUtils } from './mcp/oauth-utils.js';
 
 // Export telemetry functions
 export * from './telemetry/index.js';
-export * from './telemetry/billingEvents.js';
-export { logBillingEvent } from './telemetry/loggers.js';
 export * from './telemetry/constants.js';
 export { sessionId, createSessionId } from './utils/session.js';
 export * from './utils/compatibility.js';
@@ -234,6 +227,3 @@ export * from './utils/terminal.js';
 
 // Export voice utilities
 export * from './voice/responseFormatter.js';
-
-// Export types from @google/genai
-export type { Content, Part, FunctionCall } from '@google/genai';

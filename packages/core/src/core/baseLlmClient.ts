@@ -7,7 +7,6 @@
 import type {
   Content,
   Part,
-  EmbedContentParameters,
   GenerateContentResponse,
   GenerateContentParameters,
   GenerateContentConfig,
@@ -31,10 +30,7 @@ import { retryWithBackoff, getRetryErrorType } from '../utils/retry.js';
 import { coreEvents } from '../utils/events.js';
 import { getDisplayString } from '../config/models.js';
 import type { ModelConfigKey } from '../services/modelConfigService.js';
-import {
-  applyModelSelection,
-  createAvailabilityContextProvider,
-} from '../availability/policyHelpers.js';
+import { applyModelSelection } from '../utils/modelSelection.js';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 
@@ -177,41 +173,6 @@ export class BaseLlmClient {
     );
   }
 
-  async generateEmbedding(texts: string[]): Promise<number[][]> {
-    if (!texts || texts.length === 0) {
-      return [];
-    }
-    const embedModelParams: EmbedContentParameters = {
-      model: this.config.getEmbeddingModel(),
-      contents: texts,
-    };
-
-    const embedContentResponse =
-      await this.contentGenerator.embedContent(embedModelParams);
-    if (
-      !embedContentResponse.embeddings ||
-      embedContentResponse.embeddings.length === 0
-    ) {
-      throw new Error('No embeddings found in API response.');
-    }
-
-    if (embedContentResponse.embeddings.length !== texts.length) {
-      throw new Error(
-        `API returned a mismatched number of embeddings. Expected ${texts.length}, got ${embedContentResponse.embeddings.length}.`,
-      );
-    }
-
-    return embedContentResponse.embeddings.map((embedding, index) => {
-      const values = embedding.values;
-      if (!values || values.length === 0) {
-        throw new Error(
-          `API returned an empty embedding for input text at index ${index}: "${texts[index]}"`,
-        );
-      }
-      return values;
-    });
-  }
-
   private cleanJsonResponse(text: string, model: string): string {
     const prefix = '```json';
     const suffix = '```';
@@ -283,12 +244,6 @@ export class BaseLlmClient {
     let currentModel = model;
     let currentGenerateContentConfig = generateContentConfig;
 
-    // Define callback to fetch context dynamically since active model may get updated during retry loop
-    const getAvailabilityContext = createAvailabilityContextProvider(
-      this.config,
-      () => currentModel,
-    );
-
     let initialActiveModel = this.config.getActiveModel();
 
     try {
@@ -329,7 +284,6 @@ export class BaseLlmClient {
         shouldRetryOnContent,
         maxAttempts:
           availabilityMaxAttempts ?? maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
-        getAvailabilityContext,
         onPersistent429: this.config.isInteractive()
           ? (authType, error) =>
               handleFallback(this.config, currentModel, authType, error)

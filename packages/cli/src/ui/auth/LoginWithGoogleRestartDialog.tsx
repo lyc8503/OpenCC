@@ -17,7 +17,6 @@ interface LoginWithGoogleRestartDialogProps {
 
 export const LoginWithGoogleRestartDialog = ({
   onDismiss,
-  config,
 }: LoginWithGoogleRestartDialogProps) => {
   useKeypress(
     (key) => {
@@ -26,15 +25,6 @@ export const LoginWithGoogleRestartDialog = ({
         return true;
       } else if (key.name === 'r' || key.name === 'R') {
         setTimeout(async () => {
-          if (process.send) {
-            const remoteSettings = config.getRemoteAdminSettings();
-            if (remoteSettings) {
-              process.send({
-                type: 'admin-settings-update',
-                settings: remoteSettings,
-              });
-            }
-          }
           await relaunchApp();
         }, 100);
         return true;
@@ -45,14 +35,11 @@ export const LoginWithGoogleRestartDialog = ({
   );
 
   const message =
-    "You've successfully signed in with Google. Gemini CLI needs to be restarted.";
+    'Restart required. Press R to restart, or Esc to choose a different option.';
 
   return (
     <Box borderStyle="round" borderColor={theme.status.warning} paddingX={1}>
-      <Text color={theme.status.warning}>
-        {message} Press R to restart, or Esc to choose a different
-        authentication method.
-      </Text>
+      <Text color={theme.status.warning}>{message}</Text>
     </Box>
   );
 };

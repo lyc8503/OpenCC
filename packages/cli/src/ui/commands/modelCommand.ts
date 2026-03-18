@@ -52,10 +52,7 @@ const manageModelCommand: SlashCommand = {
   description: 'Opens a dialog to configure the model',
   kind: CommandKind.BUILT_IN,
   autoExecute: true,
-  action: async (context: CommandContext) => {
-    if (context.services.config) {
-      await context.services.config.refreshUserQuota();
-    }
+  action: async (_context: CommandContext) => {
     return {
       type: 'dialog',
       dialog: 'model',

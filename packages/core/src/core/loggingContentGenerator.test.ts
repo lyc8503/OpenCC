@@ -41,7 +41,6 @@ import {
   estimateContextBreakdown,
 } from './loggingContentGenerator.js';
 import type { Config } from '../config/config.js';
-import { UserTierId } from '../code_assist/types.js';
 import { ApiRequestEvent, LlmRole } from '../telemetry/types.js';
 import { FatalAuthenticationError } from '../utils/errors.js';
 import {
@@ -543,56 +542,6 @@ describe('LoggingContentGenerator', () => {
 
       expect(logApiError).not.toHaveBeenCalled();
     });
-
-    it('should set latest API request in config for main agent requests', async () => {
-      const req = {
-        contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
-        model: 'gemini-pro',
-      };
-      // Main agent prompt IDs end with exactly 8 hashes and a turn counter
-      const mainAgentPromptId = 'session-uuid########1';
-      config.setLatestApiRequest = vi.fn();
-
-      async function* createAsyncGenerator() {
-        yield { candidates: [] } as unknown as GenerateContentResponse;
-      }
-      vi.mocked(wrapped.generateContentStream).mockResolvedValue(
-        createAsyncGenerator(),
-      );
-
-      await loggingContentGenerator.generateContentStream(
-        req,
-        mainAgentPromptId,
-        LlmRole.MAIN,
-      );
-
-      expect(config.setLatestApiRequest).toHaveBeenCalledWith(req);
-    });
-
-    it('should NOT set latest API request in config for sub-agent requests', async () => {
-      const req = {
-        contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
-        model: 'gemini-pro',
-      };
-      // Sub-agent prompt IDs contain fewer hashes, typically separating the agent name and ID
-      const subAgentPromptId = 'codebase_investigator#12345';
-      config.setLatestApiRequest = vi.fn();
-
-      async function* createAsyncGenerator() {
-        yield { candidates: [] } as unknown as GenerateContentResponse;
-      }
-      vi.mocked(wrapped.generateContentStream).mockResolvedValue(
-        createAsyncGenerator(),
-      );
-
-      await loggingContentGenerator.generateContentStream(
-        req,
-        subAgentPromptId,
-        LlmRole.SUBAGENT,
-      );
-
-      expect(config.setLatestApiRequest).not.toHaveBeenCalled();
-    });
   });
 
   describe('getWrapped', () => {
@@ -650,18 +599,6 @@ describe('LoggingContentGenerator', () => {
         input: req.contents,
         output: response,
       });
-    });
-  });
-
-  describe('delegation', () => {
-    it('should delegate userTier to wrapped', () => {
-      wrapped.userTier = UserTierId.STANDARD;
-      expect(loggingContentGenerator.userTier).toBe(UserTierId.STANDARD);
-    });
-
-    it('should delegate userTierName to wrapped', () => {
-      wrapped.userTierName = 'Standard Tier';
-      expect(loggingContentGenerator.userTierName).toBe('Standard Tier');
     });
   });
 });

@@ -9,12 +9,11 @@ import {
   Config,
   type ConfigParameters,
   AuthType,
-  PREVIEW_GEMINI_MODEL_AUTO,
+  DEFAULT_MODEL,
   GeminiEventType,
   type ToolCallRequestInfo,
   type ServerGeminiStreamEvent,
   type GeminiClient,
-  type Content,
   scheduleAgentTools,
   getAuthTypeFromEnv,
   type ToolRegistry,
@@ -23,6 +22,7 @@ import {
   type ResumedSessionData,
   PolicyDecision,
 } from '@google/gemini-cli-core';
+import type { Content } from '@google/genai';
 
 import { type Tool, SdkTool } from './tool.js';
 import { SdkAgentFilesystem } from './fs.js';
@@ -67,7 +67,7 @@ export class GeminiCliSession {
       targetDir: cwd,
       cwd,
       debugMode: options.debug ?? false,
-      model: options.model || PREVIEW_GEMINI_MODEL_AUTO,
+      model: options.model || DEFAULT_MODEL,
       userMemory: initialMemory,
       // Minimal config
       enableHooks: false,
@@ -93,7 +93,7 @@ export class GeminiCliSession {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    const authType = getAuthTypeFromEnv() || AuthType.COMPUTE_ADC;
+    const authType = getAuthTypeFromEnv() || AuthType.USE_API_KEY;
 
     await this.config.refreshAuth(authType);
     await this.config.initialize();

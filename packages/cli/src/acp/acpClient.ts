@@ -16,7 +16,6 @@ import {
   logToolCall,
   convertToFunctionResponse,
   ToolConfirmationOutcome,
-  clearCachedCredentialFile,
   isNodeError,
   getErrorMessage,
   isWithinRoot,
@@ -36,16 +35,11 @@ import {
   ApprovalMode,
   getVersion,
   convertSessionToClientHistory,
-  DEFAULT_GEMINI_MODEL,
-  DEFAULT_GEMINI_FLASH_MODEL,
-  DEFAULT_GEMINI_FLASH_LITE_MODEL,
-  PREVIEW_GEMINI_MODEL,
-  PREVIEW_GEMINI_3_1_MODEL,
-  PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL,
-  PREVIEW_GEMINI_FLASH_MODEL,
-  DEFAULT_GEMINI_MODEL_AUTO,
-  PREVIEW_GEMINI_MODEL_AUTO,
-  getDisplayString,
+  DEFAULT_MODEL,
+  DEFAULT_FAST_MODEL,
+  getModelDisplayName,
+  CLAUDE_OPUS_4_MODEL,
+  CLAUDE_SONNET_4_MODEL,
 } from '@google/gemini-cli-core';
 import { readManyFiles } from '../utils/readManyFiles.js';
 import * as acp from '@agentclientprotocol/sdk';
@@ -116,33 +110,12 @@ export class GeminiAgent {
     this.clientCapabilities = args.clientCapabilities;
     const authMethods = [
       {
-        id: AuthType.LOGIN_WITH_GOOGLE,
-        name: 'Log in with Google',
-        description: 'Log in with your Google account',
-      },
-      {
-        id: AuthType.USE_GEMINI,
-        name: 'Gemini API key',
-        description: 'Use an API key with Gemini Developer API',
+        id: AuthType.USE_API_KEY,
+        name: 'API Key',
+        description: 'Use an API key for authentication',
         _meta: {
           'api-key': {
-            provider: 'google',
-          },
-        },
-      },
-      {
-        id: AuthType.USE_VERTEX_AI,
-        name: 'Vertex AI',
-        description: 'Use an API key with Vertex AI GenAI API',
-      },
-      {
-        id: AuthType.GATEWAY,
-        name: 'AI API Gateway',
-        description: 'Use a custom AI API Gateway',
-        _meta: {
-          gateway: {
-            protocol: 'google',
-            restartRequired: 'false',
+            provider: 'openai-compatible',
           },
         },
       },
@@ -176,26 +149,18 @@ export class GeminiAgent {
   async authenticate(req: acp.AuthenticateRequest): Promise<void> {
     const { methodId } = req;
     const method = z.nativeEnum(AuthType).parse(methodId);
-    const selectedAuthType = this.settings.merged.security.auth.selectedType;
 
-    // Only clear credentials when switching to a different auth method
-    if (selectedAuthType && selectedAuthType !== method) {
-      await clearCachedCredentialFile();
-    }
     // Check for api-key in _meta
     const meta = hasMeta(req) ? req._meta : undefined;
     const apiKey =
       typeof meta?.['api-key'] === 'string' ? meta['api-key'] : undefined;
 
-    // Refresh auth with the requested method
-    // This will reuse existing credentials if they're valid,
-    // or perform new authentication if needed
     try {
       if (apiKey) {
         this.apiKey = apiKey;
       }
 
-      // Extract gateway details if present
+      // Extract gateway/baseUrl details if present
       const gatewaySchema = z.object({
         baseUrl: z.string().optional(),
         headers: z.record(z.string()).optional(),
@@ -250,7 +215,7 @@ export class GeminiAgent {
     );
 
     const authType =
-      loadedSettings.merged.security.auth.selectedType || AuthType.USE_GEMINI;
+      loadedSettings.merged.security.auth.selectedType || AuthType.USE_API_KEY;
 
     let isAuthenticated = false;
     let authErrorMessage = '';
@@ -263,14 +228,14 @@ export class GeminiAgent {
       );
       isAuthenticated = true;
 
-      // Extra validation for Gemini API key
+      // Extra validation for API key
       const contentGeneratorConfig = config.getContentGeneratorConfig();
       if (
-        authType === AuthType.USE_GEMINI &&
+        authType === AuthType.USE_API_KEY &&
         (!contentGeneratorConfig || !contentGeneratorConfig.apiKey)
       ) {
         isAuthenticated = false;
-        authErrorMessage = 'Gemini API key is missing or not configured.';
+        authErrorMessage = 'API key is missing or not configured.';
       }
     } catch (e) {
       isAuthenticated = false;
@@ -711,10 +676,7 @@ export class Session {
       const functionCalls: FunctionCall[] = [];
 
       try {
-        const model = resolveModel(
-          this.config.getModel(),
-          (await this.config.getGemini31Launched?.()) ?? false,
-        );
+        const model = resolveModel(this.config.getModel());
         const responseStream = await chat.sendMessageStream(
           { model },
           nextMessage?.parts ?? [],
@@ -1591,67 +1553,30 @@ function buildAvailableModels(
   }>;
   currentModelId: string;
 } {
-  const preferredModel = config.getModel() || DEFAULT_GEMINI_MODEL_AUTO;
-  const shouldShowPreviewModels = config.getHasAccessToPreviewModel();
-  const useGemini31 = config.getGemini31LaunchedSync?.() ?? false;
-  const selectedAuthType = settings.merged.security.auth.selectedType;
-  const useCustomToolModel =
-    useGemini31 && selectedAuthType === AuthType.USE_GEMINI;
+  const preferredModel = config.getModel() || DEFAULT_MODEL;
 
   const mainOptions = [
     {
-      value: DEFAULT_GEMINI_MODEL_AUTO,
-      title: getDisplayString(DEFAULT_GEMINI_MODEL_AUTO),
-      description:
-        'Let Gemini CLI decide the best model for the task: gemini-2.5-pro, gemini-2.5-flash',
+      value: DEFAULT_MODEL,
+      title: getModelDisplayName(DEFAULT_MODEL),
+      description: 'Most capable model for complex tasks',
+    },
+    {
+      value: DEFAULT_FAST_MODEL,
+      title: getModelDisplayName(DEFAULT_FAST_MODEL),
+      description: 'Fast and affordable for simple tasks',
+    },
+    {
+      value: CLAUDE_OPUS_4_MODEL,
+      title: getModelDisplayName(CLAUDE_OPUS_4_MODEL),
+      description: 'Most capable Claude model for complex tasks',
+    },
+    {
+      value: CLAUDE_SONNET_4_MODEL,
+      title: getModelDisplayName(CLAUDE_SONNET_4_MODEL),
+      description: 'Balanced performance and cost',
     },
   ];
-
-  if (shouldShowPreviewModels) {
-    mainOptions.unshift({
-      value: PREVIEW_GEMINI_MODEL_AUTO,
-      title: getDisplayString(PREVIEW_GEMINI_MODEL_AUTO),
-      description: useGemini31
-        ? 'Let Gemini CLI decide the best model for the task: gemini-3.1-pro, gemini-3-flash'
-        : 'Let Gemini CLI decide the best model for the task: gemini-3-pro, gemini-3-flash',
-    });
-  }
-
-  const manualOptions = [
-    {
-      value: DEFAULT_GEMINI_MODEL,
-      title: getDisplayString(DEFAULT_GEMINI_MODEL),
-    },
-    {
-      value: DEFAULT_GEMINI_FLASH_MODEL,
-      title: getDisplayString(DEFAULT_GEMINI_FLASH_MODEL),
-    },
-    {
-      value: DEFAULT_GEMINI_FLASH_LITE_MODEL,
-      title: getDisplayString(DEFAULT_GEMINI_FLASH_LITE_MODEL),
-    },
-  ];
-
-  if (shouldShowPreviewModels) {
-    const previewProModel = useGemini31
-      ? PREVIEW_GEMINI_3_1_MODEL
-      : PREVIEW_GEMINI_MODEL;
-
-    const previewProValue = useCustomToolModel
-      ? PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL
-      : previewProModel;
-
-    manualOptions.unshift(
-      {
-        value: previewProValue,
-        title: getDisplayString(previewProModel),
-      },
-      {
-        value: PREVIEW_GEMINI_FLASH_MODEL,
-        title: getDisplayString(PREVIEW_GEMINI_FLASH_MODEL),
-      },
-    );
-  }
 
   const scaleOptions = (
     options: Array<{ value: string; title: string; description?: string }>,
@@ -1663,10 +1588,7 @@ function buildAvailableModels(
     }));
 
   return {
-    availableModels: [
-      ...scaleOptions(mainOptions),
-      ...scaleOptions(manualOptions),
-    ],
+    availableModels: scaleOptions(mainOptions),
     currentModelId: preferredModel,
   };
 }

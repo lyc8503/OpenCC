@@ -46,8 +46,6 @@ import {
   type Config,
   type IdeInfo,
   type IdeContext,
-  type UserTierId,
-  type GeminiUserTier,
   type UserFeedbackPayload,
   type AgentDefinition,
   type ApprovalMode,
@@ -56,7 +54,6 @@ import {
   getErrorMessage,
   getAllGeminiMdFilenames,
   AuthType,
-  clearCachedCredentialFile,
   type ResumedSessionData,
   recordExitFail,
   ShellExecutionService,
@@ -67,7 +64,6 @@ import {
   refreshServerHierarchicalMemory,
   flattenMemory,
   type MemoryChangedPayload,
-  writeToStdout,
   disableMouseEvents,
   enterAlternateScreen,
   enableMouseEvents,
@@ -80,11 +76,8 @@ import {
   type ConsentRequestPayload,
   type AgentsDiscoveredPayload,
   ChangeAuthRequestedError,
-  ProjectIdRequiredError,
   CoreToolCallStatus,
   buildUserSteeringHintPrompt,
-  logBillingEvent,
-  ApiKeyUpdatedEvent,
   type InjectionSource,
 } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../config/auth.js';
@@ -386,18 +379,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const [currentModel, setCurrentModel] = useState(config.getModel());
 
-  const [userTier, setUserTier] = useState<UserTierId | undefined>(undefined);
-  const [quotaStats, setQuotaStats] = useState<QuotaStats | undefined>(() => {
-    const remaining = config.getQuotaRemaining();
-    const limit = config.getQuotaLimit();
-    const resetTime = config.getQuotaResetTime();
-    return remaining !== undefined ||
-      limit !== undefined ||
-      resetTime !== undefined
-      ? { remaining, limit, resetTime }
-      : undefined;
-  });
-  const [paidTier, setPaidTier] = useState<GeminiUserTier | undefined>(
+  const [quotaStats, setQuotaStats] = useState<QuotaStats | undefined>(
     undefined,
   );
 
@@ -704,16 +686,9 @@ export const AppContainer = (props: AppContainerProps) => {
     handleProQuotaChoice,
     validationRequest,
     handleValidationChoice,
-    // G1 AI Credits
-    overageMenuRequest,
-    handleOverageMenuChoice,
-    emptyWalletRequest,
-    handleEmptyWalletChoice,
   } = useQuotaAndFallback({
     config,
     historyManager,
-    userTier,
-    paidTier,
     settings,
     setModelSwitchedFromQuotaError,
     onShowAuthSelection: () => setAuthState(AuthState.Updating),
@@ -755,50 +730,20 @@ export const AppContainer = (props: AppContainerProps) => {
   const handleAuthSelect = useCallback(
     async (authType: AuthType | undefined, scope: LoadableSettingScope) => {
       if (authType) {
-        const previousAuthType =
-          config.getContentGeneratorConfig()?.authType ?? 'unknown';
-        if (authType === AuthType.LOGIN_WITH_GOOGLE) {
-          setAuthContext({ requiresRestart: true });
-        } else {
-          setAuthContext({});
-        }
-        await clearCachedCredentialFile();
+        setAuthContext({});
         settings.setValue(scope, 'security.auth.selectedType', authType);
 
         try {
-          config.setRemoteAdminSettings(undefined);
           await config.refreshAuth(authType);
           setAuthState(AuthState.Authenticated);
-          logBillingEvent(
-            config,
-            new ApiKeyUpdatedEvent(previousAuthType, authType),
-          );
         } catch (e) {
           if (e instanceof ChangeAuthRequestedError) {
-            return;
-          }
-          if (e instanceof ProjectIdRequiredError) {
-            // OAuth succeeded but account setup requires project ID
-            // Show the error message directly without "Failed to authenticate" prefix
-            onAuthError(getErrorMessage(e));
             return;
           }
           onAuthError(
             `Failed to authenticate: ${e instanceof Error ? e.message : String(e)}`,
           );
           return;
-        }
-
-        if (
-          authType === AuthType.LOGIN_WITH_GOOGLE &&
-          config.isBrowserLaunchSuppressed()
-        ) {
-          writeToStdout(`
-----------------------------------------------------------------
-Logging in with Google... Restarting Gemini CLI to continue.
-----------------------------------------------------------------
-          `);
-          await relaunchApp();
         }
       }
       setAuthState(AuthState.Authenticated);
@@ -819,7 +764,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
 
         await saveApiKey(apiKey);
         await reloadApiKey();
-        await config.refreshAuth(AuthType.USE_GEMINI);
+        await config.refreshAuth(AuthType.USE_API_KEY);
         setAuthState(AuthState.Authenticated);
       } catch (e) {
         onAuthError(
@@ -834,15 +779,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
     // Go back to auth method selection
     setAuthState(AuthState.Updating);
   }, [setAuthState]);
-
-  // Sync user tier from config when authentication changes
-  useEffect(() => {
-    // Only sync when not currently authenticating
-    if (authState === AuthState.Authenticated) {
-      setUserTier(config.getUserTier());
-      setPaidTier(config.getUserPaidTier());
-    }
-  }, [config, authState]);
 
   // Check for enforced auth type mismatch
   useEffect(() => {
@@ -859,10 +795,10 @@ Logging in with Google... Restarting Gemini CLI to continue.
       settings.merged.security.auth.selectedType &&
       !settings.merged.security.auth.useExternal
     ) {
-      // We skip validation for Gemini API key here because it might be stored
+      // We skip validation for API key here because it might be stored
       // in the keychain, which we can't check synchronously.
       // The useAuth hook handles validation for this case.
-      if (settings.merged.security.auth.selectedType === AuthType.USE_GEMINI) {
+      if (settings.merged.security.auth.selectedType === AuthType.USE_API_KEY) {
         return;
       }
 
@@ -2031,8 +1967,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
     showIdeRestartPrompt ||
     !!proQuotaRequest ||
     !!validationRequest ||
-    !!overageMenuRequest ||
-    !!emptyWalletRequest ||
     isSessionBrowserOpen ||
     authState === AuthState.AwaitingApiKeyInput ||
     !!newAgents;
@@ -2060,8 +1994,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
     hasLoopDetectionConfirmationRequest ||
     !!proQuotaRequest ||
     !!validationRequest ||
-    !!overageMenuRequest ||
-    !!emptyWalletRequest ||
     !!customDialog;
 
   const allowPlanMode =
@@ -2258,13 +2190,9 @@ Logging in with Google... Restarting Gemini CLI to continue.
       allowPlanMode,
       currentModel,
       quota: {
-        userTier,
         stats: quotaStats,
         proQuotaRequest,
         validationRequest,
-        // G1 AI Credits dialog state
-        overageMenuRequest,
-        emptyWalletRequest,
       },
       contextFileNames,
       errorCount,
@@ -2384,12 +2312,9 @@ Logging in with Google... Restarting Gemini CLI to continue.
       queueErrorMessage,
       showApprovalModeIndicator,
       allowPlanMode,
-      userTier,
       quotaStats,
       proQuotaRequest,
       validationRequest,
-      overageMenuRequest,
-      emptyWalletRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
@@ -2471,9 +2396,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
       handleClearScreen,
       handleProQuotaChoice,
       handleValidationChoice,
-      // G1 AI Credits handlers
-      handleOverageMenuChoice,
-      handleEmptyWalletChoice,
       openSessionBrowser,
       closeSessionBrowser,
       handleResumeSession,
@@ -2498,15 +2420,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
       onHintClear: () => {},
       onHintSubmit: () => {},
       handleRestart: async () => {
-        if (process.send) {
-          const remoteSettings = config.getRemoteAdminSettings();
-          if (remoteSettings) {
-            process.send({
-              type: 'admin-settings-update',
-              settings: remoteSettings,
-            });
-          }
-        }
         await relaunchApp();
       },
       handleNewAgentsSelect: async (choice: NewAgentsChoice) => {
@@ -2563,8 +2476,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
       handleClearScreen,
       handleProQuotaChoice,
       handleValidationChoice,
-      handleOverageMenuChoice,
-      handleEmptyWalletChoice,
       openSessionBrowser,
       closeSessionBrowser,
       handleResumeSession,

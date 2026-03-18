@@ -6,14 +6,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseAndFormatApiError } from './errorParsing.js';
-import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
-import { AuthType } from '../core/contentGenerator.js';
 import type { StructuredError } from '../core/turn.js';
 
 describe('parseAndFormatApiError', () => {
-  const vertexMessage = 'request a quota increase through Vertex';
-  const geminiMessage = 'request a quota increase through AI Studio';
-
   it('should format a valid API error JSON', () => {
     const errorMessage =
       'got status: 400 Bad Request. {"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}';
@@ -25,25 +20,9 @@ describe('parseAndFormatApiError', () => {
   it('should format a 429 API error with the default message', () => {
     const errorMessage =
       'got status: 429 Too Many Requests. {"error":{"code":429,"message":"Rate limit exceeded","status":"RESOURCE_EXHAUSTED"}}';
-    const result = parseAndFormatApiError(
-      errorMessage,
-      undefined,
-      undefined,
-      'gemini-2.5-pro',
-      DEFAULT_GEMINI_FLASH_MODEL,
-    );
+    const result = parseAndFormatApiError(errorMessage);
     expect(result).toContain('[API Error: Rate limit exceeded');
-    expect(result).toContain(
-      'Possible quota limitations in place or slow response times detected. Switching to the gemini-2.5-flash model',
-    );
-  });
-
-  it('should format a 429 API error with the vertex message', () => {
-    const errorMessage =
-      'got status: 429 Too Many Requests. {"error":{"code":429,"message":"Rate limit exceeded","status":"RESOURCE_EXHAUSTED"}}';
-    const result = parseAndFormatApiError(errorMessage, AuthType.USE_VERTEX_AI);
-    expect(result).toContain('[API Error: Rate limit exceeded');
-    expect(result).toContain(vertexMessage);
+    expect(result).toContain('Please wait and try again later');
   });
 
   it('should return the original message if it is not a JSON error', () => {
@@ -54,7 +33,7 @@ describe('parseAndFormatApiError', () => {
   });
 
   it('should return the original message for malformed JSON', () => {
-    const errorMessage = '[Stream Error: {"error": "malformed}';
+    const errorMessage = '[Stream Error: {"error": "malformed"}';
     expect(parseAndFormatApiError(errorMessage)).toBe(
       `[API Error: ${errorMessage}]`,
     );
@@ -85,9 +64,9 @@ describe('parseAndFormatApiError', () => {
       },
     });
 
-    const result = parseAndFormatApiError(errorMessage, AuthType.USE_GEMINI);
+    const result = parseAndFormatApiError(errorMessage);
     expect(result).toContain('Gemini 2.5 Pro Preview');
-    expect(result).toContain(geminiMessage);
+    expect(result).toContain('Please wait and try again later');
   });
 
   it('should format a StructuredError', () => {
@@ -99,14 +78,14 @@ describe('parseAndFormatApiError', () => {
     expect(parseAndFormatApiError(error)).toBe(expected);
   });
 
-  it('should format a 429 StructuredError with the vertex message', () => {
+  it('should format a 429 StructuredError with the rate limit message', () => {
     const error: StructuredError = {
       message: 'Rate limit exceeded',
       status: 429,
     };
-    const result = parseAndFormatApiError(error, AuthType.USE_VERTEX_AI);
+    const result = parseAndFormatApiError(error);
     expect(result).toContain('[API Error: Rate limit exceeded]');
-    expect(result).toContain(vertexMessage);
+    expect(result).toContain('Please wait and try again later');
   });
 
   it('should handle an unknown error type', () => {

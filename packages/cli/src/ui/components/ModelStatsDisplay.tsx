@@ -19,13 +19,7 @@ import {
 } from '../contexts/SessionContext.js';
 import { Table, type Column } from './Table.js';
 import { useSettings } from '../contexts/SettingsContext.js';
-import {
-  getDisplayString,
-  isAutoModel,
-  LlmRole,
-} from '@google/gemini-cli-core';
-import type { QuotaStats } from '../types.js';
-import { QuotaStatsInfo } from './QuotaStatsInfo.js';
+import { LlmRole } from '@google/gemini-cli-core';
 
 interface StatRowData {
   metric: string;
@@ -41,22 +35,14 @@ interface ModelStatsDisplayProps {
   selectedAuthType?: string;
   userEmail?: string;
   tier?: string;
-  currentModel?: string;
-  quotaStats?: QuotaStats;
 }
 
 export const ModelStatsDisplay: React.FC<ModelStatsDisplayProps> = ({
   selectedAuthType,
   userEmail,
   tier,
-  currentModel,
-  quotaStats,
 }) => {
   const { stats } = useSessionStats();
-
-  const pooledRemaining = quotaStats?.remaining;
-  const pooledLimit = quotaStats?.limit;
-  const pooledResetTime = quotaStats?.resetTime;
 
   const { models } = stats.metrics;
   const settings = useSettings();
@@ -314,10 +300,7 @@ export const ModelStatsDisplay: React.FC<ModelStatsDisplayProps> = ({
     })),
   ];
 
-  const isAuto = currentModel && isAutoModel(currentModel);
-  const statsTitle = isAuto
-    ? `${getDisplayString(currentModel)} Stats For Nerds`
-    : 'Model Stats For Nerds';
+  const statsTitle = 'Model Stats For Nerds';
 
   return (
     <Box
@@ -354,17 +337,7 @@ export const ModelStatsDisplay: React.FC<ModelStatsDisplayProps> = ({
           <Text color={theme.text.primary}>{tier}</Text>
         </Box>
       )}
-      {isAuto &&
-        pooledRemaining !== undefined &&
-        pooledLimit !== undefined &&
-        pooledLimit > 0 && (
-          <QuotaStatsInfo
-            remaining={pooledRemaining}
-            limit={pooledLimit}
-            resetTime={pooledResetTime}
-          />
-        )}
-      {(showUserIdentity || isAuto) && <Box height={1} />}
+      {showUserIdentity && <Box height={1} />}
 
       <Table data={rows} columns={columns} />
     </Box>

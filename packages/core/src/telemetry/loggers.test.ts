@@ -183,7 +183,7 @@ describe('loggers', () => {
         getContentGeneratorConfig: () => ({
           model: 'test-model',
           apiKey: 'test-api-key',
-          authType: AuthType.USE_VERTEX_AI,
+          authType: AuthType.USE_API_KEY,
         }),
         getTelemetryEnabled: () => true,
         getUsageStatisticsEnabled: () => true,
@@ -211,8 +211,6 @@ describe('loggers', () => {
           }),
         }),
         isInteractive: () => false,
-        getExperiments: () => undefined,
-        getExperimentsAsync: async () => undefined,
       } as unknown as Config;
 
       const startSessionEvent = new StartSessionEvent(mockConfig);
@@ -234,7 +232,6 @@ describe('loggers', () => {
           core_tools_enabled: 'ls,read-file',
           approval_mode: 'default',
           api_key_enabled: true,
-          vertex_ai_enabled: true,
           log_user_prompts_enabled: true,
           file_filtering_respect_git_ignore: true,
           debug_mode: true,
@@ -246,7 +243,8 @@ describe('loggers', () => {
           extension_ids: 'id-one,id-two',
           extensions_count: 2,
           extensions: 'ext-one,ext-two',
-          auth_type: 'vertex-ai',
+          auth_type: 'api-key',
+          vertex_ai_enabled: false,
         },
       });
     });
@@ -259,8 +257,6 @@ describe('loggers', () => {
       getTelemetryLogPromptsEnabled: () => true,
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -268,7 +264,7 @@ describe('loggers', () => {
       const event = new UserPromptEvent(
         11,
         'prompt-id-8',
-        AuthType.USE_VERTEX_AI,
+        AuthType.USE_API_KEY,
         'test-prompt',
       );
 
@@ -286,7 +282,7 @@ describe('loggers', () => {
           prompt_length: 11,
           prompt: 'test-prompt',
           prompt_id: 'prompt-id-8',
-          auth_type: 'vertex-ai',
+          auth_type: 'api-key',
         },
       });
     });
@@ -299,14 +295,12 @@ describe('loggers', () => {
         getTargetDir: () => 'target-dir',
         getUsageStatisticsEnabled: () => true,
         isInteractive: () => false,
-        getExperiments: () => undefined,
-        getExperimentsAsync: async () => undefined,
         getContentGeneratorConfig: () => undefined,
       } as unknown as Config;
       const event = new UserPromptEvent(
         11,
         'prompt-id-9',
-        AuthType.COMPUTE_ADC,
+        AuthType.USE_API_KEY,
         'test-prompt',
       );
 
@@ -323,7 +317,7 @@ describe('loggers', () => {
           interactive: false,
           prompt_length: 11,
           prompt_id: 'prompt-id-9',
-          auth_type: 'compute-default-credentials',
+          auth_type: 'api-key',
         },
       });
     });
@@ -337,8 +331,6 @@ describe('loggers', () => {
       getTelemetryEnabled: () => true,
       getTelemetryLogPromptsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -408,7 +400,7 @@ describe('loggers', () => {
             },
           ],
         },
-        AuthType.LOGIN_WITH_GOOGLE,
+        AuthType.USE_API_KEY,
         usageData,
         'test-response',
       );
@@ -462,7 +454,7 @@ describe('loggers', () => {
           status_code: 200,
           genAiAttributes: {
             'gen_ai.operation.name': 'generate_content',
-            'gen_ai.provider.name': 'gcp.vertex_ai',
+            'gen_ai.provider.name': 'openai',
             'gen_ai.request.model': 'test-model',
             'gen_ai.response.model': 'test-model',
           },
@@ -478,7 +470,7 @@ describe('loggers', () => {
           type: 'input',
           genAiAttributes: {
             'gen_ai.operation.name': 'generate_content',
-            'gen_ai.provider.name': 'gcp.vertex_ai',
+            'gen_ai.provider.name': 'openai',
             'gen_ai.request.model': 'test-model',
             'gen_ai.response.model': 'test-model',
           },
@@ -493,7 +485,7 @@ describe('loggers', () => {
           type: 'output',
           genAiAttributes: {
             'gen_ai.operation.name': 'generate_content',
-            'gen_ai.provider.name': 'gcp.vertex_ai',
+            'gen_ai.provider.name': 'openai',
             'gen_ai.request.model': 'test-model',
             'gen_ai.response.model': 'test-model',
           },
@@ -513,7 +505,7 @@ describe('loggers', () => {
         100,
         { prompt_id: 'prompt-id-role', contents: [] },
         { candidates: [] },
-        AuthType.LOGIN_WITH_GOOGLE,
+        AuthType.USE_API_KEY,
         {},
         'test-response',
         LlmRole.SUBAGENT,
@@ -540,8 +532,6 @@ describe('loggers', () => {
       getTelemetryEnabled: () => true,
       getTelemetryLogPromptsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -594,7 +584,7 @@ describe('loggers', () => {
             port: 8080,
           },
         },
-        AuthType.LOGIN_WITH_GOOGLE,
+        AuthType.USE_API_KEY,
         'ApiError',
         503,
       );
@@ -651,7 +641,7 @@ describe('loggers', () => {
           status_code: 503,
           genAiAttributes: {
             'gen_ai.operation.name': 'generate_content',
-            'gen_ai.provider.name': 'gcp.vertex_ai',
+            'gen_ai.provider.name': 'openai',
             'gen_ai.request.model': 'test-model',
             'gen_ai.response.model': 'test-model',
             'error.type': 'ApiError',
@@ -672,7 +662,7 @@ describe('loggers', () => {
         'error',
         100,
         { prompt_id: 'prompt-id-role', contents: [] },
-        AuthType.LOGIN_WITH_GOOGLE,
+        AuthType.USE_API_KEY,
         'ApiError',
         503,
         LlmRole.SUBAGENT,
@@ -699,10 +689,8 @@ describe('loggers', () => {
       getTelemetryEnabled: () => true,
       getTelemetryLogPromptsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => ({
-        authType: AuthType.LOGIN_WITH_GOOGLE,
+        authType: AuthType.USE_API_KEY,
       }),
     } as Config;
 
@@ -735,7 +723,7 @@ describe('loggers', () => {
         attributes: expect.objectContaining({
           'event.name': 'gen_ai.client.inference.operation.details',
           'gen_ai.request.model': 'test-model',
-          'gen_ai.provider.name': 'gcp.vertex_ai',
+          'gen_ai.provider.name': 'openai',
         }),
       });
     });
@@ -764,7 +752,7 @@ describe('loggers', () => {
         attributes: expect.objectContaining({
           'event.name': 'gen_ai.client.inference.operation.details',
           'gen_ai.request.model': 'test-model',
-          'gen_ai.provider.name': 'gcp.vertex_ai',
+          'gen_ai.provider.name': 'openai',
         }),
       });
     });
@@ -777,10 +765,8 @@ describe('loggers', () => {
         getTelemetryEnabled: () => true,
         getTelemetryLogPromptsEnabled: () => true, // Enabled
         isInteractive: () => false,
-        getExperiments: () => undefined,
-        getExperimentsAsync: async () => undefined,
         getContentGeneratorConfig: () => ({
-          authType: AuthType.USE_GEMINI,
+          authType: AuthType.USE_API_KEY,
         }),
       } as Config;
 
@@ -848,7 +834,7 @@ describe('loggers', () => {
           'server.address': 'semantic-api.example.com',
           'server.port': 8080,
           'gen_ai.operation.name': 'generate_content',
-          'gen_ai.provider.name': 'gcp.gen_ai',
+          'gen_ai.provider.name': 'openai',
           'gen_ai.output.type': 'json',
           'gen_ai.request.stop_sequences': ['end'],
           'gen_ai.system_instructions': JSON.stringify([
@@ -866,10 +852,8 @@ describe('loggers', () => {
         getTelemetryEnabled: () => true,
         getTelemetryLogPromptsEnabled: () => false, // Disabled
         isInteractive: () => false,
-        getExperiments: () => undefined,
-        getExperimentsAsync: async () => undefined,
         getContentGeneratorConfig: () => ({
-          authType: AuthType.USE_VERTEX_AI,
+          authType: AuthType.USE_API_KEY,
         }),
       } as Config;
 
@@ -910,7 +894,7 @@ describe('loggers', () => {
         'gen_ai.client.inference.operation.details',
       );
       expect(attributes['gen_ai.request.model']).toBe('gemini-1.0-pro');
-      expect(attributes['gen_ai.provider.name']).toBe('gcp.vertex_ai');
+      expect(attributes['gen_ai.provider.name']).toBe('openai');
       // Ensure prompt messages are NOT included
       expect(attributes['gen_ai.input.messages']).toBeUndefined();
     });
@@ -921,11 +905,9 @@ describe('loggers', () => {
         getTelemetryEnabled: () => true,
         getTelemetryLogPromptsEnabled: () => true,
         isInteractive: () => false,
-        getExperiments: () => undefined,
-        getExperimentsAsync: async () => undefined,
         getUsageStatisticsEnabled: () => true,
         getContentGeneratorConfig: () => ({
-          authType: AuthType.USE_GEMINI,
+          authType: AuthType.USE_API_KEY,
         }),
       } as Config;
 
@@ -979,13 +961,11 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
     it('should log flash fallback event', () => {
-      const event = new FlashFallbackEvent(AuthType.USE_VERTEX_AI);
+      const event = new FlashFallbackEvent(AuthType.USE_API_KEY);
 
       logFlashFallback(mockConfig, event);
 
@@ -998,7 +978,7 @@ describe('loggers', () => {
           'event.name': EVENT_FLASH_FALLBACK,
           'event.timestamp': '2025-01-01T00:00:00.000Z',
           interactive: false,
-          auth_type: 'vertex-ai',
+          auth_type: 'api-key',
         },
       });
     });
@@ -1051,8 +1031,6 @@ describe('loggers', () => {
       getTelemetryEnabled: () => true,
       getTelemetryLogPromptsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -1670,8 +1648,6 @@ describe('loggers', () => {
       getTelemetryEnabled: () => true,
       getTelemetryLogPromptsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -1733,8 +1709,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -1773,8 +1747,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -1848,8 +1820,6 @@ describe('loggers', () => {
       getUsageStatisticsEnabled: () => true,
       getContentGeneratorConfig: () => null,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
     } as unknown as Config;
 
     beforeEach(() => {});
@@ -1894,8 +1864,6 @@ describe('loggers', () => {
       getUsageStatisticsEnabled: () => true,
       getContentGeneratorConfig: () => null,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
     } as unknown as Config;
 
     beforeEach(() => {});
@@ -1942,8 +1910,6 @@ describe('loggers', () => {
       getUsageStatisticsEnabled: () => true,
       getContentGeneratorConfig: () => null,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
     } as unknown as Config;
 
     beforeEach(() => {});
@@ -1982,8 +1948,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -2024,8 +1988,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -2066,8 +2028,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -2099,8 +2059,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -2148,8 +2106,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;
 
@@ -2180,8 +2136,6 @@ describe('loggers', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       isInteractive: () => false,
-      getExperiments: () => undefined,
-      getExperimentsAsync: async () => undefined,
       getTelemetryLogPromptsEnabled: () => false,
       getContentGeneratorConfig: () => undefined,
     } as unknown as Config;

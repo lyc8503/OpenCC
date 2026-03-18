@@ -17,7 +17,6 @@ import {
   PREVIEW_GEMINI_MODEL_AUTO,
   GEMINI_MODEL_ALIAS_AUTO,
 } from '../../config/models.js';
-import { AuthType } from '../../core/contentGenerator.js';
 import { ApprovalMode } from '../../policy/types.js';
 import type { BaseLlmClient } from '../../core/baseLlmClient.js';
 
@@ -43,13 +42,9 @@ describe('ApprovalModeStrategy', () => {
       getApprovedPlanPath: vi.fn().mockReturnValue(undefined),
       getPlanModeRoutingEnabled: vi.fn().mockResolvedValue(true),
       getGemini31Launched: vi.fn().mockResolvedValue(false),
-      getUseCustomToolModel: vi.fn().mockImplementation(async () => {
-        const launched = await mockConfig.getGemini31Launched();
-        const authType = mockConfig.getContentGeneratorConfig?.()?.authType;
-        return launched && authType === AuthType.USE_GEMINI;
-      }),
+      getUseCustomToolModel: vi.fn().mockResolvedValue(false),
       getContentGeneratorConfig: vi.fn().mockReturnValue({
-        authType: AuthType.LOGIN_WITH_GOOGLE,
+        authType: 'api-key',
       }),
     } as unknown as Config;
 

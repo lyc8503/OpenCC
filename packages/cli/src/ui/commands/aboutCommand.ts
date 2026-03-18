@@ -48,8 +48,6 @@ export const aboutCommand: SlashCommand = {
     });
     const userEmail = cachedAccount ?? undefined;
 
-    const tier = context.services.config?.getUserTierName();
-
     const aboutItem: Omit<HistoryItemAbout, 'id'> = {
       type: MessageType.ABOUT,
       cliVersion,
@@ -60,7 +58,6 @@ export const aboutCommand: SlashCommand = {
       gcpProject,
       ideClient,
       userEmail,
-      tier,
     };
 
     context.ui.addItem(aboutItem);

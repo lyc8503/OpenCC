@@ -23,7 +23,6 @@ import type {
   KeychainAvailabilityEvent,
   TokenStorageInitializationEvent,
 } from './types.js';
-import { AuthType } from '../core/contentGenerator.js';
 import { getCommonAttributes } from './telemetryAttributes.js';
 import { sanitizeHookName } from './sanitize.js';
 
@@ -601,6 +600,7 @@ export enum GenAiOperationName {
 export enum GenAiProviderName {
   GCP_GEN_AI = 'gcp.gen_ai',
   GCP_VERTEX_AI = 'gcp.vertex_ai',
+  OPENAI = 'openai',
 }
 
 export enum GenAiTokenType {
@@ -1060,14 +1060,11 @@ export function getConventionAttributes(event: {
  * Maps authentication type to GenAI provider name following OpenTelemetry conventions
  */
 function getGenAiProvider(authType?: string): GenAiProviderName {
+  // With OpenAI-based API, default to OpenAI provider
   switch (authType) {
-    case AuthType.USE_VERTEX_AI:
-    case AuthType.COMPUTE_ADC:
-    case AuthType.LOGIN_WITH_GOOGLE:
-      return GenAiProviderName.GCP_VERTEX_AI;
-    case AuthType.USE_GEMINI:
+    case 'api-key':
     default:
-      return GenAiProviderName.GCP_GEN_AI;
+      return GenAiProviderName.OPENAI;
   }
 }
 

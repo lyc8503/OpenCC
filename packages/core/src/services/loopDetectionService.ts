@@ -588,11 +588,6 @@ export class LoopDetectionService {
       typeof flashResult['unproductive_state_confidence'] === 'number'
         ? flashResult['unproductive_state_confidence']
         : 0;
-    const flashAnalysis =
-      // eslint-disable-next-line no-restricted-syntax
-      typeof flashResult['unproductive_state_analysis'] === 'string'
-        ? flashResult['unproductive_state_analysis']
-        : '';
 
     const doubleCheckModelName =
       this.context.config.modelConfigService.getResolvedConfig({
@@ -613,21 +608,7 @@ export class LoopDetectionService {
       return { isLoop: false };
     }
 
-    const availability = this.context.config.getModelAvailabilityService();
-
-    if (!availability.snapshot(doubleCheckModelName).available) {
-      const flashModelName =
-        this.context.config.modelConfigService.getResolvedConfig({
-          model: 'loop-detection',
-        }).model;
-      return {
-        isLoop: true,
-        analysis: flashAnalysis,
-        confirmedByModel: flashModelName,
-      };
-    }
-
-    // Double check with configured model
+    // Double check with configured model (no availability check needed)
     const mainModelResult = await this.queryLoopDetectionModel(
       DOUBLE_CHECK_MODEL_ALIAS,
       contents,

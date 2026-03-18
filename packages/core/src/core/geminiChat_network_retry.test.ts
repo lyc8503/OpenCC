@@ -12,7 +12,6 @@ import type { Config } from '../config/config.js';
 import { setSimulate429 } from '../utils/testUtils.js';
 import { HookSystem } from '../hooks/hookSystem.js';
 import { createMockMessageBus } from '../test-utils/mock-message-bus.js';
-import { createAvailabilityServiceMock } from '../availability/testUtils.js';
 import { LlmRole } from '../telemetry/types.js';
 
 // Mock fs module
@@ -120,9 +119,6 @@ describe('GeminiChat Network Retries', () => {
         })),
       },
       getEnableHooks: vi.fn().mockReturnValue(false),
-      getModelAvailabilityService: vi
-        .fn()
-        .mockReturnValue(createAvailabilityServiceMock()),
     } as unknown as Config;
 
     const mockMessageBus = createMockMessageBus();

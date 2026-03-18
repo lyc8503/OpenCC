@@ -51,7 +51,6 @@ import {
 } from './gcp-exporters.js';
 import { TelemetryTarget } from './index.js';
 import { debugLogger } from '../utils/debugLogger.js';
-import { authEvents } from '../code_assist/oauth2.js';
 import { coreEvents, CoreEvent } from '../utils/events.js';
 import {
   logKeychainAvailability,
@@ -91,9 +90,6 @@ let sdk: NodeSDK | undefined;
 let spanProcessor: BatchSpanProcessor | undefined;
 let logRecordProcessor: BatchLogRecordProcessor | undefined;
 let telemetryInitialized = false;
-let callbackRegistered = false;
-let authListener: ((newCredentials: JWTInput) => Promise<void>) | undefined =
-  undefined;
 let keychainAvailabilityListener:
   | ((event: KeychainAvailabilityEvent) => void)
   | undefined = undefined;
@@ -175,31 +171,10 @@ export async function initializeTelemetry(
     return;
   }
 
-  if (config.getTelemetryUseCollector() && config.getTelemetryUseCliAuth()) {
+  if (config.getTelemetryUseCollector()) {
     debugLogger.error(
-      'Telemetry configuration error: "useCollector" and "useCliAuth" cannot both be true. ' +
-        'CLI authentication is only supported with in-process exporters. ' +
+      'Telemetry configuration error: "useCollector" is not supported with OpenAI API. ' +
         'Disabling telemetry.',
-    );
-    return;
-  }
-
-  // If using CLI auth and no credentials provided, defer initialization
-  if (config.getTelemetryUseCliAuth() && !credentials) {
-    // Register a callback to initialize telemetry when the user logs in.
-    // This is done only once.
-    if (!callbackRegistered) {
-      callbackRegistered = true;
-      authListener = async (newCredentials: JWTInput) => {
-        if (config.getTelemetryEnabled() && config.getTelemetryUseCliAuth()) {
-          debugLogger.log('Telemetry reinit with credentials.');
-          await initializeTelemetry(config, newCredentials);
-        }
-      };
-      authEvents.on('post_auth', authListener);
-    }
-    debugLogger.log(
-      'CLI auth is requested but no credentials, deferring telemetry initialization.',
     );
     return;
   }
@@ -411,10 +386,6 @@ export async function shutdownTelemetry(
     metrics.disable();
     propagation.disable();
     diag.disable();
-    if (authListener) {
-      authEvents.off('post_auth', authListener);
-      authListener = undefined;
-    }
     if (keychainAvailabilityListener) {
       coreEvents.off(
         CoreEvent.TelemetryKeychainAvailability,
@@ -429,7 +400,6 @@ export async function shutdownTelemetry(
       );
       tokenStorageTypeListener = undefined;
     }
-    callbackRegistered = false;
     activeTelemetryEmail = undefined;
   }
 }

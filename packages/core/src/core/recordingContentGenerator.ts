@@ -15,7 +15,6 @@ import type {
 import { appendFileSync } from 'node:fs';
 import type { ContentGenerator } from './contentGenerator.js';
 import type { FakeResponse } from './fakeContentGenerator.js';
-import type { UserTierId } from '../code_assist/types.js';
 import { safeJsonStringify } from '../utils/safeJsonStringify.js';
 import type { LlmRole } from '../telemetry/types.js';
 
@@ -30,14 +29,6 @@ export class RecordingContentGenerator implements ContentGenerator {
     private readonly realGenerator: ContentGenerator,
     private readonly filePath: string,
   ) {}
-
-  get userTier(): UserTierId | undefined {
-    return this.realGenerator.userTier;
-  }
-
-  get userTierName(): string | undefined {
-    return this.realGenerator.userTierName;
-  }
 
   async generateContent(
     request: GenerateContentParameters,
@@ -95,6 +86,9 @@ export class RecordingContentGenerator implements ContentGenerator {
   async countTokens(
     request: CountTokensParameters,
   ): Promise<CountTokensResponse> {
+    if (!this.realGenerator.countTokens) {
+      throw new Error('countTokens is not supported');
+    }
     const response = await this.realGenerator.countTokens(request);
     const recordedResponse: FakeResponse = {
       method: 'countTokens',
@@ -110,6 +104,9 @@ export class RecordingContentGenerator implements ContentGenerator {
   async embedContent(
     request: EmbedContentParameters,
   ): Promise<EmbedContentResponse> {
+    if (!this.realGenerator.embedContent) {
+      throw new Error('embedContent is not supported');
+    }
     const response = await this.realGenerator.embedContent(request);
 
     const recordedResponse: FakeResponse = {

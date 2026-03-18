@@ -154,11 +154,15 @@ export async function calculateRequestTokenCount(
 
   if (hasMedia) {
     try {
-      const response = await contentGenerator.countTokens({
-        model,
-        contents: [{ role: 'user', parts }],
-      });
-      return response.totalTokens ?? 0;
+      if (contentGenerator.countTokens) {
+        const response = await contentGenerator.countTokens({
+          model,
+          contents: [{ role: 'user', parts }],
+        });
+        return response.totalTokens ?? 0;
+      }
+      // Fallback to local estimation if countTokens is not available
+      return estimateTokenCountSync(parts);
     } catch (error) {
       // Fallback to local estimation if the API call fails
       debugLogger.debug('countTokens API failed:', error);

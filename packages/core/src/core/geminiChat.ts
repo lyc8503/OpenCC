@@ -18,7 +18,7 @@ import {
   type GenerateContentConfig,
   type GenerateContentParameters,
 } from '@google/genai';
-import { toParts } from '../code_assist/converter.js';
+import { toParts } from '../utils/generateContentResponseUtilities.js';
 import {
   retryWithBackoff,
   isRetryableError,
@@ -53,10 +53,7 @@ import { isFunctionResponse } from '../utils/messageInspectors.js';
 import { partListUnionToString } from './geminiRequest.js';
 import type { ModelConfigKey } from '../services/modelConfigService.js';
 import { estimateTokenCountSync } from '../utils/tokenCalculation.js';
-import {
-  applyModelSelection,
-  createAvailabilityContextProvider,
-} from '../availability/policyHelpers.js';
+import { applyModelSelection } from '../utils/modelSelection.js';
 import { coreEvents } from '../utils/events.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
@@ -514,10 +511,6 @@ export class GeminiChat {
     let lastConfig: GenerateContentConfig = currentGenerateContentConfig;
     let lastContentsToUse: Content[] = [...requestContents];
 
-    const getAvailabilityContext = createAvailabilityContextProvider(
-      this.context.config,
-      () => lastModelToUse,
-    );
     // Track initial active model to detect fallback changes
     const initialActiveModel = this.context.config.getActiveModel();
 
@@ -666,7 +659,6 @@ export class GeminiChat {
       signal: abortSignal,
       maxAttempts:
         availabilityMaxAttempts ?? this.context.config.getMaxAttempts(),
-      getAvailabilityContext,
       onRetry: (attempt, error, delayMs) => {
         coreEvents.emitRetryAttempt({
           attempt,

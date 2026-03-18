@@ -16,10 +16,7 @@ import {
   TerminalQuotaError,
   RetryableQuotaError,
 } from './googleQuotaErrors.js';
-import { PREVIEW_GEMINI_MODEL } from '../config/models.js';
-import type { ModelPolicy } from '../availability/modelPolicy.js';
-import { createAvailabilityServiceMock } from '../availability/testUtils.js';
-import type { ModelAvailabilityService } from '../availability/modelAvailabilityService.js';
+import { DEFAULT_MODEL } from '../config/openaiModels.js';
 
 // Helper to create a mock function that fails a certain number of times
 const createFailingFunction = (
@@ -593,7 +590,7 @@ describe('retryWithBackoff', () => {
       expect(calledDelayMs).toBeLessThanOrEqual(12345 * 1.2);
     });
 
-    it.each([[AuthType.USE_GEMINI], [AuthType.USE_VERTEX_AI], [undefined]])(
+    it.each([[AuthType.USE_API_KEY], [undefined]])(
       'should invoke onPersistent429 callback (delegating decision) for non-Google auth users (authType: %s) on TerminalQuotaError',
       async (authType) => {
         const fallbackCallback = vi.fn();
@@ -613,6 +610,7 @@ describe('retryWithBackoff', () => {
       },
     );
   });
+
   it('should abort the retry loop when the signal is aborted', async () => {
     const abortController = new AbortController();
     const mockFn = vi.fn().mockImplementation(async () => {
@@ -634,6 +632,7 @@ describe('retryWithBackoff', () => {
     );
     expect(mockFn).toHaveBeenCalledTimes(1);
   });
+
   it('should trigger fallback for OAuth personal users on persistent 500 errors', async () => {
     const fallbackCallback = vi.fn().mockResolvedValue('gemini-2.5-flash');
 
@@ -654,14 +653,14 @@ describe('retryWithBackoff', () => {
         fallbackOccurred = true;
         return await fallbackCallback(authType, error);
       },
-      authType: AuthType.LOGIN_WITH_GOOGLE,
+      authType: 'oauth-personal',
     });
 
     await vi.runAllTimersAsync();
 
     await expect(promise).resolves.toBe('success');
     expect(fallbackCallback).toHaveBeenCalledWith(
-      AuthType.LOGIN_WITH_GOOGLE,
+      'oauth-personal',
       expect.objectContaining({ status: 500 }),
     );
     // 3 attempts (initial + 2 retries) fail with 500, then fallback triggers, then 1 success
@@ -669,7 +668,7 @@ describe('retryWithBackoff', () => {
   });
 
   it('should trigger fallback for OAuth personal users on ModelNotFoundError', async () => {
-    const fallbackCallback = vi.fn().mockResolvedValue(PREVIEW_GEMINI_MODEL);
+    const fallbackCallback = vi.fn().mockResolvedValue(DEFAULT_MODEL);
 
     let fallbackOccurred = false;
     const mockFn = vi.fn().mockImplementation(async () => {
@@ -686,151 +685,16 @@ describe('retryWithBackoff', () => {
         fallbackOccurred = true;
         return await fallbackCallback(authType, error);
       },
-      authType: AuthType.LOGIN_WITH_GOOGLE,
+      authType: 'oauth-personal',
     });
 
     await vi.runAllTimersAsync();
 
     await expect(promise).resolves.toBe('success');
     expect(fallbackCallback).toHaveBeenCalledWith(
-      AuthType.LOGIN_WITH_GOOGLE,
+      'oauth-personal',
       expect.any(ModelNotFoundError),
     );
     expect(mockFn).toHaveBeenCalledTimes(2);
-  });
-
-  describe('Availability Context Integration', () => {
-    let mockService: ModelAvailabilityService;
-    let mockPolicy1: ModelPolicy;
-    let mockPolicy2: ModelPolicy;
-
-    beforeEach(() => {
-      vi.useRealTimers();
-      mockService = createAvailabilityServiceMock();
-
-      mockPolicy1 = {
-        model: 'model-1',
-        actions: {},
-        stateTransitions: {
-          terminal: 'terminal',
-          transient: 'sticky_retry',
-        },
-      };
-
-      mockPolicy2 = {
-        model: 'model-2',
-        actions: {},
-        stateTransitions: {
-          terminal: 'terminal',
-        },
-      };
-    });
-
-    it('updates availability context per attempt and applies transitions to the correct policy', async () => {
-      const error = new TerminalQuotaError(
-        'quota exceeded',
-        { code: 429, message: 'quota', details: [] },
-        10,
-      );
-
-      const fn = vi.fn().mockImplementation(async () => {
-        throw error; // Always fail with quota
-      });
-
-      const onPersistent429 = vi
-        .fn()
-        .mockResolvedValueOnce('model-2') // First fallback success
-        .mockResolvedValueOnce(null); // Second fallback fails (give up)
-
-      // Context provider returns policy1 first, then policy2
-      const getContext = vi
-        .fn()
-        .mockReturnValueOnce({ service: mockService, policy: mockPolicy1 })
-        .mockReturnValueOnce({ service: mockService, policy: mockPolicy2 });
-
-      await expect(
-        retryWithBackoff(fn, {
-          maxAttempts: 3,
-          initialDelayMs: 1,
-          getAvailabilityContext: getContext,
-          onPersistent429,
-          authType: AuthType.LOGIN_WITH_GOOGLE,
-        }),
-      ).rejects.toThrow(TerminalQuotaError);
-
-      // Verify failures
-      expect(mockService.markTerminal).not.toHaveBeenCalled();
-      expect(mockService.markTerminal).not.toHaveBeenCalled();
-
-      // Verify sequences
-    });
-
-    it('marks sticky_retry after retries are exhausted for transient failures', async () => {
-      const transientError = new RetryableQuotaError(
-        'transient error',
-        { code: 429, message: 'transient', details: [] },
-        0,
-      );
-
-      const fn = vi.fn().mockRejectedValue(transientError);
-
-      const getContext = vi
-        .fn()
-        .mockReturnValue({ service: mockService, policy: mockPolicy1 });
-
-      vi.useFakeTimers();
-      const promise = retryWithBackoff(fn, {
-        maxAttempts: 3,
-        getAvailabilityContext: getContext,
-        initialDelayMs: 1,
-        maxDelayMs: 1,
-      }).catch((err) => err);
-
-      await vi.runAllTimersAsync();
-      const result = await promise;
-      expect(result).toBe(transientError);
-
-      expect(fn).toHaveBeenCalledTimes(3);
-      expect(mockService.markRetryOncePerTurn).not.toHaveBeenCalled();
-      expect(mockService.markRetryOncePerTurn).not.toHaveBeenCalled();
-      expect(mockService.markTerminal).not.toHaveBeenCalled();
-    });
-
-    it('maps different failure kinds to correct terminal reasons', async () => {
-      const quotaError = new TerminalQuotaError(
-        'quota',
-        { code: 429, message: 'q', details: [] },
-        10,
-      );
-      const notFoundError = new ModelNotFoundError('not found', 404);
-      const genericError = new Error('unknown error');
-
-      const fn = vi
-        .fn()
-        .mockRejectedValueOnce(quotaError)
-        .mockRejectedValueOnce(notFoundError)
-        .mockRejectedValueOnce(genericError);
-
-      const policy: ModelPolicy = {
-        model: 'model-1',
-        actions: {},
-        stateTransitions: {
-          terminal: 'terminal', // from quotaError
-          not_found: 'terminal', // from notFoundError
-          unknown: 'terminal', // from genericError
-        },
-      };
-
-      const getContext = vi
-        .fn()
-        .mockReturnValue({ service: mockService, policy });
-
-      // Run for quotaError
-      await retryWithBackoff(fn, {
-        maxAttempts: 1,
-        getAvailabilityContext: getContext,
-      }).catch(() => {});
-      expect(mockService.markTerminal).not.toHaveBeenCalled();
-    });
   });
 });

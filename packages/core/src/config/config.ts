@@ -6,7 +6,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { inspect } from 'node:util';
 import process from 'node:process';
 import { z } from 'zod';
 import {
@@ -16,7 +15,6 @@ import {
   type ContentGenerator,
   type ContentGeneratorConfig,
 } from '../core/contentGenerator.js';
-import type { OverageStrategy } from '../billing/billing.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ResourceRegistry } from '../resources/resource-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
@@ -52,18 +50,6 @@ import {
 } from '../telemetry/index.js';
 import { coreEvents, CoreEvent } from '../utils/events.js';
 import { tokenLimit } from '../core/tokenLimits.js';
-import {
-  DEFAULT_GEMINI_EMBEDDING_MODEL,
-  DEFAULT_GEMINI_FLASH_MODEL,
-  DEFAULT_GEMINI_MODEL,
-  DEFAULT_GEMINI_MODEL_AUTO,
-  isAutoModel,
-  isPreviewModel,
-  PREVIEW_GEMINI_FLASH_MODEL,
-  PREVIEW_GEMINI_MODEL,
-  PREVIEW_GEMINI_MODEL_AUTO,
-  resolveModel,
-} from './models.js';
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import type { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { ideContextStore } from '../ide/ideContext.js';
@@ -96,7 +82,6 @@ import type {
   FallbackModelHandler,
   ValidationHandler,
 } from '../fallback/types.js';
-import { ModelAvailabilityService } from '../availability/modelAvailabilityService.js';
 import { ModelRouterService } from '../routing/modelRouterService.js';
 import { OutputFormat } from '../output/types.js';
 import {
@@ -107,7 +92,6 @@ import {
 import { DEFAULT_MODEL_CONFIGS } from './defaultModelConfigs.js';
 import { ContextManager } from '../services/contextManager.js';
 import { TrackerService } from '../services/trackerService.js';
-import type { GenerateContentParameters } from '@google/genai';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig, AnyToolInvocation, AnyDeclarativeTool };
@@ -126,28 +110,15 @@ import {
   type SafetyCheckerRule,
 } from '../policy/types.js';
 import { HookSystem } from '../hooks/index.js';
-import type {
-  UserTierId,
-  GeminiUserTier,
-  RetrieveUserQuotaResponse,
-  AdminControlsSettings,
-} from '../code_assist/types.js';
 import type { HierarchicalMemory } from './memory.js';
-import { getCodeAssistServer } from '../code_assist/codeAssist.js';
-import {
-  getExperiments,
-  type Experiments,
-} from '../code_assist/experiments/experiments.js';
 import { AgentRegistry } from '../agents/registry.js';
 import { AcknowledgedAgentsService } from '../agents/acknowledgedAgents.js';
 import { setGlobalProxy } from '../utils/fetch.js';
 import { SubagentTool } from '../agents/subagent-tool.js';
-import { ExperimentFlags } from '../code_assist/experiments/flagNames.js';
 import { debugLogger } from '../utils/debugLogger.js';
 import { SkillManager, type SkillDefinition } from '../skills/skillManager.js';
 import { startupProfiler } from '../telemetry/startupProfiler.js';
 import type { AgentDefinition } from '../agents/types.js';
-import { fetchAdminControls } from '../code_assist/admin/admin_controls.js';
 import { isSubpath, resolveToRealPath } from '../utils/paths.js';
 import { InjectionService } from './injectionService.js';
 import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
@@ -614,7 +585,6 @@ export interface ConfigParameters {
   modelConfigServiceConfig?: ModelConfigServiceConfig;
   enableHooks?: boolean;
   enableHooksUI?: boolean;
-  experiments?: Experiments;
   hooks?: { [K in HookEventName]?: HookDefinition[] };
   disabledHooks?: string[];
   projectHooks?: { [K in HookEventName]?: HookDefinition[] };
@@ -641,9 +611,6 @@ export interface ConfigParameters {
     agents?: AgentSettings;
   }>;
   enableConseca?: boolean;
-  billing?: {
-    overageStrategy?: OverageStrategy;
-  };
 }
 
 export class Config implements McpContext, AgentLoopContext {
@@ -699,7 +666,6 @@ export class Config implements McpContext, AgentLoopContext {
   private baseLlmClient!: BaseLlmClient;
   private localLiteRtLmClient?: LocalLiteRtLmClient;
   private modelRouterService: ModelRouterService;
-  private readonly modelAvailabilityService: ModelAvailabilityService;
   private readonly fileFiltering: {
     respectGitIgnore: boolean;
     respectGeminiIgnore: boolean;
@@ -717,8 +683,6 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly bugCommand: BugCommandSettings | undefined;
   private model: string;
   private readonly disableLoopDetection: boolean;
-  // null = unknown (quota not fetched); true = has access; false = definitively no access
-  private hasAccessToPreviewModel: boolean | null = null;
   private readonly noBrowser: boolean;
   private readonly folderTrust: boolean;
   private ideMode: boolean;
@@ -733,32 +697,6 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly enableExtensionReloading: boolean;
   fallbackModelHandler?: FallbackModelHandler;
   validationHandler?: ValidationHandler;
-  private quotaErrorOccurred: boolean = false;
-  private creditsNotificationShown: boolean = false;
-  private modelQuotas: Map<
-    string,
-    { remaining: number; limit: number; resetTime?: string }
-  > = new Map();
-  private lastRetrievedQuota?: RetrieveUserQuotaResponse;
-  private lastQuotaFetchTime = 0;
-  private lastEmittedQuotaRemaining: number | undefined;
-  private lastEmittedQuotaLimit: number | undefined;
-
-  private emitQuotaChangedEvent(): void {
-    const pooled = this.getPooledQuota();
-    if (
-      this.lastEmittedQuotaRemaining !== pooled.remaining ||
-      this.lastEmittedQuotaLimit !== pooled.limit
-    ) {
-      this.lastEmittedQuotaRemaining = pooled.remaining;
-      this.lastEmittedQuotaLimit = pooled.limit;
-      coreEvents.emitQuotaChanged(
-        pooled.remaining,
-        pooled.limit,
-        pooled.resetTime,
-      );
-    }
-  }
 
   private readonly summarizeToolOutput:
     | Record<string, SummarizeToolOutputSettings>
@@ -822,8 +760,6 @@ export class Config implements McpContext, AgentLoopContext {
     | ({ [K in HookEventName]?: HookDefinition[] } & { disabled?: string[] })
     | undefined;
   private disabledHooks: string[];
-  private experiments: Experiments | undefined;
-  private experimentsPromise: Promise<Experiments | undefined> | undefined;
   private hookSystem?: HookSystem;
   private readonly onModelChange: ((model: string) => void) | undefined;
   private readonly onReload:
@@ -833,10 +769,6 @@ export class Config implements McpContext, AgentLoopContext {
         agents?: AgentSettings;
       }>)
     | undefined;
-
-  private readonly billing: {
-    overageStrategy: OverageStrategy;
-  };
 
   private readonly enableAgents: boolean;
   private agents: AgentSettings;
@@ -854,8 +786,6 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly modelSteering: boolean;
   private contextManager?: ContextManager;
   private terminalBackground: string | undefined = undefined;
-  private remoteAdminSettings: AdminControlsSettings | undefined;
-  private latestApiRequest: GenerateContentParameters | undefined;
   private lastModeSwitchTime: number = performance.now();
   readonly injectionService: InjectionService;
   private approvedPlanPath: string | undefined;
@@ -865,8 +795,7 @@ export class Config implements McpContext, AgentLoopContext {
     this.clientName = params.clientName;
     this.clientVersion = params.clientVersion ?? 'unknown';
     this.approvedPlanPath = undefined;
-    this.embeddingModel =
-      params.embeddingModel ?? DEFAULT_GEMINI_EMBEDDING_MODEL;
+    this.embeddingModel = params.embeddingModel ?? 'text-embedding-3-small';
     this.fileSystemService = new StandardFileSystemService();
     this.sandbox = params.sandbox
       ? {
@@ -959,7 +888,6 @@ export class Config implements McpContext, AgentLoopContext {
     this.skillsSupport = params.skillsSupport ?? true;
     this.disabledSkills = params.disabledSkills ?? [];
     this.adminSkillsEnabled = params.adminSkillsEnabled ?? true;
-    this.modelAvailabilityService = new ModelAvailabilityService();
     this.dynamicModelConfiguration = params.dynamicModelConfiguration ?? false;
 
     // HACK: The settings loading logic doesn't currently merge the default
@@ -1051,9 +979,7 @@ export class Config implements McpContext, AgentLoopContext {
     this.truncateToolOutputThreshold =
       params.truncateToolOutputThreshold ??
       DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD;
-    this.useWriteTodos = isPreviewModel(this.model, this)
-      ? false
-      : (params.useWriteTodos ?? true);
+    this.useWriteTodos = params.useWriteTodos ?? true;
     this.workspacePoliciesDir = params.workspacePoliciesDir;
     this.enableHooksUI = params.enableHooksUI ?? true;
     this.enableHooks = params.enableHooks ?? true;
@@ -1136,13 +1062,8 @@ export class Config implements McpContext, AgentLoopContext {
       this.projectHooks = params.projectHooks;
     }
 
-    this.experiments = params.experiments;
     this.onModelChange = params.onModelChange;
     this.onReload = params.onReload;
-
-    this.billing = {
-      overageStrategy: params.billing?.overageStrategy ?? 'ask',
-    };
 
     if (this.telemetrySettings.enabled) {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -1298,28 +1219,6 @@ export class Config implements McpContext, AgentLoopContext {
     baseUrl?: string,
     customHeaders?: Record<string, string>,
   ) {
-    // Reset availability service when switching auth
-    this.modelAvailabilityService.reset();
-
-    // Vertex and Genai have incompatible encryption and sending history with
-    // thoughtSignature from Genai to Vertex will fail, we need to strip them
-    if (
-      this.contentGeneratorConfig?.authType === AuthType.USE_GEMINI &&
-      authMethod !== AuthType.USE_GEMINI
-    ) {
-      // Restore the conversation history to the new client
-      this._geminiClient.stripThoughtsFromHistory();
-    }
-
-    // Reset availability status when switching auth (e.g. from limited key to OAuth)
-    this.modelAvailabilityService.reset();
-
-    // Clear stale authType to ensure getGemini31LaunchedSync doesn't return stale results
-    // during the transition.
-    if (this.contentGeneratorConfig) {
-      this.contentGeneratorConfig.authType = undefined;
-    }
-
     const newContentGeneratorConfig = await createContentGeneratorConfig(
       this,
       authMethod,
@@ -1337,80 +1236,6 @@ export class Config implements McpContext, AgentLoopContext {
 
     // Initialize BaseLlmClient now that the ContentGenerator is available
     this.baseLlmClient = new BaseLlmClient(this.contentGenerator, this);
-
-    const codeAssistServer = getCodeAssistServer(this);
-    const quotaPromise = codeAssistServer?.projectId
-      ? this.refreshUserQuota()
-      : Promise.resolve();
-
-    this.experimentsPromise = getExperiments(codeAssistServer)
-      .then((experiments) => {
-        this.setExperiments(experiments);
-        return experiments;
-      })
-      .catch((e) => {
-        debugLogger.error('Failed to fetch experiments', e);
-        return undefined;
-      });
-
-    await quotaPromise;
-
-    const authType = this.contentGeneratorConfig.authType;
-    if (
-      authType === AuthType.USE_GEMINI ||
-      authType === AuthType.USE_VERTEX_AI
-    ) {
-      this.setHasAccessToPreviewModel(true);
-    }
-
-    // Only reset when we have explicit "no access" (hasAccessToPreviewModel === false).
-    // When null (quota not fetched) or true, we preserve the saved model.
-    if (
-      isPreviewModel(this.model, this) &&
-      this.hasAccessToPreviewModel === false
-    ) {
-      this.setModel(DEFAULT_GEMINI_MODEL_AUTO);
-    }
-
-    // Fetch admin controls
-    const experiments = await this.experimentsPromise;
-    const adminControlsEnabled =
-      experiments?.flags[ExperimentFlags.ENABLE_ADMIN_CONTROLS]?.boolValue ??
-      false;
-    const adminControls = await fetchAdminControls(
-      codeAssistServer,
-      this.getRemoteAdminSettings(),
-      adminControlsEnabled,
-      (newSettings: AdminControlsSettings) => {
-        this.setRemoteAdminSettings(newSettings);
-        coreEvents.emitAdminSettingsChanged();
-      },
-    );
-    this.setRemoteAdminSettings(adminControls);
-
-    if ((await this.getProModelNoAccess()) && isAutoModel(this.model)) {
-      this.setModel(PREVIEW_GEMINI_FLASH_MODEL);
-    }
-  }
-
-  async getExperimentsAsync(): Promise<Experiments | undefined> {
-    if (this.experiments) {
-      return this.experiments;
-    }
-    const codeAssistServer = getCodeAssistServer(this);
-    return getExperiments(codeAssistServer);
-  }
-
-  getUserTier(): UserTierId | undefined {
-    return this.contentGenerator?.userTier;
-  }
-
-  getUserTierName(): string | undefined {
-    return this.contentGenerator?.userTierName;
-  }
-
-  getUserPaidTier(): GeminiUserTier | undefined {
-    return this.contentGenerator?.paidTier;
   }
 
   /**
@@ -1492,22 +1317,6 @@ export class Config implements McpContext, AgentLoopContext {
     return this.terminalBackground;
   }
 
-  getLatestApiRequest(): GenerateContentParameters | undefined {
-    return this.latestApiRequest;
-  }
-
-  setLatestApiRequest(req: GenerateContentParameters): void {
-    this.latestApiRequest = req;
-  }
-
-  getRemoteAdminSettings(): AdminControlsSettings | undefined {
-    return this.remoteAdminSettings;
-  }
-
-  setRemoteAdminSettings(settings: AdminControlsSettings | undefined): void {
-    this.remoteAdminSettings = settings;
-  }
-
   shouldLoadMemoryFromIncludeDirectories(): boolean {
     return this.loadMemoryFromIncludeDirectories;
   }
@@ -1546,7 +1355,6 @@ export class Config implements McpContext, AgentLoopContext {
     if (this.onModelChange && !isTemporary) {
       this.onModelChange(newModel);
     }
-    this.modelAvailabilityService.reset();
   }
 
   activateFallbackMode(model: string): void {
@@ -1583,127 +1391,8 @@ export class Config implements McpContext, AgentLoopContext {
     return this.validationHandler;
   }
 
-  resetTurn(): void {
-    this.modelAvailabilityService.resetTurn();
-  }
-
-  /** Resets billing state (overageStrategy, creditsNotificationShown) once per user prompt. */
-  resetBillingTurnState(overageStrategy?: OverageStrategy): void {
-    this.creditsNotificationShown = false;
-    this.billing.overageStrategy = overageStrategy ?? 'ask';
-  }
-
   getMaxSessionTurns(): number {
     return this.maxSessionTurns;
-  }
-
-  setQuotaErrorOccurred(value: boolean): void {
-    this.quotaErrorOccurred = value;
-  }
-
-  getQuotaErrorOccurred(): boolean {
-    return this.quotaErrorOccurred;
-  }
-
-  setCreditsNotificationShown(value: boolean): void {
-    this.creditsNotificationShown = value;
-  }
-
-  getCreditsNotificationShown(): boolean {
-    return this.creditsNotificationShown;
-  }
-
-  setQuota(
-    remaining: number | undefined,
-    limit: number | undefined,
-    modelId?: string,
-  ): void {
-    const activeModel = modelId ?? this.getActiveModel();
-    if (remaining !== undefined && limit !== undefined) {
-      const current = this.modelQuotas.get(activeModel);
-      if (
-        !current ||
-        current.remaining !== remaining ||
-        current.limit !== limit
-      ) {
-        this.modelQuotas.set(activeModel, { remaining, limit });
-        this.emitQuotaChangedEvent();
-      }
-    }
-  }
-
-  private getPooledQuota(): {
-    remaining?: number;
-    limit?: number;
-    resetTime?: string;
-  } {
-    const model = this.getModel();
-    if (!isAutoModel(model)) {
-      return {};
-    }
-
-    const isPreview =
-      model === PREVIEW_GEMINI_MODEL_AUTO ||
-      isPreviewModel(this.getActiveModel(), this);
-    const proModel = isPreview ? PREVIEW_GEMINI_MODEL : DEFAULT_GEMINI_MODEL;
-    const flashModel = isPreview
-      ? PREVIEW_GEMINI_FLASH_MODEL
-      : DEFAULT_GEMINI_FLASH_MODEL;
-
-    const proQuota = this.modelQuotas.get(proModel);
-    const flashQuota = this.modelQuotas.get(flashModel);
-
-    if (proQuota || flashQuota) {
-      // For reset time, take the one that is furthest in the future (most conservative)
-      const resetTime = [proQuota?.resetTime, flashQuota?.resetTime]
-        .filter((t): t is string => !!t)
-        .sort()
-        .reverse()[0];
-
-      return {
-        remaining: (proQuota?.remaining ?? 0) + (flashQuota?.remaining ?? 0),
-        limit: (proQuota?.limit ?? 0) + (flashQuota?.limit ?? 0),
-        resetTime,
-      };
-    }
-
-    return {};
-  }
-
-  getQuotaRemaining(): number | undefined {
-    const pooled = this.getPooledQuota();
-    if (pooled.remaining !== undefined) {
-      return pooled.remaining;
-    }
-    const primaryModel = resolveModel(
-      this.getModel(),
-      this.getGemini31LaunchedSync(),
-    );
-    return this.modelQuotas.get(primaryModel)?.remaining;
-  }
-
-  getQuotaLimit(): number | undefined {
-    const pooled = this.getPooledQuota();
-    if (pooled.limit !== undefined) {
-      return pooled.limit;
-    }
-    const primaryModel = resolveModel(
-      this.getModel(),
-      this.getGemini31LaunchedSync(),
-    );
-    return this.modelQuotas.get(primaryModel)?.limit;
-  }
-
-  getQuotaResetTime(): string | undefined {
-    const pooled = this.getPooledQuota();
-    if (pooled.resetTime !== undefined) {
-      return pooled.resetTime;
-    }
-    const primaryModel = resolveModel(
-      this.getModel(),
-      this.getGemini31LaunchedSync(),
-    );
-    return this.modelQuotas.get(primaryModel)?.resetTime;
   }
 
   getEmbeddingModel(): string {
@@ -1780,112 +1469,6 @@ export class Config implements McpContext, AgentLoopContext {
   }
   getQuestion(): string | undefined {
     return this.question;
-  }
-
-  getHasAccessToPreviewModel(): boolean {
-    return this.hasAccessToPreviewModel !== false;
-  }
-
-  setHasAccessToPreviewModel(hasAccess: boolean | null): void {
-    this.hasAccessToPreviewModel = hasAccess;
-  }
-
-  async refreshAvailableCredits(): Promise<void> {
-    const codeAssistServer = getCodeAssistServer(this);
-    if (!codeAssistServer) {
-      return;
-    }
-    try {
-      await codeAssistServer.refreshAvailableCredits();
-    } catch {
-      // Non-fatal: proceed even if refresh fails.
-      // The actual credit balance will be verified server-side.
-    }
-  }
-
-  async refreshUserQuota(): Promise<RetrieveUserQuotaResponse | undefined> {
-    const codeAssistServer = getCodeAssistServer(this);
-    if (!codeAssistServer || !codeAssistServer.projectId) {
-      return undefined;
-    }
-    try {
-      const quota = await codeAssistServer.retrieveUserQuota({
-        project: codeAssistServer.projectId,
-      });
-
-      if (quota.buckets) {
-        this.lastRetrievedQuota = quota;
-        this.lastQuotaFetchTime = Date.now();
-
-        for (const bucket of quota.buckets) {
-          if (
-            bucket.modelId &&
-            bucket.remainingAmount &&
-            bucket.remainingFraction != null
-          ) {
-            const remaining = parseInt(bucket.remainingAmount, 10);
-            const limit =
-              bucket.remainingFraction > 0
-                ? Math.round(remaining / bucket.remainingFraction)
-                : (this.modelQuotas.get(bucket.modelId)?.limit ?? 0);
-
-            if (!isNaN(remaining) && Number.isFinite(limit) && limit > 0) {
-              this.modelQuotas.set(bucket.modelId, {
-                remaining,
-                limit,
-                resetTime: bucket.resetTime,
-              });
-            }
-          }
-        }
-        this.emitQuotaChangedEvent();
-      }
-
-      const hasAccess =
-        quota.buckets?.some(
-          (b) => b.modelId && isPreviewModel(b.modelId, this),
-        ) ?? false;
-      this.setHasAccessToPreviewModel(hasAccess);
-      return quota;
-    } catch (e) {
-      debugLogger.debug('Failed to retrieve user quota', e);
-      return undefined;
-    }
-  }
-
-  async refreshUserQuotaIfStale(
-    staleMs = 30_000,
-  ): Promise<RetrieveUserQuotaResponse | undefined> {
-    const now = Date.now();
-    if (now - this.lastQuotaFetchTime > staleMs) {
-      return this.refreshUserQuota();
-    }
-    return this.lastRetrievedQuota;
-  }
-
-  getLastRetrievedQuota(): RetrieveUserQuotaResponse | undefined {
-    return this.lastRetrievedQuota;
-  }
-
-  getRemainingQuotaForModel(modelId: string):
-    | {
-        remainingAmount?: number;
-        remainingFraction?: number;
-        resetTime?: string;
-      }
-    | undefined {
-    const bucket = this.lastRetrievedQuota?.buckets?.find(
-      (b) => b.modelId === modelId,
-    );
-    if (!bucket) return undefined;
-
-    return {
-      remainingAmount: bucket.remainingAmount
-        ? parseInt(bucket.remainingAmount, 10)
-        : undefined,
-      remainingFraction: bucket.remainingFraction,
-      resetTime: bucket.resetTime,
-    };
   }
 
   getCoreTools(): string[] | undefined {
@@ -2078,39 +1661,8 @@ export class Config implements McpContext, AgentLoopContext {
     return this.toolOutputMasking.enabled;
   }
 
-  async getToolOutputMaskingConfig(): Promise<ToolOutputMaskingConfig> {
-    await this.ensureExperimentsLoaded();
-
-    const remoteProtection =
-      this.experiments?.flags[ExperimentFlags.MASKING_PROTECTION_THRESHOLD]
-        ?.intValue;
-    const remotePrunable =
-      this.experiments?.flags[ExperimentFlags.MASKING_PRUNABLE_THRESHOLD]
-        ?.intValue;
-    const remoteProtectLatest =
-      this.experiments?.flags[ExperimentFlags.MASKING_PROTECT_LATEST_TURN]
-        ?.boolValue;
-
-    const parsedProtection = remoteProtection
-      ? parseInt(remoteProtection, 10)
-      : undefined;
-    const parsedPrunable = remotePrunable
-      ? parseInt(remotePrunable, 10)
-      : undefined;
-
-    return {
-      enabled: this.toolOutputMasking.enabled,
-      toolProtectionThreshold:
-        parsedProtection !== undefined && !isNaN(parsedProtection)
-          ? parsedProtection
-          : this.toolOutputMasking.toolProtectionThreshold,
-      minPrunableTokensThreshold:
-        parsedPrunable !== undefined && !isNaN(parsedPrunable)
-          ? parsedPrunable
-          : this.toolOutputMasking.minPrunableTokensThreshold,
-      protectLatestTurn:
-        remoteProtectLatest ?? this.toolOutputMasking.protectLatestTurn,
-    };
+  getToolOutputMaskingConfig(): ToolOutputMaskingConfig {
+    return this.toolOutputMasking;
   }
 
   getGeminiMdFileCount(): number {
@@ -2288,19 +1840,6 @@ export class Config implements McpContext, AgentLoopContext {
     return this.telemetrySettings.outfile;
   }
 
-  getBillingSettings(): { overageStrategy: OverageStrategy } {
-    return this.billing;
-  }
-
-  /**
-   * Updates the overage strategy at runtime.
-   * Used to switch from 'ask' to 'always' after the user accepts credits
-   * via the overage dialog, so subsequent API calls auto-include credits.
-   */
-  setOverageStrategy(strategy: OverageStrategy): void {
-    this.billing.overageStrategy = strategy;
-  }
-
   getTelemetryUseCollector(): boolean {
     return this.telemetrySettings.useCollector ?? false;
   }
@@ -2327,10 +1866,6 @@ export class Config implements McpContext, AgentLoopContext {
 
   getModelRouterService(): ModelRouterService {
     return this.modelRouterService;
-  }
-
-  getModelAvailabilityService(): ModelAvailabilityService {
-    return this.modelAvailabilityService;
   }
 
   getEnableRecursiveFileSearch(): boolean {
@@ -2605,170 +2140,82 @@ export class Config implements McpContext, AgentLoopContext {
     this.fileSystemService = fileSystemService;
   }
 
-  async getCompressionThreshold(): Promise<number | undefined> {
-    if (this.compressionThreshold) {
-      return this.compressionThreshold;
-    }
-
-    await this.ensureExperimentsLoaded();
-
-    const remoteThreshold =
-      this.experiments?.flags[ExperimentFlags.CONTEXT_COMPRESSION_THRESHOLD]
-        ?.floatValue;
-    if (remoteThreshold === 0) {
-      return undefined;
-    }
-    return remoteThreshold;
+  getCompressionThreshold(): number | undefined {
+    return this.compressionThreshold;
   }
 
-  async getUserCaching(): Promise<boolean | undefined> {
-    await this.ensureExperimentsLoaded();
-
-    return this.experiments?.flags[ExperimentFlags.USER_CACHING]?.boolValue;
+  getUserCaching(): boolean | undefined {
+    return undefined;
   }
 
   async getPlanModeRoutingEnabled(): Promise<boolean> {
     return this.planModeRoutingEnabled;
   }
 
-  async getNumericalRoutingEnabled(): Promise<boolean> {
-    await this.ensureExperimentsLoaded();
-
-    const flag =
-      this.experiments?.flags[ExperimentFlags.ENABLE_NUMERICAL_ROUTING];
-    return flag?.boolValue ?? true;
+  getNumericalRoutingEnabled(): boolean {
+    return true;
   }
 
   /**
    * Returns the resolved complexity threshold for routing.
-   * If a remote threshold is provided and within range (0-100), it is returned.
-   * Otherwise, the default threshold (90) is returned.
+   * Returns the default threshold (90).
    */
-  async getResolvedClassifierThreshold(): Promise<number> {
-    const remoteValue = await this.getClassifierThreshold();
-    const defaultValue = 90;
-
-    if (
-      remoteValue !== undefined &&
-      !isNaN(remoteValue) &&
-      remoteValue >= 0 &&
-      remoteValue <= 100
-    ) {
-      return remoteValue;
-    }
-
-    return defaultValue;
+  getResolvedClassifierThreshold(): number {
+    return 90;
   }
 
-  async getClassifierThreshold(): Promise<number | undefined> {
-    await this.ensureExperimentsLoaded();
-
-    const flag = this.experiments?.flags[ExperimentFlags.CLASSIFIER_THRESHOLD];
-    if (flag?.intValue !== undefined) {
-      return parseInt(flag.intValue, 10);
-    }
-    return flag?.floatValue;
+  getClassifierThreshold(): number | undefined {
+    return undefined;
   }
 
-  async getBannerTextNoCapacityIssues(): Promise<string> {
-    await this.ensureExperimentsLoaded();
-    return (
-      this.experiments?.flags[ExperimentFlags.BANNER_TEXT_NO_CAPACITY_ISSUES]
-        ?.stringValue ?? ''
-    );
+  getBannerTextNoCapacityIssues(): string {
+    return '';
   }
 
-  async getBannerTextCapacityIssues(): Promise<string> {
-    await this.ensureExperimentsLoaded();
-    return (
-      this.experiments?.flags[ExperimentFlags.BANNER_TEXT_CAPACITY_ISSUES]
-        ?.stringValue ?? ''
-    );
+  getBannerTextCapacityIssues(): string {
+    return '';
   }
 
   /**
    * Returns whether the user has access to Pro models.
-   * This is determined by the PRO_MODEL_NO_ACCESS experiment flag.
    */
-  async getProModelNoAccess(): Promise<boolean> {
-    await this.ensureExperimentsLoaded();
-    return this.getProModelNoAccessSync();
+  getProModelNoAccess(): boolean {
+    return false;
   }
 
   /**
    * Returns whether the user has access to Pro models synchronously.
-   *
-   * Note: This method should only be called after startup, once experiments have been loaded.
    */
   getProModelNoAccessSync(): boolean {
-    if (this.contentGeneratorConfig?.authType !== AuthType.LOGIN_WITH_GOOGLE) {
-      return false;
-    }
-    return (
-      this.experiments?.flags[ExperimentFlags.PRO_MODEL_NO_ACCESS]?.boolValue ??
-      false
-    );
+    return false;
   }
 
   /**
    * Returns whether Gemini 3.1 has been launched.
-   * This method is async and ensures that experiments are loaded before returning the result.
    */
-  async getGemini31Launched(): Promise<boolean> {
-    await this.ensureExperimentsLoaded();
-    return this.getGemini31LaunchedSync();
+  getGemini31Launched(): boolean {
+    return true;
   }
 
   /**
    * Returns whether the custom tool model should be used.
    */
-  async getUseCustomToolModel(): Promise<boolean> {
-    const useGemini3_1 = await this.getGemini31Launched();
-    const authType = this.contentGeneratorConfig?.authType;
-    return useGemini3_1 && authType === AuthType.USE_GEMINI;
+  getUseCustomToolModel(): boolean {
+    return true;
   }
 
   /**
    * Returns whether the custom tool model should be used.
-   *
-   * Note: This method should only be called after startup, once experiments have been loaded.
    */
   getUseCustomToolModelSync(): boolean {
-    const useGemini3_1 = this.getGemini31LaunchedSync();
-    const authType = this.contentGeneratorConfig?.authType;
-    return useGemini3_1 && authType === AuthType.USE_GEMINI;
+    return true;
   }
 
   /**
    * Returns whether Gemini 3.1 has been launched.
-   *
-   * Note: This method should only be called after startup, once experiments have been loaded.
-   * If you need to call this during startup or from an async context, use
-   * getGemini31Launched instead.
    */
   getGemini31LaunchedSync(): boolean {
-    const authType = this.contentGeneratorConfig?.authType;
-    if (
-      authType === AuthType.USE_GEMINI ||
-      authType === AuthType.USE_VERTEX_AI
-    ) {
-      return true;
-    }
-    return (
-      this.experiments?.flags[ExperimentFlags.GEMINI_3_1_PRO_LAUNCHED]
-        ?.boolValue ?? false
-    );
-  }
-
-  private async ensureExperimentsLoaded(): Promise<void> {
-    if (!this.experimentsPromise) {
-      return;
-    }
-    try {
-      await this.experimentsPromise;
-    } catch (e) {
-      debugLogger.debug('Failed to fetch experiments', e);
-    }
+    return true;
   }
 
   isInteractiveShellEnabled(): boolean {
@@ -3200,58 +2647,6 @@ export class Config implements McpContext, AgentLoopContext {
     return this.disabledHooks;
   }
 
-  /**
-   * Get experiments configuration
-   */
-  getExperiments(): Experiments | undefined {
-    return this.experiments;
-  }
-
-  /**
-   * Set experiments configuration
-   */
-  setExperiments(experiments: Experiments): void {
-    this.experiments = experiments;
-    const flagSummaries = Object.entries(experiments.flags ?? {})
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([flagId, flag]) => {
-        const summary: Record<string, unknown> = { flagId };
-        if (flag.boolValue !== undefined) {
-          summary['boolValue'] = flag.boolValue;
-        }
-        if (flag.floatValue !== undefined) {
-          summary['floatValue'] = flag.floatValue;
-        }
-        if (flag.intValue !== undefined) {
-          summary['intValue'] = flag.intValue;
-        }
-        if (flag.stringValue !== undefined) {
-          summary['stringValue'] = flag.stringValue;
-        }
-        const int32Length = flag.int32ListValue?.values?.length ?? 0;
-        if (int32Length > 0) {
-          summary['int32ListLength'] = int32Length;
-        }
-        const stringListLength = flag.stringListValue?.values?.length ?? 0;
-        if (stringListLength > 0) {
-          summary['stringListLength'] = stringListLength;
-        }
-        return summary;
-      });
-    const summary = {
-      experimentIds: experiments.experimentIds ?? [],
-      flags: flagSummaries,
-    };
-    const summaryString = inspect(summary, {
-      depth: null,
-      maxArrayLength: null,
-      maxStringLength: null,
-      breakLength: 80,
-      compact: false,
-    });
-    debugLogger.debug('Experiments loaded', summaryString);
-  }
-
   private onAgentsRefreshed = async () => {
     if (this._toolRegistry) {
       this.registerSubAgentTools(this._toolRegistry);
@@ -3281,5 +2676,3 @@ export class Config implements McpContext, AgentLoopContext {
     }
   }
 }
-// Export model constants for use in CLI
-export { DEFAULT_GEMINI_FLASH_MODEL };

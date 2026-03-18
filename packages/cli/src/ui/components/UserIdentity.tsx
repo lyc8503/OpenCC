@@ -13,7 +13,6 @@ import {
   UserAccountManager,
   AuthType,
 } from '@google/gemini-cli-core';
-import { isUltraTier } from '../../utils/tierUtils.js';
 
 interface UserIdentityProps {
   config: Config;
@@ -29,13 +28,6 @@ export const UserIdentity: React.FC<UserIdentityProps> = ({ config }) => {
     return undefined;
   }, [authType]);
 
-  const tierName = useMemo(
-    () => (authType ? config.getUserTierName() : undefined),
-    [config, authType],
-  );
-
-  const isUltra = useMemo(() => isUltraTier(tierName), [tierName]);
-
   if (!authType) {
     return null;
   }
@@ -45,9 +37,9 @@ export const UserIdentity: React.FC<UserIdentityProps> = ({ config }) => {
       {/* User Email /auth */}
       <Box>
         <Text color={theme.text.primary} wrap="truncate-end">
-          {authType === AuthType.LOGIN_WITH_GOOGLE ? (
+          {authType === AuthType.USE_API_KEY ? (
             <Text>
-              <Text bold>Signed in with Google{email ? ':' : ''}</Text>
+              <Text bold>API Key Auth{email ? ':' : ''}</Text>
               {email ? ` ${email}` : ''}
             </Text>
           ) : (
@@ -56,16 +48,6 @@ export const UserIdentity: React.FC<UserIdentityProps> = ({ config }) => {
         </Text>
         <Text color={theme.text.secondary}> /auth</Text>
       </Box>
-
-      {/* Tier Name /upgrade */}
-      {tierName && (
-        <Box>
-          <Text color={theme.text.primary} wrap="truncate-end">
-            <Text bold>Plan:</Text> {tierName}
-          </Text>
-          {!isUltra && <Text color={theme.text.secondary}> /upgrade</Text>}
-        </Box>
-      )}
     </Box>
   );
 };

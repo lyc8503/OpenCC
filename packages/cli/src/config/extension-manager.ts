@@ -52,8 +52,6 @@ import {
   type HookEventName,
   type ResolvedExtensionSetting,
   coreEvents,
-  applyAdminAllowlist,
-  getAdminBlockedMcpServersMessage,
   CoreToolCallStatus,
   loadExtensionPolicies,
   isSubpath,
@@ -827,22 +825,16 @@ Would you like to attempt to install via "git clone" instead?`,
         if (this.settings.admin.mcp.enabled === false) {
           config.mcpServers = undefined;
         } else {
-          // Apply admin allowlist if configured
+          // Apply admin allowlist if configured - only keep allowed servers
           const adminAllowlist = this.settings.admin.mcp.config;
           if (adminAllowlist && Object.keys(adminAllowlist).length > 0) {
-            const result = applyAdminAllowlist(
-              config.mcpServers,
-              adminAllowlist,
+            const allowedKeys = new Set(Object.keys(adminAllowlist));
+            const filteredServers = Object.fromEntries(
+              Object.entries(config.mcpServers).filter(([key]) =>
+                allowedKeys.has(key),
+              ),
             );
-            config.mcpServers = result.mcpServers;
-
-            if (result.blockedServerNames.length > 0) {
-              const message = getAdminBlockedMcpServersMessage(
-                result.blockedServerNames,
-                undefined,
-              );
-              coreEvents.emitConsoleLog('warn', message);
-            }
+            config.mcpServers = filteredServers;
           }
 
           // Then apply local filtering/sanitization

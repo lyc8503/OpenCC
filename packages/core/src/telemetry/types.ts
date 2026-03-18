@@ -16,7 +16,6 @@ import type { ApprovalMode } from '../policy/types.js';
 import type { CompletedToolCall } from '../core/coreToolScheduler.js';
 import { CoreToolCallStatus } from '../scheduler/types.js';
 import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
-import { AuthType } from '../core/contentGenerator.js';
 import type { LogAttributes, LogRecord } from '@opentelemetry/api-logs';
 import {
   getDecisionFromOutcome,
@@ -83,12 +82,8 @@ export class StartSessionEvent implements BaseTelemetryEvent {
     const mcpServers =
       config.getMcpClientManager()?.getMcpServers() ?? config.getMcpServers();
 
-    let useGemini = false;
-    let useVertex = false;
-    if (generatorConfig && generatorConfig.authType) {
-      useGemini = generatorConfig.authType === AuthType.USE_GEMINI;
-      useVertex = generatorConfig.authType === AuthType.USE_VERTEX_AI;
-    }
+    // With OpenAI-based API, we only have USE_API_KEY auth type
+    const useApiKey = generatorConfig?.authType === 'api-key';
 
     this['event.name'] = 'cli_config';
     this['event.timestamp'] = new Date().toISOString();
@@ -98,8 +93,8 @@ export class StartSessionEvent implements BaseTelemetryEvent {
       typeof config.getSandbox() === 'string' || !!config.getSandbox();
     this.core_tools_enabled = (config.getCoreTools() ?? []).join(',');
     this.approval_mode = config.getApprovalMode();
-    this.api_key_enabled = useGemini || useVertex;
-    this.vertex_ai_enabled = useVertex;
+    this.api_key_enabled = useApiKey;
+    this.vertex_ai_enabled = false;
     this.debug_enabled = config.getDebugMode();
     this.mcp_servers = mcpServers ? Object.keys(mcpServers).join(',') : '';
     this.telemetry_enabled = config.getTelemetryEnabled();

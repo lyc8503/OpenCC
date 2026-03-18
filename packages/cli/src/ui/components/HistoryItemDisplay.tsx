@@ -146,22 +146,10 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
       {itemForDisplay.type === 'stats' && (
         <StatsDisplay
           duration={itemForDisplay.duration}
-          quotas={itemForDisplay.quotas}
           selectedAuthType={itemForDisplay.selectedAuthType}
           userEmail={itemForDisplay.userEmail}
           tier={itemForDisplay.tier}
           currentModel={itemForDisplay.currentModel}
-          quotaStats={
-            itemForDisplay.pooledRemaining !== undefined ||
-            itemForDisplay.pooledLimit !== undefined ||
-            itemForDisplay.pooledResetTime !== undefined
-              ? {
-                  remaining: itemForDisplay.pooledRemaining,
-                  limit: itemForDisplay.pooledLimit,
-                  resetTime: itemForDisplay.pooledResetTime,
-                }
-              : undefined
-          }
           creditBalance={itemForDisplay.creditBalance}
         />
       )}
@@ -170,18 +158,6 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
           selectedAuthType={itemForDisplay.selectedAuthType}
           userEmail={itemForDisplay.userEmail}
           tier={itemForDisplay.tier}
-          currentModel={itemForDisplay.currentModel}
-          quotaStats={
-            itemForDisplay.pooledRemaining !== undefined ||
-            itemForDisplay.pooledLimit !== undefined ||
-            itemForDisplay.pooledResetTime !== undefined
-              ? {
-                  remaining: itemForDisplay.pooledRemaining,
-                  limit: itemForDisplay.pooledLimit,
-                  resetTime: itemForDisplay.pooledResetTime,
-                }
-              : undefined
-          }
         />
       )}
       {itemForDisplay.type === 'tool_stats' && <ToolStatsDisplay />}

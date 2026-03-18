@@ -13,7 +13,7 @@ import {
   shouldSimulate429,
   resetRequestCounter,
 } from './testUtils.js';
-import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import { DEFAULT_MODEL } from '../config/openaiModels.js';
 import { retryWithBackoff } from './retry.js';
 import { AuthType } from '../core/contentGenerator.js';
 // Import the new types (Assuming this test file is in packages/core/src/utils/)
@@ -39,7 +39,7 @@ describe('Retry Utility Fallback Integration', () => {
       targetDir: '/test',
       debugMode: false,
       cwd: '/test',
-      model: 'gemini-2.5-pro',
+      model: 'gpt-4o',
     });
     mockGoogleApiError = {
       code: 429,
@@ -62,8 +62,8 @@ describe('Retry Utility Fallback Integration', () => {
 
     // Call the handler directly via the config property
     const result = await config.fallbackModelHandler!(
-      'gemini-2.5-pro',
-      DEFAULT_GEMINI_FLASH_MODEL,
+      'gpt-4o',
+      DEFAULT_MODEL,
       new Error('test'),
     );
 
@@ -95,12 +95,12 @@ describe('Retry Utility Fallback Integration', () => {
       initialDelayMs: 1,
       maxDelayMs: 10,
       onPersistent429: mockPersistent429Callback,
-      authType: AuthType.LOGIN_WITH_GOOGLE,
+      authType: 'oauth-personal',
     });
 
     expect(fallbackCalled).toBe(true);
     expect(mockPersistent429Callback).toHaveBeenCalledWith(
-      AuthType.LOGIN_WITH_GOOGLE,
+      'oauth-personal',
       expect.any(TerminalQuotaError),
     );
     expect(result).toBe('success after fallback');
@@ -127,7 +127,7 @@ describe('Retry Utility Fallback Integration', () => {
       initialDelayMs: 1,
       maxDelayMs: 10,
       onPersistent429: mockPersistent429Callback,
-      authType: AuthType.LOGIN_WITH_GOOGLE,
+      authType: 'oauth-personal',
     });
 
     await expect(promise).rejects.toThrow('Simulated 499 error');
@@ -149,7 +149,7 @@ describe('Retry Utility Fallback Integration', () => {
       initialDelayMs: 1,
       maxDelayMs: 10,
       onPersistent429: fallbackCallback,
-      authType: AuthType.USE_GEMINI, // API key auth type
+      authType: AuthType.USE_API_KEY, // API key auth type
     });
 
     await expect(promise).rejects.toThrow('Daily limit');

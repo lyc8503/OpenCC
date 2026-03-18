@@ -14,7 +14,6 @@ import {
   GitService,
   UnauthorizedError,
   UserPromptEvent,
-  DEFAULT_GEMINI_FLASH_MODEL,
   logConversationFinishedEvent,
   ConversationFinishedEvent,
   ApprovalMode,
@@ -28,7 +27,6 @@ import {
   EDIT_TOOL_NAMES,
   ASK_USER_TOOL_NAME,
   processRestorableToolCalls,
-  recordToolCallInteractions,
   ToolErrorType,
   ValidationRequiredError,
   coreEvents,
@@ -317,10 +315,7 @@ export const useGeminiStream = (
               completedToolCallsFromScheduler,
             );
 
-          await recordToolCallInteractions(
-            config,
-            completedToolCallsFromScheduler,
-          );
+          // Tool call interactions recording removed
         } catch (error) {
           debugLogger.warn(
             `Error recording completed tool call information: ${error}`,
@@ -1011,13 +1006,7 @@ export const useGeminiStream = (
       addItem(
         {
           type: MessageType.ERROR,
-          text: parseAndFormatApiError(
-            eventValue.error,
-            config.getContentGeneratorConfig()?.authType,
-            undefined,
-            config.getModel(),
-            DEFAULT_GEMINI_FLASH_MODEL,
-          ),
+          text: parseAndFormatApiError(eventValue.error),
         },
         userMessageTimestamp,
       );
@@ -1417,10 +1406,6 @@ export const useGeminiStream = (
           // Reset quota error flag when starting a new query (not a continuation)
           if (!options?.isContinuation) {
             setModelSwitchedFromQuotaError(false);
-            config.setQuotaErrorOccurred(false);
-            config.resetBillingTurnState(
-              settings.merged.billing?.overageStrategy,
-            );
             suppressedToolErrorCountRef.current = 0;
             suppressedToolErrorNoteShownRef.current = false;
             lowVerbosityFailureNoteShownRef.current = false;
@@ -1545,10 +1530,6 @@ export const useGeminiStream = (
                     type: MessageType.ERROR,
                     text: parseAndFormatApiError(
                       getErrorMessage(error) || 'Unknown error',
-                      config.getContentGeneratorConfig()?.authType,
-                      undefined,
-                      config.getModel(),
-                      DEFAULT_GEMINI_FLASH_MODEL,
                     ),
                   },
                   userMessageTimestamp,

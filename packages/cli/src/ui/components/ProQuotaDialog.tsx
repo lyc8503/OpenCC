@@ -8,8 +8,7 @@ import type React from 'react';
 import { Box, Text } from 'ink';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { theme } from '../semantic-colors.js';
-import { AuthType } from '@google/gemini-cli-core';
-import { isUltraTier } from '../../utils/tierUtils.js';
+import type { FallbackIntent } from '@google/gemini-cli-core';
 
 interface ProQuotaDialogProps {
   failedModel: string;
@@ -17,11 +16,9 @@ interface ProQuotaDialogProps {
   message: string;
   isTerminalQuotaError: boolean;
   isModelNotFoundError?: boolean;
-  authType?: AuthType;
+  authType?: string;
   tierName?: string;
-  onChoice: (
-    choice: 'retry_later' | 'retry_once' | 'retry_always' | 'upgrade',
-  ) => void;
+  onChoice: (choice: FallbackIntent) => void;
 }
 
 export function ProQuotaDialog({
@@ -30,8 +27,6 @@ export function ProQuotaDialog({
   message,
   isTerminalQuotaError,
   isModelNotFoundError,
-  authType,
-  tierName,
   onChoice,
 }: ProQuotaDialogProps): React.JSX.Element {
   let items;
@@ -50,24 +45,13 @@ export function ProQuotaDialog({
       },
     ];
   } else if (isModelNotFoundError || isTerminalQuotaError) {
-    const isUltra = isUltraTier(tierName);
-
-    // free users and out of quota users on G1 pro and Cloud Console gets an option to upgrade
+    // No upgrade option for API key auth
     items = [
       {
         label: `Switch to ${fallbackModel}`,
         value: 'retry_always' as const,
         key: 'retry_always',
       },
-      ...(authType === AuthType.LOGIN_WITH_GOOGLE && !isUltra
-        ? [
-            {
-              label: 'Upgrade for higher limits',
-              value: 'upgrade' as const,
-              key: 'upgrade',
-            },
-          ]
-        : []),
       {
         label: `Stop`,
         value: 'retry_later' as const,
@@ -95,9 +79,7 @@ export function ProQuotaDialog({
     ];
   }
 
-  const handleSelect = (
-    choice: 'retry_later' | 'retry_once' | 'retry_always' | 'upgrade',
-  ) => {
+  const handleSelect = (choice: FallbackIntent) => {
     onChoice(choice);
   };
 

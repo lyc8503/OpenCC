@@ -11,7 +11,6 @@ import {
   type ThoughtSummary,
   type SerializableConfirmationDetails,
   type ToolResultDisplay,
-  type RetrieveUserQuotaResponse,
   type SkillDefinition,
   type AgentDefinition,
   type ApprovalMode,
@@ -206,7 +205,10 @@ export interface QuotaStats {
 export type HistoryItemStats = HistoryItemQuotaBase & {
   type: 'stats';
   duration: string;
-  quotas?: RetrieveUserQuotaResponse;
+  quotas?: {
+    proQuota?: { remaining: number | undefined; limit: number | undefined };
+    flashQuota?: { remaining: number | undefined; limit: number | undefined };
+  };
   creditBalance?: number;
 };
 

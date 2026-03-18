@@ -18,10 +18,10 @@ describe('tokenCalculation', () => {
       countTokens: vi.fn(),
     } as unknown as ContentGenerator;
 
-    const model = 'gemini-pro';
+    const model = 'gpt-4o';
 
     it('should use countTokens API for media requests (images/files)', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockResolvedValue({
+      vi.mocked(mockContentGenerator.countTokens)!!.mockResolvedValue({
         totalTokens: 100,
       });
       const request = [{ inlineData: { mimeType: 'image/png', data: 'data' } }];
@@ -37,7 +37,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should estimate tokens locally for tool calls', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockClear();
+      vi.mocked(mockContentGenerator.countTokens)!.mockClear();
       const request = [{ functionCall: { name: 'foo', args: { bar: 'baz' } } }];
 
       const count = await calculateRequestTokenCount(
@@ -51,7 +51,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should estimate tokens locally for simple ASCII text', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockClear();
+      vi.mocked(mockContentGenerator.countTokens)!.mockClear();
       // 12 chars. 12 * 0.25 = 3 tokens.
       const request = 'Hello world!';
 
@@ -66,7 +66,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should estimate tokens locally for CJK text with higher weight', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockClear();
+      vi.mocked(mockContentGenerator.countTokens)!.mockClear();
       // 2 chars. 2 * 1.3 = 2.6 -> floor(2.6) = 2.
       const request = '你好';
 
@@ -81,7 +81,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should handle mixed content', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockClear();
+      vi.mocked(mockContentGenerator.countTokens)!.mockClear();
       // 'Hi': 2 * 0.25 = 0.5
       // '你好': 2 * 1.3 = 2.6
       // Total: 3.1 -> 3
@@ -108,7 +108,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should fallback to local estimation when countTokens API fails', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockRejectedValue(
+      vi.mocked(mockContentGenerator.countTokens)!.mockRejectedValue(
         new Error('API error'),
       );
       const request = [
@@ -127,7 +127,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should use fixed estimate for images in fallback', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockRejectedValue(
+      vi.mocked(mockContentGenerator.countTokens)!.mockRejectedValue(
         new Error('API error'),
       );
       const request = [
@@ -144,7 +144,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should use countTokens API for PDF requests', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockResolvedValue({
+      vi.mocked(mockContentGenerator.countTokens)!.mockResolvedValue({
         totalTokens: 5160,
       });
       const request = [
@@ -162,7 +162,7 @@ describe('tokenCalculation', () => {
     });
 
     it('should use fixed estimate for PDFs in fallback', async () => {
-      vi.mocked(mockContentGenerator.countTokens).mockRejectedValue(
+      vi.mocked(mockContentGenerator.countTokens)!.mockRejectedValue(
         new Error('API error'),
       );
       const request = [

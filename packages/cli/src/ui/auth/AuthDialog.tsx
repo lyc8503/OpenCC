@@ -5,7 +5,7 @@
  */
 
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../semantic-colors.js';
 import { RadioButtonSelect } from '../components/shared/RadioButtonSelect.js';
@@ -14,15 +14,10 @@ import {
   type LoadableSettingScope,
   type LoadedSettings,
 } from '../../config/settings.js';
-import {
-  AuthType,
-  clearCachedCredentialFile,
-  type Config,
-} from '@google/gemini-cli-core';
+import { AuthType, type Config } from '@google/gemini-cli-core';
 import { useKeypress } from '../hooks/useKeypress.js';
 import { AuthState } from '../types.js';
 import { validateAuthMethodWithSettings } from './useAuth.js';
-import { relaunchApp } from '../../utils/processUtils.js';
 
 interface AuthDialogProps {
   config: Config;
@@ -41,39 +36,11 @@ export function AuthDialog({
   onAuthError,
   setAuthContext,
 }: AuthDialogProps): React.JSX.Element {
-  const [exiting, setExiting] = useState(false);
   let items = [
     {
-      label: 'Sign in with Google',
-      value: AuthType.LOGIN_WITH_GOOGLE,
-      key: AuthType.LOGIN_WITH_GOOGLE,
-    },
-    ...(process.env['CLOUD_SHELL'] === 'true'
-      ? [
-          {
-            label: 'Use Cloud Shell user credentials',
-            value: AuthType.COMPUTE_ADC,
-            key: AuthType.COMPUTE_ADC,
-          },
-        ]
-      : process.env['GEMINI_CLI_USE_COMPUTE_ADC'] === 'true'
-        ? [
-            {
-              label: 'Use metadata server application default credentials',
-              value: AuthType.COMPUTE_ADC,
-              key: AuthType.COMPUTE_ADC,
-            },
-          ]
-        : []),
-    {
-      label: 'Use Gemini API Key',
-      value: AuthType.USE_GEMINI,
-      key: AuthType.USE_GEMINI,
-    },
-    {
-      label: 'Vertex AI',
-      value: AuthType.USE_VERTEX_AI,
-      key: AuthType.USE_VERTEX_AI,
+      label: 'Use API Key',
+      value: AuthType.USE_API_KEY,
+      key: AuthType.USE_API_KEY,
     },
   ];
 
@@ -103,11 +70,8 @@ export function AuthDialog({
       return item.value === defaultAuthType;
     }
 
-    if (process.env['GEMINI_API_KEY']) {
-      return item.value === AuthType.USE_GEMINI;
-    }
-
-    return item.value === AuthType.LOGIN_WITH_GOOGLE;
+    // Default to API key auth
+    return item.value === AuthType.USE_API_KEY;
   });
   if (settings.merged.security.auth.enforcedType) {
     initialAuthIndex = 0;
@@ -115,29 +79,15 @@ export function AuthDialog({
 
   const onSelect = useCallback(
     async (authType: AuthType | undefined, scope: LoadableSettingScope) => {
-      if (exiting) {
-        return;
-      }
       if (authType) {
-        if (authType === AuthType.LOGIN_WITH_GOOGLE) {
-          setAuthContext({ requiresRestart: true });
-        } else {
-          setAuthContext({});
-        }
-        await clearCachedCredentialFile();
-
+        setAuthContext({});
         settings.setValue(scope, 'security.auth.selectedType', authType);
-        if (
-          authType === AuthType.LOGIN_WITH_GOOGLE &&
-          config.isBrowserLaunchSuppressed()
-        ) {
-          setExiting(true);
-          setTimeout(relaunchApp, 100);
-          return;
-        }
 
-        if (authType === AuthType.USE_GEMINI) {
-          if (process.env['GEMINI_API_KEY'] !== undefined) {
+        if (authType === AuthType.USE_API_KEY) {
+          if (
+            process.env['OPENAI_API_KEY'] !== undefined ||
+            process.env['GEMINI_API_KEY'] !== undefined
+          ) {
             setAuthState(AuthState.Unauthenticated);
             return;
           } else {
@@ -148,7 +98,7 @@ export function AuthDialog({
       }
       setAuthState(AuthState.Unauthenticated);
     },
-    [settings, config, setAuthState, exiting, setAuthContext],
+    [settings, config, setAuthState, setAuthContext],
   );
 
   const handleAuthSelect = (authMethod: AuthType) => {
@@ -184,23 +134,6 @@ export function AuthDialog({
     },
     { isActive: true },
   );
-
-  if (exiting) {
-    return (
-      <Box
-        borderStyle="round"
-        borderColor={theme.ui.focus}
-        flexDirection="row"
-        padding={1}
-        width="100%"
-        alignItems="flex-start"
-      >
-        <Text color={theme.text.primary}>
-          Logging in with Google... Restarting Gemini CLI to continue.
-        </Text>
-      </Box>
-    );
-  }
 
   return (
     <Box

@@ -18,7 +18,6 @@ import {
 import * as loggers from '../telemetry/loggers.js';
 import { LoopType } from '../telemetry/types.js';
 import { LoopDetectionService } from './loopDetectionService.js';
-import { createAvailabilityServiceMock } from '../availability/testUtils.js';
 
 vi.mock('../telemetry/loggers.js', () => ({
   logLoopDetected: vi.fn(),
@@ -42,9 +41,6 @@ describe('LoopDetectionService', () => {
       getTelemetryEnabled: () => true,
       isInteractive: () => false,
       getDisableLoopDetection: () => false,
-      getModelAvailabilityService: vi
-        .fn()
-        .mockReturnValue(createAvailabilityServiceMock()),
     } as unknown as Config;
     service = new LoopDetectionService(mockConfig);
     vi.clearAllMocks();
@@ -805,9 +801,6 @@ describe('LoopDetectionService LLM Checks', () => {
       generateJson: vi.fn(),
     } as unknown as BaseLlmClient;
 
-    const mockAvailability = createAvailabilityServiceMock();
-    vi.mocked(mockAvailability.snapshot).mockReturnValue({ available: true });
-
     mockConfig = {
       get config() {
         return this;
@@ -833,7 +826,6 @@ describe('LoopDetectionService LLM Checks', () => {
         }),
       },
       isInteractive: () => false,
-      getModelAvailabilityService: vi.fn().mockReturnValue(mockAvailability),
     } as unknown as Config;
 
     service = new LoopDetectionService(mockConfig);
@@ -1064,38 +1056,6 @@ describe('LoopDetectionService LLM Checks', () => {
     // Next turn (36) should trigger another check
     await service.turnStarted(abortController.signal);
     expect(mockBaseLlmClient.generateJson).toHaveBeenCalledTimes(3);
-  });
-
-  it('should only call Flash model if main model is unavailable', async () => {
-    // Mock availability to return unavailable for the main model
-    const availability = mockConfig.getModelAvailabilityService();
-    vi.mocked(availability.snapshot).mockReturnValue({
-      available: false,
-      reason: 'quota',
-    });
-
-    mockBaseLlmClient.generateJson = vi.fn().mockResolvedValueOnce({
-      unproductive_state_confidence: 0.9,
-      unproductive_state_analysis: 'Flash says loop',
-    });
-
-    await advanceTurns(30);
-
-    // It should have called generateJson only once
-    expect(mockBaseLlmClient.generateJson).toHaveBeenCalledTimes(1);
-    expect(mockBaseLlmClient.generateJson).toHaveBeenCalledWith(
-      expect.objectContaining({
-        modelConfigKey: { model: 'loop-detection' },
-      }),
-    );
-
-    // And it should have detected a loop
-    expect(loggers.logLoopDetected).toHaveBeenCalledWith(
-      mockConfig,
-      expect.objectContaining({
-        confirmed_by_model: 'gemini-2.5-flash',
-      }),
-    );
   });
 
   it('should include user prompt in LLM check contents when provided', async () => {

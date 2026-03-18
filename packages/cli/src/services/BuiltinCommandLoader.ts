@@ -12,12 +12,7 @@ import {
   type CommandContext,
 } from '../ui/commands/types.js';
 import type { MessageActionReturn, Config } from '@google/gemini-cli-core';
-import {
-  isNightly,
-  startupProfiler,
-  getAdminErrorMessage,
-  AuthType,
-} from '@google/gemini-cli-core';
+import { isNightly, startupProfiler } from '@google/gemini-cli-core';
 import { aboutCommand } from '../ui/commands/aboutCommand.js';
 import { agentsCommand } from '../ui/commands/agentsCommand.js';
 import { authCommand } from '../ui/commands/authCommand.js';
@@ -146,10 +141,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
               ): Promise<MessageActionReturn> => ({
                 type: 'message',
                 messageType: 'error',
-                content: getAdminErrorMessage(
-                  'Extensions',
-                  this.config ?? undefined,
-                ),
+                content: 'Extensions are disabled by administrator.',
               }),
             },
           ]
@@ -176,7 +168,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
               ): Promise<MessageActionReturn> => ({
                 type: 'message',
                 messageType: 'error',
-                content: getAdminErrorMessage('MCP', this.config ?? undefined),
+                content: 'MCP is disabled by administrator.',
               }),
             },
           ]
@@ -211,10 +203,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
                 ): Promise<MessageActionReturn> => ({
                   type: 'message',
                   messageType: 'error',
-                  content: getAdminErrorMessage(
-                    'Agent skills',
-                    this.config ?? undefined,
-                  ),
+                  content: 'Agent skills are disabled by administrator.',
                 }),
               },
             ]
@@ -225,10 +214,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       vimCommand,
       setupGithubCommand,
       terminalSetupCommand,
-      ...(this.config?.getContentGeneratorConfig()?.authType ===
-      AuthType.LOGIN_WITH_GOOGLE
-        ? [upgradeCommand]
-        : []),
+      upgradeCommand,
     ];
     handle?.end();
     return allDefinitions.filter((cmd): cmd is SlashCommand => cmd !== null);
