@@ -9,9 +9,6 @@ import { CoreEvent, coreEvents } from '../utils/events.js';
 import type { AgentOverride, Config } from '../config/config.js';
 import type { AgentDefinition, LocalAgentDefinition } from './types.js';
 import { loadAgentsFromDirectory } from './agentLoader.js';
-import { CodebaseInvestigatorAgent } from './codebase-investigator.js';
-import { GeneralistAgent } from './generalist-agent.js';
-import { BrowserAgentDefinition } from './browser/browserAgentDefinition.js';
 import { A2AClientManager } from './a2a-client-manager.js';
 import { A2AAuthProviderFactory } from './auth-provider/factory.js';
 import type { AuthenticationHandler } from '@a2a-js/sdk/client';
@@ -239,15 +236,8 @@ export class AgentRegistry {
   }
 
   private loadBuiltInAgents(): void {
-    this.registerLocalAgent(CodebaseInvestigatorAgent(this.config));
-    this.registerLocalAgent(GeneralistAgent(this.config));
-
-    // Register the browser agent if enabled in settings.
-    // Tools are configured dynamically at invocation time via browserAgentFactory.
-    const browserConfig = this.config.getBrowserAgentConfig();
-    if (browserConfig.enabled) {
-      this.registerLocalAgent(BrowserAgentDefinition(this.config));
-    }
+    // Built-in agents are no longer registered here.
+    // They have been removed as part of the Claude Code alignment.
   }
 
   private async refreshAgents(): Promise<void> {

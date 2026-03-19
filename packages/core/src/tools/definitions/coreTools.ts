@@ -19,6 +19,7 @@ import {
 
 // Re-export names for compatibility
 export {
+  AGENT_TOOL_NAME,
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
   READ_FILE_TOOL_NAME,
@@ -32,6 +33,10 @@ export {
   ASK_USER_TOOL_NAME,
   EXIT_PLAN_MODE_TOOL_NAME,
   ENTER_PLAN_MODE_TOOL_NAME,
+  TASK_OUTPUT_TOOL_NAME,
+  TASK_STOP_TOOL_NAME,
+  ENTER_WORKTREE_TOOL_NAME,
+  NOTEBOOK_EDIT_TOOL_NAME,
   // Shared parameter names
   PARAM_FILE_PATH,
   PARAM_DIR_PATH,
@@ -78,6 +83,16 @@ export {
   PLAN_MODE_PARAM_REASON,
   EXIT_PLAN_PARAM_PLAN_PATH,
   SKILL_PARAM_NAME,
+  TASK_OUTPUT_PARAM_TASK_ID,
+  TASK_OUTPUT_PARAM_BLOCK,
+  TASK_OUTPUT_PARAM_TIMEOUT,
+  TASK_STOP_PARAM_TASK_ID,
+  ENTER_WORKTREE_PARAM_NAME,
+  NOTEBOOK_EDIT_PARAM_PATH,
+  NOTEBOOK_EDIT_PARAM_CELL_ID,
+  NOTEBOOK_EDIT_PARAM_NEW_SOURCE,
+  NOTEBOOK_EDIT_PARAM_CELL_TYPE,
+  NOTEBOOK_EDIT_PARAM_EDIT_MODE,
 } from './base-declarations.js';
 
 // Re-export tool set
@@ -126,6 +141,10 @@ export const WEB_FETCH_DEFINITION: ToolDefinition = {
   base: TOOL_SET.WebFetch,
 };
 
+export const AGENT_DEFINITION: ToolDefinition = {
+  base: TOOL_SET.Agent,
+};
+
 export const WRITE_TODOS_DEFINITION: ToolDefinition = {
   base: TOOL_SET.TodoWrite,
 };
@@ -136,6 +155,22 @@ export const ASK_USER_DEFINITION: ToolDefinition = {
 
 export const ENTER_PLAN_MODE_DEFINITION: ToolDefinition = {
   base: TOOL_SET.EnterPlanMode,
+};
+
+export const TASK_OUTPUT_DEFINITION: ToolDefinition = {
+  base: TOOL_SET.TaskOutput,
+};
+
+export const TASK_STOP_DEFINITION: ToolDefinition = {
+  base: TOOL_SET.TaskStop,
+};
+
+export const ENTER_WORKTREE_DEFINITION: ToolDefinition = {
+  base: TOOL_SET.EnterWorktree,
+};
+
+export const NOTEBOOK_EDIT_DEFINITION: ToolDefinition = {
+  base: TOOL_SET.NotebookEdit,
 };
 
 // ============================================================================

@@ -109,6 +109,7 @@ export async function ensureRgPath(): Promise<string> {
 
 /**
  * Parameters for the GrepTool
+ * Parameter names match the tool schema (aligned with Claude Code's REF_PROMPT.md)
  */
 export interface RipGrepToolParams {
   /**
@@ -117,64 +118,83 @@ export interface RipGrepToolParams {
   pattern: string;
 
   /**
-   * The directory to search in (optional, defaults to current directory relative to root)
+   * File or directory to search in (rg PATH). Defaults to current working directory.
    */
-  dir_path?: string;
+  path?: string;
 
   /**
-   * File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")
+   * Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob
    */
-  include_pattern?: string;
+  glob?: string;
 
   /**
-   * Optional: A regular expression pattern to exclude from the search results.
+   * Output mode: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
    */
-  exclude_pattern?: string;
+  output_mode?: 'content' | 'files_with_matches' | 'count';
 
   /**
-   * Optional: If true, only the file paths of the matches will be returned.
+   * Case insensitive search (rg -i). When true, search is case-insensitive.
    */
-  names_only?: boolean;
+  '-i'?: boolean;
 
   /**
-   * If true, searches case-sensitively. Defaults to false.
+   * Number of lines to show after each match (rg -A). Requires output_mode: "content".
    */
-  case_sensitive?: boolean;
+  '-A'?: number;
 
   /**
-   * If true, treats pattern as a literal string. Defaults to false.
+   * Number of lines to show before each match (rg -B). Requires output_mode: "content".
    */
-  fixed_strings?: boolean;
+  '-B'?: number;
 
   /**
-   * Show num lines of context around each match.
+   * Number of lines to show before and after each match (rg -C). Requires output_mode: "content".
    */
   context?: number;
 
   /**
-   * Show num lines after each match.
+   * File type to search (rg --type). Common types: js, py, rust, go, java, etc.
    */
+  type?: string;
+
+  /**
+   * Limit output to first N lines/entries, equivalent to "| head -N".
+   */
+  head_limit?: number;
+
+  /**
+   * Skip first N lines/entries before applying head_limit.
+   */
+  offset?: number;
+
+  /**
+   * Enable multiline mode where . matches newlines and patterns can span lines.
+   */
+  multiline?: boolean;
+
+  // Legacy parameters for backward compatibility (will be deprecated)
+  /** @deprecated Use 'path' instead */
+  dir_path?: string;
+  /** @deprecated Use 'glob' instead */
+  include_pattern?: string;
+  /** @deprecated Use 'output_mode' instead */
+  names_only?: boolean;
+  /** @deprecated Use '-i' instead (note: inverted logic) */
+  case_sensitive?: boolean;
+  /** @deprecated Use '-A' instead */
   after?: number;
-
-  /**
-   * Show num lines before each match.
-   */
+  /** @deprecated Use '-B' instead */
   before?: number;
-
-  /**
-   * If true, does not respect .gitignore or default ignores (like build/dist).
-   */
-  no_ignore?: boolean;
-
-  /**
-   * Optional: Maximum number of matches to return per file. Use this to prevent being overwhelmed by repetitive matches in large files.
-   */
-  max_matches_per_file?: number;
-
-  /**
-   * Optional: Maximum number of total matches to return. Use this to limit the overall size of the response. Defaults to 100 if omitted.
-   */
+  /** @deprecated Use 'head_limit' instead */
   total_max_matches?: number;
+  /** @deprecated Not in schema, may be removed */
+  exclude_pattern?: string;
+  /** @deprecated Not in schema, may be removed */
+  fixed_strings?: boolean;
+  /** @deprecated Not in schema, may be removed */
+  no_ignore?: boolean;
+  /** @deprecated Not in schema, may be removed */
+  max_matches_per_file?: number;
 }
 
 class GrepToolInvocation extends BaseToolInvocation<
@@ -194,9 +214,13 @@ class GrepToolInvocation extends BaseToolInvocation<
 
   async execute(signal: AbortSignal): Promise<ToolResult> {
     try {
-      // Default to '.' if path is explicitly undefined/null.
-      // This forces CWD search instead of 'all workspaces' search by default.
-      const pathParam = this.params.dir_path || '.';
+      // Normalize parameters: prefer new names, fall back to legacy names
+      const pathParam = this.params.path || this.params.dir_path || '.';
+      const includePattern = this.params.glob || this.params.include_pattern;
+      const caseInsensitive = this.params['-i'] ?? !this.params.case_sensitive;
+      const afterLines = this.params['-A'] ?? this.params.after;
+      const beforeLines = this.params['-B'] ?? this.params.before;
+      const headLimit = this.params.head_limit ?? this.params.total_max_matches;
 
       const searchDirAbs = path.resolve(this.config.getTargetDir(), pathParam);
       const validationError = this.config.validatePathAccess(
@@ -242,8 +266,7 @@ class GrepToolInvocation extends BaseToolInvocation<
 
       const searchDirDisplay = pathParam;
 
-      const totalMaxMatches =
-        this.params.total_max_matches ?? DEFAULT_TOTAL_MAX_MATCHES;
+      const totalMaxMatches = headLimit ?? DEFAULT_TOTAL_MAX_MATCHES;
       if (this.config.getDebugMode()) {
         debugLogger.log(`[GrepTool] Total result limit: ${totalMaxMatches}`);
       }
@@ -267,13 +290,13 @@ class GrepToolInvocation extends BaseToolInvocation<
         allMatches = await this.performRipgrepSearch({
           pattern: this.params.pattern,
           path: searchDirAbs,
-          include_pattern: this.params.include_pattern,
+          include_pattern: includePattern,
           exclude_pattern: this.params.exclude_pattern,
-          case_sensitive: this.params.case_sensitive,
+          case_sensitive: !caseInsensitive,
           fixed_strings: this.params.fixed_strings,
           context: this.params.context,
-          after: this.params.after,
-          before: this.params.before,
+          after: afterLines,
+          before: beforeLines,
           no_ignore: this.params.no_ignore,
           maxMatches: totalMaxMatches,
           max_matches_per_file: this.params.max_matches_per_file,

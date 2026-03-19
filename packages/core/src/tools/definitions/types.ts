@@ -18,6 +18,7 @@ export interface ToolDefinition {
  * Explicit mapping of all core tools.
  */
 export interface CoreToolSet {
+  Agent: FunctionDeclaration;
   Read: FunctionDeclaration;
   Write: FunctionDeclaration;
   Grep: FunctionDeclaration;
@@ -34,4 +35,8 @@ export interface CoreToolSet {
   EnterPlanMode: FunctionDeclaration;
   ExitPlanMode: (plansDir: string) => FunctionDeclaration;
   Skill: (skillNames: string[]) => FunctionDeclaration;
+  TaskOutput: FunctionDeclaration;
+  TaskStop: FunctionDeclaration;
+  EnterWorktree: FunctionDeclaration;
+  NotebookEdit: FunctionDeclaration;
 }

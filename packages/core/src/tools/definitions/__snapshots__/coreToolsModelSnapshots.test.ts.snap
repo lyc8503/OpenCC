@@ -83,53 +83,11 @@ Usage notes:
 - Use multiSelect: true to allow multiple answers to be selected for a question
 - If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
 
-Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval. IMPORTANT: Do not reference "the plan" in your questions (e.g., "Do you have feedback about the plan?", "Does the plan look good?") because the user cannot see the plan in the UI until you call ExitPlanMode. If you need plan approval, use ExitPlanMode instead.",
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.",
   "name": "AskUserQuestion",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
-      "annotations": {
-        "additionalProperties": {
-          "additionalProperties": false,
-          "properties": {
-            "notes": {
-              "description": "Free-text notes the user added to their selection.",
-              "type": "string",
-            },
-            "preview": {
-              "description": "The preview content of the selected option, if the question used previews.",
-              "type": "string",
-            },
-          },
-          "type": "object",
-        },
-        "description": "Optional per-question annotations from the user (e.g., notes on preview selections). Keyed by question text.",
-        "propertyNames": {
-          "type": "string",
-        },
-        "type": "object",
-      },
-      "answers": {
-        "additionalProperties": {
-          "type": "string",
-        },
-        "description": "User answers collected by the permission component",
-        "propertyNames": {
-          "type": "string",
-        },
-        "type": "object",
-      },
-      "metadata": {
-        "additionalProperties": false,
-        "description": "Optional metadata for tracking and analytics purposes. Not displayed to user.",
-        "properties": {
-          "source": {
-            "description": "Optional identifier for the source of this question (e.g., "remember" for /remember command). Used for analytics tracking.",
-            "type": "string",
-          },
-        },
-        "type": "object",
-      },
       "questions": {
         "description": "Questions to ask the user (1-4 questions)",
         "items": {
@@ -157,7 +115,7 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
                     "description": "The display text for this option that the user will see and select. Should be concise (1-5 words) and clearly describe the choice.",
                     "type": "string",
                   },
-                  "preview": {
+                  "markdown": {
                     "description": "Optional preview content shown in a monospace box when this option is focused. Use for ASCII mockups, code snippets, or diagrams that help users visually compare options. Supports multi-line text with newlines.",
                     "type": "string",
                   },
@@ -237,6 +195,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 #### When NOT to Use This Tool
 
 Only skip EnterPlanMode for simple tasks:
+
 - Single-line or few-line fixes (typos, obvious bugs, small tweaks)
 - Adding a single function with clear requirements
 - Tasks where the user has given very specific, detailed instructions
@@ -306,17 +265,20 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: google_web_search 1`] = `
 {
-  "description": "Allows Claude to search the web and use the results to inform responses. Provides up-to-date information for current events and recent data. Returns search result information formatted as search result blocks, including links as markdown hyperlinks.
+  "description": "- Allows Claude to search the web and use the results to inform responses
+- Provides up-to-date information for current events and recent data
+- Returns search result information formatted as search result blocks, including links as markdown hyperlinks
+- Use this tool for accessing information beyond Claude's knowledge cutoff
+- Searches are performed automatically within a single API call
+
 CRITICAL REQUIREMENT - You MUST follow this:
 - When answering the user's question, you MUST include a "Sources:" section at the end of your response
 - In the Sources section, list all relevant URLs from the search results as markdown hyperlinks: [Title](URL)
-- IMPORTANT: Never skip including sources in your response
-Example format:
-Your answer here
+- This is MANDATORY - never skip including sources in your response
 
-Sources:
-- [Source Title 1](https://example.com/1)
-- [Source Title 2](https://example.com/2)",
+Usage notes:
+- Domain filtering is supported to include or block specific websites
+- Web search is only available in the US",
   "name": "WebSearch",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -336,7 +298,7 @@ Sources:
         "type": "array",
       },
       "query": {
-        "description": "The search query to find information on the web. Must be at least 2 characters.",
+        "description": "The search query to use",
         "minLength": 2,
         "type": "string",
       },
@@ -353,14 +315,14 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 {
   "description": "A powerful search tool built on ripgrep
 
-  Usage:
-  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
-  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
-  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
-  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
-  - Use Agent tool for open-ended searches requiring multiple rounds
-  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
-  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+Usage:
+- ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+- Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+- Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+- Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+- Use Agent tool for open-ended searches requiring multiple rounds
+- Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+- Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
   "name": "Grep",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -373,8 +335,16 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
         "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
         "type": "number",
       },
+      "-C": {
+        "description": "Alias for context.",
+        "type": "number",
+      },
       "-i": {
         "description": "Case insensitive search (rg -i)",
+        "type": "boolean",
+      },
+      "-n": {
+        "description": "Show line numbers in output (rg -n). Requires output_mode: "content", ignored otherwise. Defaults to true.",
         "type": "boolean",
       },
       "context": {
@@ -431,14 +401,14 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 {
   "description": "A powerful search tool built on ripgrep
 
-  Usage:
-  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
-  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
-  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
-  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
-  - Use Agent tool for open-ended searches requiring multiple rounds
-  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
-  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+Usage:
+- ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+- Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+- Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+- Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+- Use Agent tool for open-ended searches requiring multiple rounds
+- Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+- Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
   "name": "Grep",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -451,8 +421,16 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
         "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
         "type": "number",
       },
+      "-C": {
+        "description": "Alias for context.",
+        "type": "number",
+      },
       "-i": {
         "description": "Case insensitive search (rg -i)",
+        "type": "boolean",
+      },
+      "-n": {
+        "description": "Show line numbers in output (rg -n). Requires output_mode: "content", ignored otherwise. Defaults to true.",
         "type": "boolean",
       },
       "context": {
@@ -507,8 +485,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: read_file 1`] = `
 {
-  "description": "Reads a file from the local filesystem. You can access any file directly by using this tool.
-Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
+  "description": "Reads a file from the local filesystem. You can access any file directly by using this tool. Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
 Usage:
 - The file_path parameter must be an absolute path, not a relative path
@@ -532,12 +509,16 @@ Usage:
         "type": "string",
       },
       "limit": {
-        "description": "The number of lines to read. Equivalent to "limit".",
+        "description": "The number of lines to read. Only provide if the file is too large to read at once.",
         "type": "number",
       },
       "offset": {
-        "description": "The number of lines to skip before starting to read. Equivalent to "offset".",
+        "description": "The line number to start reading from. Only provide if the file is too large to read at once",
         "type": "number",
+      },
+      "pages": {
+        "description": "Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files. Maximum 20 pages per request.",
+        "type": "string",
       },
     },
     "required": [
@@ -637,29 +618,29 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: web_fetch 1`] = `
 {
-  "description": "Fetches content from a specified URL and processes it using an AI model. Takes a URL and a prompt as input, fetches the URL content, converts HTML to markdown, and processes the content with the prompt using a small, fast model. Returns the model's response about the content.
-CRITICAL REQUIREMENT - You MUST follow this:
-- Only include "Sources:" section if using WebSearch tool too
-- This tool WILL FAIL for authenticated or private URLs. Before using this tool, check if the URL points to an authenticated service (e.g., Google Docs, Confluence, Jira, GitHub). If so, look for a specialized MCP tool that provides authenticated access.
-- You may use WebFetch for URLs provided by the user in their messages or local files.",
+  "description": "- Fetches content from a specified URL and processes it using an AI model
+- Takes a URL and a prompt as input
+- Fetches the URL content, converts HTML to markdown
+- Processes the content with the prompt using a small, fast model
+- Returns the model's response about the content
+- Use this tool when you need to retrieve and analyze web content
+
+Usage notes:
+- IMPORTANT: If an MCP-provided web fetch tool is available, prefer using that tool instead of this one, as it may have fewer restrictions.
+- The URL must be a fully-formed valid URL
+- HTTP URLs will be automatically upgraded to HTTPS
+- The prompt should describe what information you want to extract from the page
+- This tool is read-only and does not modify any files
+- Results may be summarized if the content is very large
+- Includes a self-cleaning 15-minute cache for faster responses when repeatedly accessing the same URL
+- When a URL redirects to a different host, the tool will inform you and provide the redirect URL in a special format. You should then make a new WebFetch request with the redirect URL to fetch the content.
+- For GitHub URLs, prefer using the gh CLI via Bash instead (e.g., gh pr view, gh issue view, gh api).",
   "name": "WebFetch",
   "parametersJsonSchema": {
     "additionalProperties": false,
-    "oneOf": [
-      {
-        "required": [
-          "url",
-        ],
-      },
-      {
-        "required": [
-          "prompt",
-        ],
-      },
-    ],
     "properties": {
       "prompt": {
-        "description": "The prompt to run on the fetched content. Can contain up to 20 URLs.",
+        "description": "The prompt to run on the fetched content",
         "type": "string",
       },
       "url": {
@@ -668,6 +649,10 @@ CRITICAL REQUIREMENT - You MUST follow this:
         "type": "string",
       },
     },
+    "required": [
+      "url",
+      "prompt",
+    ],
     "type": "object",
   },
 }
@@ -679,29 +664,21 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 
 Usage:
 - This tool will overwrite the existing file if there is one at the provided path.
-- If this is an existing file, you MUST use the Read tool first to read the file. This tool will fail if you did not read the file first.
-- Prefer the Edit tool for modifying existing files — it's safer and more reliable.
+- If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.
+- Prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.
 - NEVER create documentation files (*.md) or README files unless explicitly requested by the User.
-- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.",
+- Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.",
   "name": "Write",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
-      "ai_proposed_content": {
-        "description": "Internal: The originally proposed content before user modification.",
-        "type": "string",
-      },
       "content": {
-        "description": "The content to write to the file. Do not use omission placeholders like '(rest of methods ...)', '...', or 'unchanged code'; provide complete literal content.",
+        "description": "The content to write to the file",
         "type": "string",
       },
       "file_path": {
         "description": "The absolute path to the file to write (must be absolute, not relative)",
         "type": "string",
-      },
-      "modified_by_user": {
-        "description": "Internal: Whether the content was modified by the user.",
-        "type": "boolean",
       },
     },
     "required": [
@@ -715,60 +692,68 @@ Usage:
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: write_todos 1`] = `
 {
-  "description": "Use this tool to create a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
-It also helps the user understand the progress of the task and overall progress of their requests.
+  "description": "Use this tool to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user. It also helps the user understand the progress of the task and overall progress of their requests.
 
-## When to Use This Tool
+#### When to Use This Tool
 
 Use this tool proactively in these scenarios:
 
-- Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
-- Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
-- Plan mode - When using plan mode, create a task list to track the work
-- User explicitly requests todo list - When the user directly asks you to use the todo list
-- User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
+1. Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
+2. Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
+3. User explicitly requests todo list - When the user directly asks you to use the todo list
+4. User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
+5. After receiving new instructions - Immediately capture user requirements as todos
+6. When you start working on a task - Mark it as in_progress BEFORE beginning work. Ideally you should only have one todo as in_progress at a time
+7. After completing a task - Mark it as completed and add any new follow-up tasks discovered during implementation
 
-When receiving new instructions, immediately capture user requirements as tasks. When starting work on a task, mark it as in_progress BEFORE beginning work. After completing a task, mark it as completed and add any new follow-up tasks discovered during implementation.
-
-## When NOT to Use This Tool
+#### When NOT to Use This Tool
 
 Skip using this tool when:
-- There is only a single, straightforward task
-- The task is trivial and tracking it provides no organizational benefit
-- The task can be completed in less than 3 trivial steps
-- The task is purely conversational or informational
 
-NOTE that you should not use this tool if there is only one trivial task to do. Ask yourself: "Will tracking this help the user understand progress?"
+1. There is only a single, straightforward task
+2. The task is trivial and tracking it provides no organizational benefit
+3. The task can be completed in less than 3 trivial steps
+4. The task is purely conversational or informational
 
-## Task Fields
+NOTE that you should not use this tool if there is only one trivial task to do. In this case you are better off just doing the task directly.
 
-- **subject**: A brief, actionable title in imperative form (e.g., "Fix authentication bug in login flow")
-- **description**: Detailed description of what needs to be done, including context and acceptance criteria
-- **activeForm** (optional): Present continuous form shown in the spinner when in_progress (e.g., "Fixing authentication bug"). If omitted, the spinner shows the content instead.
+#### Task States and Management
 
-All tasks are created with status \`pending\`.",
+1. **Task States**: Use these states to track progress:
+   - pending: Task not yet started
+   - in_progress: Currently working on (limit to ONE task at a time)
+   - completed: Task finished successfully
+
+   **IMPORTANT**: Task descriptions must have two forms:
+   - content: The imperative form describing what needs to be done (e.g., "Run tests", "Build the project")
+   - activeForm: The present continuous form shown during execution (e.g., "Running tests", "Building the project")
+
+2. **Task Management**:
+   - Update task status in real-time as you work
+   - Mark tasks complete IMMEDIATELY after finishing (don't batch completions)
+   - Exactly ONE task must be in_progress at any time (not less, not more)
+   - Complete current tasks before starting new ones
+   - Remove tasks that are no longer relevant from the list entirely
+
+When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.",
   "name": "TodoWrite",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
       "todos": {
-        "description": "The complete list of todo items. This will replace the existing list.",
+        "description": "The updated todo list",
         "items": {
           "additionalProperties": false,
-          "description": "A single todo item.",
           "properties": {
             "activeForm": {
-              "description": "Present continuous form shown in spinner when in_progress",
               "minLength": 1,
               "type": "string",
             },
             "content": {
-              "description": "The imperative form describing what needs to be done",
               "minLength": 1,
               "type": "string",
             },
             "status": {
-              "description": "The current status of the task.",
               "enum": [
                 "pending",
                 "in_progress",
@@ -894,24 +879,24 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
             },
             "multiSelect": {
               "default": false,
-              "description": "Set to true to allow the user to select multiple options instead of just one.",
+              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
               "type": "boolean",
             },
             "options": {
-              "description": "The available choices for this question. Must have 2-4 options.",
+              "description": "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically.",
               "items": {
                 "additionalProperties": false,
                 "properties": {
                   "description": {
-                    "description": "Explanation of what this option means or what will happen if chosen.",
+                    "description": "Explanation of what this option means or what will happen if chosen. Useful for providing context about trade-offs or implications.",
                     "type": "string",
                   },
                   "label": {
-                    "description": "The display text for this option that the user will see and select.",
+                    "description": "The display text for this option that the user will see and select. Should be concise (1-5 words) and clearly describe the choice.",
                     "type": "string",
                   },
-                  "preview": {
-                    "description": "Optional preview content shown in a monospace box when this option is focused.",
+                  "markdown": {
+                    "description": "Optional preview content shown in a monospace box when this option is focused. Use for ASCII mockups, code snippets, or diagrams that help users visually compare options. Supports multi-line text with newlines.",
                     "type": "string",
                   },
                 },
@@ -926,7 +911,7 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
               "type": "array",
             },
             "question": {
-              "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark.",
+              "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"",
               "type": "string",
             },
           },
@@ -960,16 +945,37 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 **Prefer using EnterPlanMode** for implementation tasks unless they're simple. Use it when ANY of these conditions apply:
 
 1. **New Feature Implementation**: Adding meaningful new functionality
+   - Example: "Add a logout button" - where should it go? What should happen on click?
+   - Example: "Add form validation" - what rules? What error messages?
+
 2. **Multiple Valid Approaches**: The task can be solved in several different ways
+   - Example: "Add caching to the API" - could use Redis, in-memory, file-based, etc.
+   - Example: "Improve performance" - many optimization strategies possible
+
 3. **Code Modifications**: Changes that affect existing behavior or structure
+   - Example: "Update the login flow" - what exactly should change?
+   - Example: "Refactor this component" - what's the target architecture?
+
 4. **Architectural Decisions**: The task requires choosing between patterns or technologies
+   - Example: "Add real-time updates" - WebSockets vs SSE vs polling
+   - Example: "Implement state management" - Redux vs Context vs custom solution
+
 5. **Multi-File Changes**: The task will likely touch more than 2-3 files
+   - Example: "Refactor the authentication system"
+   - Example: "Add a new API endpoint with tests"
+
 6. **Unclear Requirements**: You need to explore before understanding the full scope
+   - Example: "Make the app faster" - need to profile and identify bottlenecks
+   - Example: "Fix the bug in checkout" - need to investigate root cause
+
 7. **User Preferences Matter**: The implementation could reasonably go multiple ways
+   - If you would use AskUserQuestion to clarify the approach, use EnterPlanMode instead
+   - Plan mode lets you explore first, then present options with context
 
 #### When NOT to Use This Tool
 
 Only skip EnterPlanMode for simple tasks:
+
 - Single-line or few-line fixes (typos, obvious bugs, small tweaks)
 - Adding a single function with clear requirements
 - Tasks where the user has given very specific, detailed instructions
@@ -1039,11 +1045,20 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: google_web_search 1`] = `
 {
-  "description": "Allows Claude to search the web and use the results to inform responses. Provides up-to-date information for current events and recent data. Returns search result information formatted as search result blocks, including links as markdown hyperlinks.
+  "description": "- Allows Claude to search the web and use the results to inform responses
+- Provides up-to-date information for current events and recent data
+- Returns search result information formatted as search result blocks, including links as markdown hyperlinks
+- Use this tool for accessing information beyond Claude's knowledge cutoff
+- Searches are performed automatically within a single API call
+
 CRITICAL REQUIREMENT - You MUST follow this:
 - When answering the user's question, you MUST include a "Sources:" section at the end of your response
 - In the Sources section, list all relevant URLs from the search results as markdown hyperlinks: [Title](URL)
-- IMPORTANT: Never skip including sources in your response",
+- This is MANDATORY - never skip including sources in your response
+
+Usage notes:
+- Domain filtering is supported to include or block specific websites
+- Web search is only available in the US",
   "name": "WebSearch",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -1063,7 +1078,7 @@ CRITICAL REQUIREMENT - You MUST follow this:
         "type": "array",
       },
       "query": {
-        "description": "The search query to find information on the web. Must be at least 2 characters.",
+        "description": "The search query to use",
         "minLength": 2,
         "type": "string",
       },
@@ -1080,14 +1095,14 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 {
   "description": "A powerful search tool built on ripgrep
 
-  Usage:
-  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
-  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
-  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
-  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
-  - Use Agent tool for open-ended searches requiring multiple rounds
-  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
-  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+Usage:
+- ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+- Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+- Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+- Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+- Use Agent tool for open-ended searches requiring multiple rounds
+- Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+- Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
   "name": "Grep",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -1100,8 +1115,16 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
         "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
         "type": "number",
       },
+      "-C": {
+        "description": "Alias for context.",
+        "type": "number",
+      },
       "-i": {
         "description": "Case insensitive search (rg -i)",
+        "type": "boolean",
+      },
+      "-n": {
+        "description": "Show line numbers in output (rg -n). Requires output_mode: "content", ignored otherwise. Defaults to true.",
         "type": "boolean",
       },
       "context": {
@@ -1158,14 +1181,14 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 {
   "description": "A powerful search tool built on ripgrep
 
-  Usage:
-  - ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
-  - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
-  - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
-  - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
-  - Use Agent tool for open-ended searches requiring multiple rounds
-  - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
-  - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
+Usage:
+- ALWAYS use Grep for search tasks. NEVER invoke \`grep\` or \`rg\` as a Bash command. The Grep tool has been optimized for correct permissions and access.
+- Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+- Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
+- Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+- Use Agent tool for open-ended searches requiring multiple rounds
+- Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
+- Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`",
   "name": "Grep",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -1178,8 +1201,16 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
         "description": "Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.",
         "type": "number",
       },
+      "-C": {
+        "description": "Alias for context.",
+        "type": "number",
+      },
       "-i": {
         "description": "Case insensitive search (rg -i)",
+        "type": "boolean",
+      },
+      "-n": {
+        "description": "Show line numbers in output (rg -n). Requires output_mode: "content", ignored otherwise. Defaults to true.",
         "type": "boolean",
       },
       "context": {
@@ -1234,8 +1265,7 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: read_file 1`] = `
 {
-  "description": "Reads a file from the local filesystem. You can access any file directly by using this tool.
-Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
+  "description": "Reads a file from the local filesystem. You can access any file directly by using this tool. Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
 Usage:
 - The file_path parameter must be an absolute path, not a relative path
@@ -1259,12 +1289,16 @@ Usage:
         "type": "string",
       },
       "limit": {
-        "description": "The number of lines to read. Equivalent to "limit".",
+        "description": "The number of lines to read. Only provide if the file is too large to read at once.",
         "type": "number",
       },
       "offset": {
-        "description": "The number of lines to skip before starting to read. Equivalent to "offset".",
+        "description": "The line number to start reading from. Only provide if the file is too large to read at once",
         "type": "number",
+      },
+      "pages": {
+        "description": "Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files. Maximum 20 pages per request.",
+        "type": "string",
       },
     },
     "required": [
@@ -1364,28 +1398,29 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: web_fetch 1`] = `
 {
-  "description": "Fetches content from a specified URL and processes it using an AI model. Takes a URL and a prompt as input, fetches the URL content, converts HTML to markdown, and processes the content with the prompt using a small, fast model. Returns the model's response about the content.
-CRITICAL REQUIREMENT - You MUST follow this:
-- Only include "Sources:" section if using WebSearch tool too
-- This tool WILL FAIL for authenticated or private URLs. Before using this tool, check if the URL points to an authenticated service (e.g., Google Docs, Confluence, Jira, GitHub). If so, look for a specialized MCP tool that provides authenticated access.",
+  "description": "- Fetches content from a specified URL and processes it using an AI model
+- Takes a URL and a prompt as input
+- Fetches the URL content, converts HTML to markdown
+- Processes the content with the prompt using a small, fast model
+- Returns the model's response about the content
+- Use this tool when you need to retrieve and analyze web content
+
+Usage notes:
+- IMPORTANT: If an MCP-provided web fetch tool is available, prefer using that tool instead of this one, as it may have fewer restrictions.
+- The URL must be a fully-formed valid URL
+- HTTP URLs will be automatically upgraded to HTTPS
+- The prompt should describe what information you want to extract from the page
+- This tool is read-only and does not modify any files
+- Results may be summarized if the content is very large
+- Includes a self-cleaning 15-minute cache for faster responses when repeatedly accessing the same URL
+- When a URL redirects to a different host, the tool will inform you and provide the redirect URL in a special format. You should then make a new WebFetch request with the redirect URL to fetch the content.
+- For GitHub URLs, prefer using the gh CLI via Bash instead (e.g., gh pr view, gh issue view, gh api).",
   "name": "WebFetch",
   "parametersJsonSchema": {
     "additionalProperties": false,
-    "oneOf": [
-      {
-        "required": [
-          "url",
-        ],
-      },
-      {
-        "required": [
-          "prompt",
-        ],
-      },
-    ],
     "properties": {
       "prompt": {
-        "description": "The prompt to run on the fetched content. Can contain up to 20 URLs.",
+        "description": "The prompt to run on the fetched content",
         "type": "string",
       },
       "url": {
@@ -1394,6 +1429,10 @@ CRITICAL REQUIREMENT - You MUST follow this:
         "type": "string",
       },
     },
+    "required": [
+      "url",
+      "prompt",
+    ],
     "type": "object",
   },
 }
@@ -1405,29 +1444,21 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 
 Usage:
 - This tool will overwrite the existing file if there is one at the provided path.
-- If this is an existing file, you MUST use the Read tool first to read the file. This tool will fail if you did not read the file first.
-- Prefer the Edit tool for modifying existing files — it's safer and more reliable.
+- If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.
+- Prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.
 - NEVER create documentation files (*.md) or README files unless explicitly requested by the User.
-- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.",
+- Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.",
   "name": "Write",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
-      "ai_proposed_content": {
-        "description": "Internal: The originally proposed content before user modification.",
-        "type": "string",
-      },
       "content": {
-        "description": "The content to write to the file. Do not use omission placeholders like '(rest of methods ...)', '...', or 'unchanged code'; provide complete literal content.",
+        "description": "The content to write to the file",
         "type": "string",
       },
       "file_path": {
         "description": "The absolute path to the file to write (must be absolute, not relative)",
         "type": "string",
-      },
-      "modified_by_user": {
-        "description": "Internal: Whether the content was modified by the user.",
-        "type": "boolean",
       },
     },
     "required": [
@@ -1441,53 +1472,68 @@ Usage:
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: write_todos 1`] = `
 {
-  "description": "Use this tool to create a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
+  "description": "Use this tool to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user. It also helps the user understand the progress of the task and overall progress of their requests.
 
-## When to Use This Tool
+#### When to Use This Tool
 
 Use this tool proactively in these scenarios:
 
-- Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
-- Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
-- Plan mode - When using plan mode, create a task list to track the work
-- User explicitly requests todo list - When the user directly asks you to use the todo list
-- User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
+1. Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
+2. Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
+3. User explicitly requests todo list - When the user directly asks you to use the todo list
+4. User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
+5. After receiving new instructions - Immediately capture user requirements as todos
+6. When you start working on a task - Mark it as in_progress BEFORE beginning work. Ideally you should only have one todo as in_progress at a time
+7. After completing a task - Mark it as completed and add any new follow-up tasks discovered during implementation
 
-## When NOT to Use This Tool
+#### When NOT to Use This Tool
 
 Skip using this tool when:
-- There is only a single, straightforward task
-- The task is trivial and tracking it provides no organizational benefit
-- The task can be completed in less than 3 trivial steps
 
-## Task Fields
+1. There is only a single, straightforward task
+2. The task is trivial and tracking it provides no organizational benefit
+3. The task can be completed in less than 3 trivial steps
+4. The task is purely conversational or informational
 
-- **content**: The imperative form describing what needs to be done (e.g., "Fix authentication bug")
-- **activeForm**: Present continuous form shown in the spinner when in_progress (e.g., "Fixing authentication bug")
+NOTE that you should not use this tool if there is only one trivial task to do. In this case you are better off just doing the task directly.
 
-All tasks are created with status \`pending\`.",
+#### Task States and Management
+
+1. **Task States**: Use these states to track progress:
+   - pending: Task not yet started
+   - in_progress: Currently working on (limit to ONE task at a time)
+   - completed: Task finished successfully
+
+   **IMPORTANT**: Task descriptions must have two forms:
+   - content: The imperative form describing what needs to be done (e.g., "Run tests", "Build the project")
+   - activeForm: The present continuous form shown during execution (e.g., "Running tests", "Building the project")
+
+2. **Task Management**:
+   - Update task status in real-time as you work
+   - Mark tasks complete IMMEDIATELY after finishing (don't batch completions)
+   - Exactly ONE task must be in_progress at any time (not less, not more)
+   - Complete current tasks before starting new ones
+   - Remove tasks that are no longer relevant from the list entirely
+
+When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.",
   "name": "TodoWrite",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
       "todos": {
-        "description": "The complete list of todo items. This will replace the existing list.",
+        "description": "The updated todo list",
         "items": {
           "additionalProperties": false,
-          "description": "A single todo item.",
           "properties": {
             "activeForm": {
-              "description": "Present continuous form shown in spinner when in_progress",
               "minLength": 1,
               "type": "string",
             },
             "content": {
-              "description": "The imperative form describing what needs to be done",
               "minLength": 1,
               "type": "string",
             },
             "status": {
-              "description": "The current status of the task.",
               "enum": [
                 "pending",
                 "in_progress",

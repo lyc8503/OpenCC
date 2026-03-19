@@ -128,6 +128,7 @@ export interface OpenAIClientConfig {
   baseUrl?: string;
   organization?: string;
   defaultHeaders?: Record<string, string>;
+  timeout?: number;
 }
 
 /**
@@ -146,6 +147,7 @@ export class OpenAIContentGenerator {
       baseURL: config.baseUrl || process.env['OPENAI_BASE_URL'],
       organization: config.organization || process.env['OPENAI_ORG_ID'],
       defaultHeaders: config.defaultHeaders,
+      timeout: config.timeout || 600000, // 10 minutes default
     });
     this.defaultModel = defaultModel;
     this.defaultMaxTokens = 8192;
@@ -158,24 +160,30 @@ export class OpenAIContentGenerator {
     params: OpenAIChatParams,
     userPromptId: string,
     _role: LlmRole,
+    abortSignal?: AbortSignal,
   ): Promise<OpenAIChatResponse> {
     const model = params.model || this.defaultModel;
 
-    const completion = await this.client.chat.completions.create({
-      model,
-      messages:
-        params.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-      tools: params.tools as
-        | OpenAI.Chat.Completions.ChatCompletionTool[]
-        | undefined,
-      tool_choice: params.tool_choice,
-      temperature: params.temperature,
-      max_tokens: params.max_tokens ?? this.defaultMaxTokens,
-      stop: params.stop,
-      presence_penalty: params.presence_penalty,
-      frequency_penalty: params.frequency_penalty,
-      top_p: params.top_p,
-    });
+    const completion = await this.client.chat.completions.create(
+      {
+        model,
+        messages:
+          params.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+        tools: params.tools as
+          | OpenAI.Chat.Completions.ChatCompletionTool[]
+          | undefined,
+        tool_choice: params.tool_choice,
+        temperature: params.temperature,
+        max_tokens: params.max_tokens ?? this.defaultMaxTokens,
+        stop: params.stop,
+        presence_penalty: params.presence_penalty,
+        frequency_penalty: params.frequency_penalty,
+        top_p: params.top_p,
+      },
+      {
+        signal: abortSignal,
+      },
+    );
 
     return {
       id: completion.id,
@@ -220,25 +228,31 @@ export class OpenAIContentGenerator {
     params: OpenAIChatParams,
     userPromptId: string,
     _role: LlmRole,
+    abortSignal?: AbortSignal,
   ): AsyncGenerator<OpenAIStreamChunk> {
     const model = params.model || this.defaultModel;
 
-    const stream = await this.client.chat.completions.create({
-      model,
-      messages:
-        params.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-      tools: params.tools as
-        | OpenAI.Chat.Completions.ChatCompletionTool[]
-        | undefined,
-      tool_choice: params.tool_choice,
-      temperature: params.temperature,
-      max_tokens: params.max_tokens ?? this.defaultMaxTokens,
-      stop: params.stop,
-      presence_penalty: params.presence_penalty,
-      frequency_penalty: params.frequency_penalty,
-      top_p: params.top_p,
-      stream: true,
-    });
+    const stream = await this.client.chat.completions.create(
+      {
+        model,
+        messages:
+          params.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+        tools: params.tools as
+          | OpenAI.Chat.Completions.ChatCompletionTool[]
+          | undefined,
+        tool_choice: params.tool_choice,
+        temperature: params.temperature,
+        max_tokens: params.max_tokens ?? this.defaultMaxTokens,
+        stop: params.stop,
+        presence_penalty: params.presence_penalty,
+        frequency_penalty: params.frequency_penalty,
+        top_p: params.top_p,
+        stream: true,
+      },
+      {
+        signal: abortSignal,
+      },
+    );
 
     for await (const chunk of stream) {
       yield {

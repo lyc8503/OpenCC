@@ -33,7 +33,6 @@ import type {
   Content,
   GenerateContentConfig,
   GenerateContentResponse,
-  EmbedContentResponse,
 } from '@google/genai';
 import type { ContentGenerator } from './contentGenerator.js';
 import {
@@ -64,7 +63,6 @@ describe('LoggingContentGenerator', () => {
       generateContent: vi.fn(),
       generateContentStream: vi.fn(),
       countTokens: vi.fn(),
-      embedContent: vi.fn(),
     };
     config = {
       getGoogleAIConfig: vi.fn(),
@@ -560,45 +558,6 @@ describe('LoggingContentGenerator', () => {
 
       expect(wrapped.countTokens).toHaveBeenCalledWith(req);
       expect(result).toBe(response);
-    });
-  });
-
-  describe('embedContent', () => {
-    it('should call the wrapped embedContent method', async () => {
-      const req = {
-        contents: [{ role: 'user', parts: [] }],
-        model: 'gemini-pro',
-        config: {
-          mimeType: 'text/plain',
-        },
-      };
-      const response: EmbedContentResponse = { embeddings: [{ values: [] }] };
-      vi.mocked(wrapped.embedContent).mockResolvedValue(response);
-
-      const result = await loggingContentGenerator.embedContent(req);
-
-      expect(wrapped.embedContent).toHaveBeenCalledWith(req);
-      expect(result).toBe(response);
-
-      expect(runInDevTraceSpan).toHaveBeenCalledWith(
-        expect.objectContaining({
-          operation: GeminiCliOperation.LLMCall,
-          attributes: expect.objectContaining({
-            [GEN_AI_REQUEST_MODEL]: req.model,
-          }),
-        }),
-        expect.any(Function),
-      );
-
-      const spanArgs = vi.mocked(runInDevTraceSpan).mock.calls[0];
-      const fn = spanArgs[1];
-      const metadata: SpanMetadata = { name: '', attributes: {} };
-      await fn({ metadata, endSpan: vi.fn() });
-
-      expect(metadata).toMatchObject({
-        input: req.contents,
-        output: response,
-      });
     });
   });
 });

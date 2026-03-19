@@ -122,8 +122,6 @@ export * from './services/chatRecordingService.js';
 export * from './services/fileSystemService.js';
 export * from './services/sessionSummaryUtils.js';
 export * from './services/contextManager.js';
-export * from './services/trackerService.js';
-export * from './services/trackerTypes.js';
 export * from './services/keychainService.js';
 export * from './services/keychainTypes.js';
 export * from './skills/skillManager.js';
@@ -186,9 +184,12 @@ export * from './tools/web-search.js';
 export * from './tools/mcp-client.js';
 export * from './tools/mcp-tool.js';
 export * from './tools/write-todos.js';
-export * from './tools/trackerTools.js';
 export * from './tools/activate-skill.js';
 export * from './tools/ask-user.js';
+export * from './tools/task-output.js';
+export * from './tools/task-stop.js';
+export * from './tools/enter-worktree.js';
+export * from './tools/notebook-edit.js';
 
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';

@@ -17,7 +17,6 @@ import {
   isSectionEnabled,
   type ResolvedPath,
 } from './utils.js';
-import { CodebaseInvestigatorAgent } from '../agents/codebase-investigator.js';
 import { isGitRepository } from '../utils/gitUtils.js';
 import {
   WRITE_TODOS_TOOL_NAME,
@@ -136,9 +135,6 @@ export class PromptProvider {
           'primaryWorkflows',
           () => ({
             interactive: interactiveMode,
-            enableCodebaseInvestigator: enabledToolNames.has(
-              CodebaseInvestigatorAgent.name,
-            ),
             enableWriteTodosTool: enabledToolNames.has(WRITE_TODOS_TOOL_NAME),
             enableEnterPlanModeTool: enabledToolNames.has(
               ENTER_PLAN_MODE_TOOL_NAME,
@@ -148,7 +144,6 @@ export class PromptProvider {
             approvedPlan: approvedPlanPath
               ? { path: approvedPlanPath }
               : undefined,
-            taskTracker: context.config.isTrackerEnabled(),
             topicUpdateNarration:
               context.config.isTopicUpdateNarrationEnabled(),
           }),
@@ -160,11 +155,9 @@ export class PromptProvider {
             planModeToolsList,
             plansDir: context.config.storage.getPlansDir(),
             approvedPlanPath: context.config.getApprovedPlanPath(),
-            taskTracker: context.config.isTrackerEnabled(),
           }),
           isPlanMode,
         ),
-        taskTracker: context.config.isTrackerEnabled(),
         operationalGuidelines: this.withSection(
           'operationalGuidelines',
           () => ({

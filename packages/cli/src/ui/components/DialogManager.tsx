@@ -11,10 +11,6 @@ import { FolderTrustDialog } from './FolderTrustDialog.js';
 import { ConsentPrompt } from './ConsentPrompt.js';
 import { ThemeDialog } from './ThemeDialog.js';
 import { SettingsDialog } from './SettingsDialog.js';
-import { AuthInProgress } from '../auth/AuthInProgress.js';
-import { AuthDialog } from '../auth/AuthDialog.js';
-import { BannedAccountDialog } from '../auth/BannedAccountDialog.js';
-import { ApiAuthDialog } from '../auth/ApiAuthDialog.js';
 import { EditorSettingsDialog } from './EditorSettingsDialog.js';
 import { PrivacyNotice } from '../privacy/PrivacyNotice.js';
 import { ProQuotaDialog } from './ProQuotaDialog.js';
@@ -28,7 +24,6 @@ import { useUIState } from '../contexts/UIStateContext.js';
 import { useUIActions } from '../contexts/UIActionsContext.js';
 import { useConfig } from '../contexts/ConfigContext.js';
 import { useSettings } from '../contexts/SettingsContext.js';
-import process from 'node:process';
 import { type UseHistoryManagerReturn } from '../hooks/useHistoryManager.js';
 import { AdminSettingsChangedDialog } from './AdminSettingsChangedDialog.js';
 import { IdeTrustChangeDialog } from './IdeTrustChangeDialog.js';
@@ -150,9 +145,6 @@ export const DialogManager = ({
     );
   }
 
-  // commandConfirmationRequest and authConsentRequest are kept separate
-  // to avoid focus deadlocks and state race conditions between the
-  // synchronous command loop and the asynchronous auth flow.
   if (uiState.commandConfirmationRequest) {
     return (
       <ConsentPrompt
@@ -238,58 +230,6 @@ export const DialogManager = ({
               await agentRegistry.reload();
             }
           }}
-        />
-      </Box>
-    );
-  }
-  if (uiState.accountSuspensionInfo) {
-    return (
-      <Box flexDirection="column">
-        <BannedAccountDialog
-          accountSuspensionInfo={uiState.accountSuspensionInfo}
-          onExit={() => {
-            process.exit(1);
-          }}
-          onChangeAuth={() => {
-            uiActions.clearAccountSuspension();
-          }}
-        />
-      </Box>
-    );
-  }
-  if (uiState.isAuthenticating) {
-    return (
-      <AuthInProgress
-        onTimeout={() => {
-          uiActions.onAuthError('Authentication cancelled.');
-        }}
-      />
-    );
-  }
-  if (uiState.isAwaitingApiKeyInput) {
-    return (
-      <Box flexDirection="column">
-        <ApiAuthDialog
-          key={uiState.apiKeyDefaultValue}
-          onSubmit={uiActions.handleApiKeySubmit}
-          onCancel={uiActions.handleApiKeyCancel}
-          error={uiState.authError}
-          defaultValue={uiState.apiKeyDefaultValue}
-        />
-      </Box>
-    );
-  }
-
-  if (uiState.isAuthDialogOpen) {
-    return (
-      <Box flexDirection="column">
-        <AuthDialog
-          config={config}
-          settings={settings}
-          setAuthState={uiActions.setAuthState}
-          authError={uiState.authError}
-          onAuthError={uiActions.onAuthError}
-          setAuthContext={uiActions.setAuthContext}
         />
       </Box>
     );

@@ -23,19 +23,6 @@ import { type ReactNode } from 'react';
 
 export type { ThoughtSummary, SkillDefinition };
 
-export enum AuthState {
-  // Attempting to authenticate or re-authenticate
-  Unauthenticated = 'unauthenticated',
-  // Auth dialog is open for user to select auth method
-  Updating = 'updating',
-  // Waiting for user to input API key
-  AwaitingApiKeyInput = 'awaiting_api_key_input',
-  // Successfully authenticated
-  Authenticated = 'authenticated',
-  // Waiting for the user to restart after a Google login
-  AwaitingGoogleLoginRestart = 'awaiting_google_login_restart',
-}
-
 // Only defining the state enum needed by the UI
 export enum StreamingState {
   Idle = 'idle',

@@ -9,8 +9,6 @@ import {
   type CountTokensResponse,
   type GenerateContentParameters,
   type CountTokensParameters,
-  EmbedContentResponse,
-  type EmbedContentParameters,
 } from '@google/genai';
 import { promises } from 'node:fs';
 import type { ContentGenerator } from './contentGenerator.js';
@@ -29,10 +27,6 @@ export type FakeResponse =
   | {
       method: 'countTokens';
       response: CountTokensResponse;
-    }
-  | {
-      method: 'embedContent';
-      response: EmbedContentResponse;
     };
 
 // A ContentGenerator that responds with canned responses.
@@ -109,15 +103,5 @@ export class FakeContentGenerator implements ContentGenerator {
     request: CountTokensParameters,
   ): Promise<CountTokensResponse> {
     return this.getNextResponse('countTokens', request);
-  }
-
-  async embedContent(
-    request: EmbedContentParameters,
-  ): Promise<EmbedContentResponse> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return Object.setPrototypeOf(
-      this.getNextResponse('embedContent', request),
-      EmbedContentResponse.prototype,
-    );
   }
 }

@@ -54,8 +54,8 @@ const BACKGROUND_DELAY_MS = 200;
 export interface ShellToolParams {
   command: string;
   description?: string;
-  dir_path?: string;
-  is_background?: boolean;
+  path?: string;
+  run_in_background?: boolean;
 }
 
 export class ShellToolInvocation extends BaseToolInvocation<
@@ -76,8 +76,8 @@ export class ShellToolInvocation extends BaseToolInvocation<
     let description = `${this.params.command}`;
     // append optional [in directory]
     // note description is needed even if validation fails due to absolute path
-    if (this.params.dir_path) {
-      description += ` [in ${this.params.dir_path}]`;
+    if (this.params.path) {
+      description += ` [in ${this.params.path}]`;
     } else {
       description += ` [current working directory ${process.cwd()}]`;
     }
@@ -85,7 +85,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
     if (this.params.description) {
       description += ` (${this.params.description.replace(/\n/g, ' ')})`;
     }
-    if (this.params.is_background) {
+    if (this.params.run_in_background) {
       description += ' [background]';
     }
     return description;
@@ -188,8 +188,8 @@ export class ShellToolInvocation extends BaseToolInvocation<
             return `{ ${command} }; __code=$?; pgrep -g 0 >${tempFilePath} 2>&1; exit $__code;`;
           })();
 
-      const cwd = this.params.dir_path
-        ? path.resolve(this.context.config.getTargetDir(), this.params.dir_path)
+      const cwd = this.params.path
+        ? path.resolve(this.context.config.getTargetDir(), this.params.path)
         : this.context.config.getTargetDir();
 
       const validationError = this.context.config.validatePathAccess(cwd);
@@ -265,7 +265,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
               }
             }
 
-            if (shouldUpdate && !this.params.is_background) {
+            if (shouldUpdate && !this.params.run_in_background) {
               updateOutput(cumulativeOutput);
               lastUpdateTime = Date.now();
             }
@@ -288,7 +288,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
         }
 
         // If the model requested to run in the background, do so after a short delay.
-        if (this.params.is_background) {
+        if (this.params.run_in_background) {
           setTimeout(() => {
             ShellExecutionService.background(pid);
           }, BACKGROUND_DELAY_MS);
@@ -345,7 +345,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
         } else {
           llmContent += ' There was no output before it was cancelled.';
         }
-      } else if (this.params.is_background || result.backgrounded) {
+      } else if (this.params.run_in_background || result.backgrounded) {
         llmContent = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
         data = {
           pid: result.pid,
@@ -386,7 +386,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
       if (this.context.config.getDebugMode()) {
         returnDisplayMessage = llmContent;
       } else {
-        if (this.params.is_background || result.backgrounded) {
+        if (this.params.run_in_background || result.backgrounded) {
           returnDisplayMessage = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
         } else if (result.aborted) {
           const cancelMsg = timeoutMessage || 'Command cancelled by user.';
@@ -492,10 +492,10 @@ export class ShellTool extends BaseDeclarativeTool<
       return 'Command cannot be empty.';
     }
 
-    if (params.dir_path) {
+    if (params.path) {
       const resolvedPath = path.resolve(
         this.context.config.getTargetDir(),
-        params.dir_path,
+        params.path,
       );
       return this.context.config.validatePathAccess(resolvedPath);
     }

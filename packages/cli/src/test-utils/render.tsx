@@ -584,9 +584,6 @@ const mockUIActions: UIActions = {
   handleThemeSelect: vi.fn(),
   closeThemeDialog: vi.fn(),
   handleThemeHighlight: vi.fn(),
-  handleAuthSelect: vi.fn(),
-  setAuthState: vi.fn(),
-  onAuthError: vi.fn(),
   handleEditorSelect: vi.fn(),
   exitEditorDialog: vi.fn(),
   exitPrivacyNotice: vi.fn(),
@@ -614,8 +611,6 @@ const mockUIActions: UIActions = {
   handleValidationChoice: vi.fn(),
   setQueueErrorMessage: vi.fn(),
   popAllMessages: vi.fn(),
-  handleApiKeySubmit: vi.fn(),
-  handleApiKeyCancel: vi.fn(),
   setBannerVisible: vi.fn(),
   setShortcutsHelpVisible: vi.fn(),
   setCleanUiDetailsVisible: vi.fn(),
@@ -626,7 +621,6 @@ const mockUIActions: UIActions = {
   dismissBackgroundShell: vi.fn(),
   setActiveBackgroundShellPid: vi.fn(),
   setIsBackgroundShellListOpen: vi.fn(),
-  setAuthContext: vi.fn(),
   onHintInput: vi.fn(),
   onHintBackspace: vi.fn(),
   onHintClear: vi.fn(),
@@ -634,7 +628,6 @@ const mockUIActions: UIActions = {
   handleRestart: vi.fn(),
   handleNewAgentsSelect: vi.fn(),
   getPreferredEditor: vi.fn(),
-  clearAccountSuspension: vi.fn(),
 };
 
 let capturedOverflowState: OverflowState | undefined;

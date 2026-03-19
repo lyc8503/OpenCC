@@ -66,6 +66,7 @@ export function sortFileEntries(
 
 /**
  * Parameters for the GlobTool
+ * Parameter names match REF_PROMPT.md / tool-set.ts schema
  */
 export interface GlobToolParams {
   /**
@@ -76,7 +77,7 @@ export interface GlobToolParams {
   /**
    * The directory to search in (optional, defaults to current directory)
    */
-  dir_path?: string;
+  path?: string;
 
   /**
    * Whether the search should be case-sensitive (optional, defaults to false)
@@ -110,10 +111,10 @@ class GlobToolInvocation extends BaseToolInvocation<
 
   getDescription(): string {
     let description = `'${this.params.pattern}'`;
-    if (this.params.dir_path) {
+    if (this.params.path) {
       const searchDir = path.resolve(
         this.config.getTargetDir(),
-        this.params.dir_path || '.',
+        this.params.path || '.',
       );
       const relativePath = makeRelative(searchDir, this.config.getTargetDir());
       description += ` within ${shortenPath(relativePath)}`;
@@ -136,10 +137,10 @@ class GlobToolInvocation extends BaseToolInvocation<
 
       // If a specific path is provided, resolve it and check if it's within workspace
       let searchDirectories: readonly string[];
-      if (this.params.dir_path) {
+      if (this.params.path) {
         const searchDirAbsolute = path.resolve(
           this.config.getTargetDir(),
-          this.params.dir_path,
+          this.params.path,
         );
         const validationError = this.config.validatePathAccess(
           searchDirAbsolute,
@@ -305,7 +306,7 @@ export class GlobTool extends BaseDeclarativeTool<GlobToolParams, ToolResult> {
   ): string | null {
     const searchDirAbsolute = path.resolve(
       this.config.getTargetDir(),
-      params.dir_path || '.',
+      params.path || '.',
     );
 
     const validationError = this.config.validatePathAccess(

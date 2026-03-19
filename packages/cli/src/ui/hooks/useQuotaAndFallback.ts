@@ -29,7 +29,6 @@ interface UseQuotaAndFallbackArgs {
   historyManager: UseHistoryManagerReturn;
   settings: LoadedSettings;
   setModelSwitchedFromQuotaError: (value: boolean) => void;
-  onShowAuthSelection: () => void;
   errorVerbosity?: 'low' | 'full';
 }
 
@@ -38,7 +37,6 @@ export function useQuotaAndFallback({
   historyManager,
   settings,
   setModelSwitchedFromQuotaError,
-  onShowAuthSelection,
   errorVerbosity = 'full',
 }: UseQuotaAndFallbackArgs) {
   const [proQuotaRequest, setProQuotaRequest] =
@@ -139,7 +137,6 @@ export function useQuotaAndFallback({
     historyManager,
     settings,
     setModelSwitchedFromQuotaError,
-    onShowAuthSelection,
     errorVerbosity,
   ]);
 
@@ -211,11 +208,10 @@ export function useQuotaAndFallback({
       validationRequest.resolve(choice);
       setValidationRequest(null);
 
-      if (choice === 'change_auth' || choice === 'cancel') {
-        onShowAuthSelection();
-      }
+      // When user chooses 'change_auth' or 'cancel', just close the dialog
+      // Auth selection has been removed
     },
-    [validationRequest, onShowAuthSelection],
+    [validationRequest],
   );
 
   return {

@@ -124,7 +124,6 @@ describe('useSlashCommandProcessor', () => {
   const mockClearItems = vi.fn();
   const mockLoadHistory = vi.fn();
   const mockOpenThemeDialog = vi.fn();
-  const mockOpenAuthDialog = vi.fn();
   const mockOpenModelDialog = vi.fn();
   const mockSetQuittingMessages = vi.fn();
 
@@ -198,7 +197,6 @@ describe('useSlashCommandProcessor', () => {
           vi.fn(), // toggleVimEnabled
           setIsProcessing,
           {
-            openAuthDialog: mockOpenAuthDialog,
             openThemeDialog: mockOpenThemeDialog,
             openEditorDialog: vi.fn(),
             openPrivacyNotice: vi.fn(),

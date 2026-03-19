@@ -93,7 +93,7 @@ export async function checkPolicy(
     if (!config.isInteractive()) {
       throw new Error(
         `Tool execution for "${
-          toolCall.tool.displayName || toolCall.tool.name
+          toolCall.tool.name
         }" requires user confirmation, which is not supported in non-interactive mode.`,
       );
     }

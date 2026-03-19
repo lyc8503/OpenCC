@@ -347,7 +347,6 @@ describe('EditTool', () => {
         const result = await calculateReplacement(mockConfig, {
           params: {
             file_path: 'test.txt',
-            instruction: 'test',
             old_string,
             new_string,
           },
@@ -366,7 +365,6 @@ describe('EditTool', () => {
       const result = await calculateReplacement(mockConfig, {
         params: {
           file_path: 'test.js',
-          instruction: 'test',
           old_string: 'function myFunc(a, b) {', // Note the normalized whitespace
           new_string: 'const yourFunc = (a, b) => {',
         },
@@ -393,7 +391,6 @@ describe('EditTool', () => {
       const result = await calculateReplacement(mockConfig, {
         params: {
           file_path: 'config.ts',
-          instruction: 'update config',
           old_string: oldString,
           new_string: newString,
         },
@@ -416,7 +413,6 @@ describe('EditTool', () => {
       const result = await calculateReplacement(mockConfig, {
         params: {
           file_path: 'config.ts',
-          instruction: 'update config',
           old_string: oldString,
           new_string: newString,
         },
@@ -447,7 +443,6 @@ describe('EditTool', () => {
       const result = await calculateReplacement(mockConfig, {
         params: {
           file_path: 'test.ts',
-          instruction: 'update',
           old_string: oldString,
           new_string: newString,
         },
@@ -487,7 +482,6 @@ function doIt() {
       const result = await calculateReplacement(mockConfig, {
         params: {
           file_path: 'test.ts',
-          instruction: 'update',
           old_string: oldString,
           new_string: newString,
         },
@@ -562,7 +556,6 @@ function doIt() {
       const result = await calculateReplacement(mockConfig, {
         params: {
           file_path: 'test.js',
-          instruction: 'test',
           old_string: 'function  oldFunc() {\n    // some code\n  }', // Two spaces after function to trigger regex
           new_string: 'function newFunc() {\n  // new code\n}', // Unindented
         },
@@ -581,7 +574,6 @@ function doIt() {
       const result = await calculateReplacement(mockConfig, {
         params: {
           file_path: 'test.js',
-          instruction: 'test',
           old_string: '\nfunction oldFunc() {}',
           new_string: '\n  function newFunc() {}', // Include desired indentation
         },
@@ -599,7 +591,6 @@ function doIt() {
     it('should return null for valid params', () => {
       const params: EditToolParams = {
         file_path: path.join(rootDir, 'test.txt'),
-        instruction: 'An instruction',
         old_string: 'old',
         new_string: 'new',
       };
@@ -609,7 +600,6 @@ function doIt() {
     it('should return an error if path is outside the workspace', () => {
       const params: EditToolParams = {
         file_path: path.join(os.tmpdir(), 'outside.txt'),
-        instruction: 'An instruction',
         old_string: 'old',
         new_string: 'new',
       };
@@ -619,7 +609,6 @@ function doIt() {
     it('should reject omission placeholder in new_string when old_string does not contain that placeholder', () => {
       const params: EditToolParams = {
         file_path: path.join(rootDir, 'test.txt'),
-        instruction: 'An instruction',
         old_string: 'old content',
         new_string: '(rest of methods ...)',
       };
@@ -631,7 +620,6 @@ function doIt() {
     it('should reject new_string when it contains an additional placeholder not present in old_string', () => {
       const params: EditToolParams = {
         file_path: path.join(rootDir, 'test.txt'),
-        instruction: 'An instruction',
         old_string: '(rest of methods ...)',
         new_string: `(rest of methods ...)
 (unchanged code ...)`,
@@ -644,7 +632,6 @@ function doIt() {
     it('should allow omission placeholders when all are already present in old_string', () => {
       const params: EditToolParams = {
         file_path: path.join(rootDir, 'test.txt'),
-        instruction: 'An instruction',
         old_string: `(rest of methods ...)
 (unchanged code ...)`,
         new_string: `(unchanged code ...)
@@ -656,7 +643,6 @@ function doIt() {
     it('should allow normal code that contains placeholder text in a string literal', () => {
       const params: EditToolParams = {
         file_path: path.join(rootDir, 'test.ts'),
-        instruction: 'Update string literal',
         old_string: 'const msg = "old";',
         new_string: 'const msg = "(rest of methods ...)";',
       };
@@ -675,7 +661,6 @@ function doIt() {
     it('should reject when calculateEdit fails after an abort signal', async () => {
       const params: EditToolParams = {
         file_path: path.join(rootDir, 'abort-execute.txt'),
-        instruction: 'Abort during execute',
         old_string: 'old',
         new_string: 'new',
       };
@@ -706,7 +691,6 @@ function doIt() {
       fs.writeFileSync(filePath, initialContent, 'utf8');
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace old with new',
         old_string: 'old',
         new_string: 'new',
       };
@@ -730,7 +714,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace non-existent text',
         old_string: 'nonexistent',
         new_string: 'replacement',
       };
@@ -753,7 +736,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace original with brand new',
         old_string: 'wrong text', // This will fail first
         new_string: 'brand new text',
       };
@@ -780,7 +762,6 @@ function doIt() {
       fs.writeFileSync(filePath, initialContent, 'utf8');
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace two with three',
         old_string: 'line two',
         new_string: 'line three',
       };
@@ -796,7 +777,6 @@ function doIt() {
       const newContentWithCRLF = 'new line one\r\nnew line two\r\n';
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Create a new file',
         old_string: '',
         new_string: newContentWithCRLF,
       };
@@ -817,7 +797,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Ensure the price is $100',
         old_string: 'price is $50', // Incorrect old string
         new_string: 'price is $100',
       };
@@ -861,8 +840,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction:
-          'Replace "externally modified content" with "externally modified string"',
         old_string: 'externally modified content', // This will fail the first attempt, triggering self-correction.
         new_string: 'externally modified string',
       };
@@ -933,7 +910,6 @@ function doIt() {
         setup(filePath);
         const invocation = tool.build({
           file_path: filePath,
-          instruction: 'test',
           ...params,
         });
         const result = await invocation.execute(new AbortController().signal);
@@ -942,7 +918,7 @@ function doIt() {
     );
   });
 
-  describe('allow_multiple', () => {
+  describe('replace_all', () => {
     const testFile = 'replacements_test.txt';
     let filePath: string;
 
@@ -952,51 +928,51 @@ function doIt() {
 
     it.each([
       {
-        name: 'succeed when allow_multiple is true and there are multiple occurrences',
+        name: 'succeed when replace_all is true and there are multiple occurrences',
         content: 'foo foo foo',
-        allow_multiple: true,
+        replace_all: true,
         shouldSucceed: true,
         finalContent: 'bar bar bar',
       },
       {
-        name: 'succeed when allow_multiple is true and there is exactly 1 occurrence',
+        name: 'succeed when replace_all is true and there is exactly 1 occurrence',
         content: 'foo',
-        allow_multiple: true,
+        replace_all: true,
         shouldSucceed: true,
         finalContent: 'bar',
       },
       {
-        name: 'fail when allow_multiple is false and there are multiple occurrences',
+        name: 'fail when replace_all is false and there are multiple occurrences',
         content: 'foo foo foo',
-        allow_multiple: false,
+        replace_all: false,
         shouldSucceed: false,
         expectedError: ToolErrorType.EDIT_EXPECTED_OCCURRENCE_MISMATCH,
       },
       {
-        name: 'default to 1 expected replacement if allow_multiple not specified',
+        name: 'default to 1 expected replacement if replace_all not specified',
         content: 'foo foo',
-        allow_multiple: undefined,
+        replace_all: undefined,
         shouldSucceed: false,
         expectedError: ToolErrorType.EDIT_EXPECTED_OCCURRENCE_MISMATCH,
       },
       {
-        name: 'succeed when allow_multiple is false and there is exactly 1 occurrence',
+        name: 'succeed when replace_all is false and there is exactly 1 occurrence',
         content: 'foo',
-        allow_multiple: false,
+        replace_all: false,
         shouldSucceed: true,
         finalContent: 'bar',
       },
       {
-        name: 'fail when allow_multiple is true but there are 0 occurrences',
+        name: 'fail when replace_all is true but there are 0 occurrences',
         content: 'baz',
-        allow_multiple: true,
+        replace_all: true,
         shouldSucceed: false,
         expectedError: ToolErrorType.EDIT_NO_OCCURRENCE_FOUND,
       },
       {
-        name: 'fail when allow_multiple is false but there are 0 occurrences',
+        name: 'fail when replace_all is false but there are 0 occurrences',
         content: 'baz',
-        allow_multiple: false,
+        replace_all: false,
         shouldSucceed: false,
         expectedError: ToolErrorType.EDIT_NO_OCCURRENCE_FOUND,
       },
@@ -1004,7 +980,7 @@ function doIt() {
       'should $name',
       async ({
         content,
-        allow_multiple,
+        replace_all,
         shouldSucceed,
         finalContent,
         expectedError,
@@ -1012,10 +988,9 @@ function doIt() {
         fs.writeFileSync(filePath, content, 'utf8');
         const params: EditToolParams = {
           file_path: filePath,
-          instruction: 'Replace all foo with bar',
           old_string: 'foo',
           new_string: 'bar',
-          ...(allow_multiple !== undefined && { allow_multiple }),
+          ...(replace_all !== undefined && { replace_all }),
         };
         const invocation = tool.build(params);
         const result = await invocation.execute(new AbortController().signal);
@@ -1053,7 +1028,6 @@ function doIt() {
       fs.writeFileSync(filePath, initialContent);
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'test',
         old_string: 'old',
         new_string: 'new',
       };
@@ -1084,7 +1058,6 @@ function doIt() {
       const filePath = path.join(rootDir, 'abort-confirmation.txt');
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Abort during confirmation',
         old_string: 'old',
         new_string: 'new',
       };
@@ -1154,10 +1127,8 @@ function doIt() {
       for (const file of files) {
         const params: EditToolParams = {
           file_path: file.path,
-          instruction: `Remove lines from the file`,
           old_string: file.toRemove,
           new_string: '', // Removing the content
-          ai_proposed_content: '',
         };
         const invocation = tool.build(params);
         const result = await invocation.execute(new AbortController().signal);
@@ -1207,7 +1178,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace non-existent text',
         old_string: 'nonexistent',
         new_string: 'replacement',
       };
@@ -1228,7 +1198,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace non-existent text',
         old_string: 'nonexistent',
         new_string: 'replacement',
       };
@@ -1257,7 +1226,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace old with new',
         old_string: 'old',
         new_string: 'new',
       };
@@ -1286,7 +1254,6 @@ function doIt() {
 
       const params: EditToolParams = {
         file_path: filePath,
-        instruction: 'Replace old with new',
         old_string: 'old',
         new_string: 'new',
       };

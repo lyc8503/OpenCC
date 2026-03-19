@@ -115,8 +115,6 @@ describe('GeminiChat', () => {
       generateContent: vi.fn(),
       generateContentStream: vi.fn(),
       countTokens: vi.fn(),
-      embedContent: vi.fn(),
-      batchEmbedContents: vi.fn(),
     } as unknown as ContentGenerator;
 
     mockHandleFallback.mockClear();

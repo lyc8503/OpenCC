@@ -238,6 +238,115 @@ export const DEFAULT_MODEL_CONFIGS: ModelConfigServiceConfig = {
         model: 'gemini-3-pro-preview',
       },
     },
+  // OpenAI-compatible model aliases for utility tools
+    // These are used when the backend is OpenAI API compatible
+    'openai-web-search': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {
+          maxOutputTokens: 4096,
+        },
+      },
+    },
+    'openai-web-fetch': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {
+          maxOutputTokens: 4096,
+        },
+      },
+    },
+    'openai-web-fetch-fallback': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {},
+      },
+    },
+    'openai-loop-detection': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {},
+      },
+    },
+    'openai-loop-detection-double-check': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o',
+        generateContentConfig: {},
+      },
+    },
+    'openai-llm-edit-fixer': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {},
+      },
+    },
+    'openai-next-speaker-checker': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {},
+      },
+    },
+    'openai-classifier': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {
+          maxOutputTokens: 1024,
+        },
+      },
+    },
+    'openai-prompt-completion': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 16000,
+        },
+      },
+    },
+    'openai-fast-ack-helper': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 120,
+        },
+      },
+    },
+    'openai-edit-corrector': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {},
+      },
+    },
+    'openai-summarizer-default': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {
+          maxOutputTokens: 2000,
+        },
+      },
+    },
+    'openai-summarizer-shell': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gpt-4o-mini',
+        generateContentConfig: {
+          maxOutputTokens: 2000,
+        },
+      },
+    },
   },
   overrides: [
     {

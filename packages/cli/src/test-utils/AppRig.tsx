@@ -41,7 +41,7 @@ import {
   type LoadedSettings,
   resetSettingsCacheForTesting,
 } from '../config/settings.js';
-import { AuthState, StreamingState } from '../ui/types.js';
+import { StreamingState } from '../ui/types.js';
 import { randomUUID } from 'node:crypto';
 import type {
   TrackedCancelledToolCall,
@@ -99,20 +99,8 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
   };
 });
 
-// Mock useAuthCommand to bypass authentication flows in tests
-vi.mock('../ui/auth/useAuth.js', () => ({
-  useAuthCommand: () => ({
-    authState: AuthState.Authenticated,
-    setAuthState: vi.fn(),
-    authError: null,
-    onAuthError: vi.fn(),
-    apiKeyDefaultValue: 'test-api-key',
-    reloadApiKey: vi.fn().mockResolvedValue('test-api-key'),
-    accountSuspensionInfo: null,
-    setAccountSuspensionInfo: vi.fn(),
-  }),
-  validateAuthMethodWithSettings: () => null,
-}));
+// Auth mock has been removed - auth is no longer used
+// The app now directly uses API key authentication
 
 // A minimal mock ExtensionManager to satisfy AppContainer's forceful cast
 class MockExtensionManager extends ExtensionLoader {
@@ -400,7 +388,6 @@ export class AppRig {
           version="test-version"
           initializationResult={{
             authError: null,
-            accountSuspensionInfo: null,
             themeError: null,
             shouldOpenAuthDialog: false,
             geminiMdFileCount: 0,

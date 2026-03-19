@@ -91,7 +91,6 @@ describe('checkNextSpeaker', () => {
         generateContent: vi.fn(),
         generateContentStream: vi.fn(),
         countTokens: vi.fn(),
-        embedContent: vi.fn(),
       } as ContentGenerator,
       mockConfig,
     );

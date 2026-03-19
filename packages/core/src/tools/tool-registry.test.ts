@@ -300,16 +300,6 @@ describe('ToolRegistry', () => {
         excludedTools: ['ExcludedMockTool'],
       },
       {
-        name: 'should exclude a tool when its legacy alias is in excludeTools',
-        tools: [
-          new MockTool({
-            name: 'current_test_tool',
-            displayName: 'Current Test Tool',
-          }),
-        ],
-        excludedTools: ['legacy_test_tool'],
-      },
-      {
         name: 'should exclude a tool when its current name is in excludeTools and tool is registered under current name',
         tools: [
           new MockTool({
@@ -640,23 +630,6 @@ describe('ToolRegistry', () => {
 
       expect(declarations).toHaveLength(1);
       expect(declarations[0].name).toBe(fullyQualifiedName);
-    });
-
-    it('should retrieve a tool using its legacy alias', async () => {
-      const legacyName = 'legacy_test_tool';
-      const currentName = 'current_test_tool';
-
-      const mockTool = new MockTool({
-        name: currentName,
-        description: 'Test Tool',
-        messageBus: mockMessageBus,
-      });
-
-      toolRegistry.registerTool(mockTool);
-
-      const retrievedTool = toolRegistry.getTool(legacyName);
-      expect(retrievedTool).toBeDefined();
-      expect(retrievedTool?.name).toBe(currentName);
     });
   });
 

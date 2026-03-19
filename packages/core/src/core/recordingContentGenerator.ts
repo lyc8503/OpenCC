@@ -9,8 +9,6 @@ import type {
   GenerateContentParameters,
   GenerateContentResponse,
   CountTokensParameters,
-  EmbedContentResponse,
-  EmbedContentParameters,
 } from '@google/genai';
 import { appendFileSync } from 'node:fs';
 import type { ContentGenerator } from './contentGenerator.js';
@@ -95,25 +93,6 @@ export class RecordingContentGenerator implements ContentGenerator {
       response: {
         totalTokens: response.totalTokens,
         cachedContentTokenCount: response.cachedContentTokenCount,
-      },
-    };
-    appendFileSync(this.filePath, `${safeJsonStringify(recordedResponse)}\n`);
-    return response;
-  }
-
-  async embedContent(
-    request: EmbedContentParameters,
-  ): Promise<EmbedContentResponse> {
-    if (!this.realGenerator.embedContent) {
-      throw new Error('embedContent is not supported');
-    }
-    const response = await this.realGenerator.embedContent(request);
-
-    const recordedResponse: FakeResponse = {
-      method: 'embedContent',
-      response: {
-        embeddings: response.embeddings,
-        metadata: response.metadata,
       },
     };
     appendFileSync(this.filePath, `${safeJsonStringify(recordedResponse)}\n`);

@@ -32,7 +32,6 @@ import {
   type HistoryItem,
   type HistoryItemWithoutId,
   type HistoryItemToolGroup,
-  AuthState,
   type ConfirmationRequest,
   type PermissionConfirmationRequest,
   type QuotaStats,
@@ -53,11 +52,9 @@ import {
   ideContextStore,
   getErrorMessage,
   getAllGeminiMdFilenames,
-  AuthType,
   type ResumedSessionData,
   recordExitFail,
   ShellExecutionService,
-  saveApiKey,
   debugLogger,
   coreEvents,
   CoreEvent,
@@ -75,17 +72,14 @@ import {
   generateSummary,
   type ConsentRequestPayload,
   type AgentsDiscoveredPayload,
-  ChangeAuthRequestedError,
   CoreToolCallStatus,
   buildUserSteeringHintPrompt,
   type InjectionSource,
 } from '@google/gemini-cli-core';
-import { validateAuthMethod } from '../config/auth.js';
 import process from 'node:process';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useMemoryMonitor } from './hooks/useMemoryMonitor.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
-import { useAuthCommand } from './auth/useAuth.js';
 import { useQuotaAndFallback } from './hooks/useQuotaAndFallback.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
 import { useSettingsCommand } from './hooks/useSettingsCommand.js';
@@ -108,7 +102,7 @@ import { useLogger } from './hooks/useLogger.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import { type BackgroundShell } from './hooks/shellCommandProcessor.js';
 import { useVim } from './hooks/vim.js';
-import { type LoadableSettingScope, SettingScope } from '../config/settings.js';
+import { SettingScope } from '../config/settings.js';
 import { type InitializationResult } from '../core/initializer.js';
 import { useFocus } from './hooks/useFocus.js';
 import { useKeypress, type Key } from './hooks/useKeypress.js';
@@ -153,7 +147,6 @@ import {
   QUEUE_ERROR_DISPLAY_DURATION_MS,
   EXPAND_HINT_DURATION_MS,
 } from './constants.js';
-import { LoginWithGoogleRestartDialog } from './auth/LoginWithGoogleRestartDialog.js';
 import { NewAgentsChoice } from './components/NewAgentsNotification.js';
 import { isSlashCommand } from './utils/commandUtils.js';
 import { parseSlashCommand } from '../utils/commands.js';
@@ -655,31 +648,6 @@ export const AppContainer = (props: AppContainerProps) => {
   );
   // Poll for terminal background color changes to auto-switch theme
   useTerminalTheme(handleThemeSelect, config, refreshStatic);
-  const {
-    authState,
-    setAuthState,
-    authError,
-    onAuthError,
-    apiKeyDefaultValue,
-    reloadApiKey,
-    accountSuspensionInfo,
-    setAccountSuspensionInfo,
-  } = useAuthCommand(
-    settings,
-    config,
-    initializationResult.authError,
-    initializationResult.accountSuspensionInfo,
-  );
-  const [authContext, setAuthContext] = useState<{ requiresRestart?: boolean }>(
-    {},
-  );
-
-  useEffect(() => {
-    if (authState === AuthState.Authenticated && authContext.requiresRestart) {
-      setAuthState(AuthState.AwaitingGoogleLoginRestart);
-      setAuthContext({});
-    }
-  }, [authState, authContext, setAuthState]);
 
   const {
     proQuotaRequest,
@@ -691,13 +659,8 @@ export const AppContainer = (props: AppContainerProps) => {
     historyManager,
     settings,
     setModelSwitchedFromQuotaError,
-    onShowAuthSelection: () => setAuthState(AuthState.Updating),
     errorVerbosity: settings.merged.ui.errorVerbosity,
   });
-
-  // Derive auth state variables for backward compatibility with UIStateContext
-  const isAuthDialogOpen = authState === AuthState.Updating;
-  const isAuthenticating = authState === AuthState.Unauthenticated;
 
   // Session browser and resume functionality
   const isGeminiClientInitialized = config.getGeminiClient()?.isInitialized();
@@ -709,7 +672,6 @@ export const AppContainer = (props: AppContainerProps) => {
     isGeminiClientInitialized,
     setQuittingMessages,
     resumedSessionData,
-    isAuthenticating,
   });
   const {
     isSessionBrowserOpen,
@@ -725,96 +687,6 @@ export const AppContainer = (props: AppContainerProps) => {
     },
     [handleDeleteSessionSync],
   );
-
-  // Create handleAuthSelect wrapper for backward compatibility
-  const handleAuthSelect = useCallback(
-    async (authType: AuthType | undefined, scope: LoadableSettingScope) => {
-      if (authType) {
-        setAuthContext({});
-        settings.setValue(scope, 'security.auth.selectedType', authType);
-
-        try {
-          await config.refreshAuth(authType);
-          setAuthState(AuthState.Authenticated);
-        } catch (e) {
-          if (e instanceof ChangeAuthRequestedError) {
-            return;
-          }
-          onAuthError(
-            `Failed to authenticate: ${e instanceof Error ? e.message : String(e)}`,
-          );
-          return;
-        }
-      }
-      setAuthState(AuthState.Authenticated);
-    },
-    [settings, config, setAuthState, onAuthError, setAuthContext],
-  );
-
-  const handleApiKeySubmit = useCallback(
-    async (apiKey: string) => {
-      try {
-        onAuthError(null);
-        if (!apiKey.trim() && apiKey.length > 1) {
-          onAuthError(
-            'API key cannot be empty string with length greater than 1.',
-          );
-          return;
-        }
-
-        await saveApiKey(apiKey);
-        await reloadApiKey();
-        await config.refreshAuth(AuthType.USE_API_KEY);
-        setAuthState(AuthState.Authenticated);
-      } catch (e) {
-        onAuthError(
-          `Failed to save API key: ${e instanceof Error ? e.message : String(e)}`,
-        );
-      }
-    },
-    [setAuthState, onAuthError, reloadApiKey, config],
-  );
-
-  const handleApiKeyCancel = useCallback(() => {
-    // Go back to auth method selection
-    setAuthState(AuthState.Updating);
-  }, [setAuthState]);
-
-  // Check for enforced auth type mismatch
-  useEffect(() => {
-    if (
-      settings.merged.security.auth.enforcedType &&
-      settings.merged.security.auth.selectedType &&
-      settings.merged.security.auth.enforcedType !==
-        settings.merged.security.auth.selectedType
-    ) {
-      onAuthError(
-        `Authentication is enforced to be ${settings.merged.security.auth.enforcedType}, but you are currently using ${settings.merged.security.auth.selectedType}.`,
-      );
-    } else if (
-      settings.merged.security.auth.selectedType &&
-      !settings.merged.security.auth.useExternal
-    ) {
-      // We skip validation for API key here because it might be stored
-      // in the keychain, which we can't check synchronously.
-      // The useAuth hook handles validation for this case.
-      if (settings.merged.security.auth.selectedType === AuthType.USE_API_KEY) {
-        return;
-      }
-
-      const error = validateAuthMethod(
-        settings.merged.security.auth.selectedType,
-      );
-      if (error) {
-        onAuthError(error);
-      }
-    }
-  }, [
-    settings.merged.security.auth.selectedType,
-    settings.merged.security.auth.enforcedType,
-    settings.merged.security.auth.useExternal,
-    onAuthError,
-  ]);
 
   const { isModelDialogOpen, openModelDialog, closeModelDialog } =
     useModelCommand();
@@ -835,7 +707,6 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const slashCommandActions = useMemo(
     () => ({
-      openAuthDialog: () => setAuthState(AuthState.Updating),
       openThemeDialog,
       openEditorDialog,
       openPrivacyNotice: () => setShowPrivacyNotice(true),
@@ -871,7 +742,6 @@ export const AppContainer = (props: AppContainerProps) => {
       setText: stableSetText,
     }),
     [
-      setAuthState,
       openThemeDialog,
       openEditorDialog,
       openSettingsDialog,
@@ -1068,7 +938,7 @@ export const AppContainer = (props: AppContainerProps) => {
     handleSlashCommand,
     shellModeActive,
     getPreferredEditor,
-    onAuthError,
+    () => {}, // onAuthError - no longer needed
     performMemoryRefresh,
     modelSwitchedFromQuotaError,
     setModelSwitchedFromQuotaError,
@@ -1389,8 +1259,6 @@ export const AppContainer = (props: AppContainerProps) => {
       initialPrompt &&
       isConfigInitialized &&
       !initialPromptSubmitted.current &&
-      !isAuthenticating &&
-      !isAuthDialogOpen &&
       !isThemeDialogOpen &&
       !isEditorDialogOpen &&
       !showPrivacyNotice &&
@@ -1403,8 +1271,6 @@ export const AppContainer = (props: AppContainerProps) => {
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,
-    isAuthenticating,
-    isAuthDialogOpen,
     isThemeDialogOpen,
     isEditorDialogOpen,
     showPrivacyNotice,
@@ -1960,15 +1826,12 @@ export const AppContainer = (props: AppContainerProps) => {
     isModelDialogOpen ||
     isAgentConfigDialogOpen ||
     isPermissionsDialogOpen ||
-    isAuthenticating ||
-    isAuthDialogOpen ||
     isEditorDialogOpen ||
     showPrivacyNotice ||
     showIdeRestartPrompt ||
     !!proQuotaRequest ||
     !!validationRequest ||
     isSessionBrowserOpen ||
-    authState === AuthState.AwaitingApiKeyInput ||
     !!newAgents;
 
   const pendingHistoryItems = useMemo(
@@ -2120,13 +1983,7 @@ export const AppContainer = (props: AppContainerProps) => {
       isThemeDialogOpen,
 
       themeError,
-      isAuthenticating,
       isConfigInitialized,
-      authError,
-      accountSuspensionInfo,
-      isAuthDialogOpen,
-      isAwaitingApiKeyInput: authState === AuthState.AwaitingApiKeyInput,
-      apiKeyDefaultValue,
       editorError,
       isEditorDialogOpen,
       showPrivacyNotice,
@@ -2246,11 +2103,7 @@ export const AppContainer = (props: AppContainerProps) => {
       isThemeDialogOpen,
 
       themeError,
-      isAuthenticating,
       isConfigInitialized,
-      authError,
-      accountSuspensionInfo,
-      isAuthDialogOpen,
       editorError,
       isEditorDialogOpen,
       showPrivacyNotice,
@@ -2344,8 +2197,6 @@ export const AppContainer = (props: AppContainerProps) => {
       embeddedShellFocused,
       showDebugProfiler,
       customDialog,
-      apiKeyDefaultValue,
-      authState,
       copyModeEnabled,
       transientMessage,
       bannerData,
@@ -2372,9 +2223,6 @@ export const AppContainer = (props: AppContainerProps) => {
       handleThemeSelect,
       closeThemeDialog,
       handleThemeHighlight,
-      handleAuthSelect,
-      setAuthState,
-      onAuthError,
       handleEditorSelect,
       exitEditorDialog,
       exitPrivacyNotice,
@@ -2402,8 +2250,6 @@ export const AppContainer = (props: AppContainerProps) => {
       handleDeleteSession,
       setQueueErrorMessage,
       popAllMessages,
-      handleApiKeySubmit,
-      handleApiKeyCancel,
       setBannerVisible,
       setShortcutsHelpVisible,
       setCleanUiDetailsVisible,
@@ -2414,7 +2260,6 @@ export const AppContainer = (props: AppContainerProps) => {
       dismissBackgroundShell,
       setActiveBackgroundShellPid,
       setIsBackgroundShellListOpen,
-      setAuthContext,
       onHintInput: () => {},
       onHintBackspace: () => {},
       onHintClear: () => {},
@@ -2443,18 +2288,11 @@ export const AppContainer = (props: AppContainerProps) => {
         setNewAgents(null);
       },
       getPreferredEditor,
-      clearAccountSuspension: () => {
-        setAccountSuspensionInfo(null);
-        setAuthState(AuthState.Updating);
-      },
     }),
     [
       handleThemeSelect,
       closeThemeDialog,
       handleThemeHighlight,
-      handleAuthSelect,
-      setAuthState,
-      onAuthError,
       handleEditorSelect,
       exitEditorDialog,
       exitPrivacyNotice,
@@ -2482,8 +2320,6 @@ export const AppContainer = (props: AppContainerProps) => {
       handleDeleteSession,
       setQueueErrorMessage,
       popAllMessages,
-      handleApiKeySubmit,
-      handleApiKeyCancel,
       setBannerVisible,
       setShortcutsHelpVisible,
       setCleanUiDetailsVisible,
@@ -2494,26 +2330,12 @@ export const AppContainer = (props: AppContainerProps) => {
       dismissBackgroundShell,
       setActiveBackgroundShellPid,
       setIsBackgroundShellListOpen,
-      setAuthContext,
-      setAccountSuspensionInfo,
       newAgents,
       config,
       historyManager,
       getPreferredEditor,
     ],
   );
-
-  if (authState === AuthState.AwaitingGoogleLoginRestart) {
-    return (
-      <LoginWithGoogleRestartDialog
-        onDismiss={() => {
-          setAuthContext({});
-          setAuthState(AuthState.Updating);
-        }}
-        config={config}
-      />
-    );
-  }
 
   return (
     <UIStateContext.Provider value={uiState}>

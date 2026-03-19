@@ -47,7 +47,6 @@ describe('useSessionResume', () => {
     isGeminiClientInitialized: true,
     setQuittingMessages: mockSetQuittingMessages,
     resumedSessionData: undefined,
-    isAuthenticating: false,
   });
 
   beforeEach(() => {
@@ -297,38 +296,6 @@ describe('useSessionResume', () => {
   describe('automatic resume on mount', () => {
     it('should not resume when resumedSessionData is not provided', () => {
       renderHook(() => useSessionResume(getDefaultProps()));
-
-      expect(mockHistoryManager.clearItems).not.toHaveBeenCalled();
-      expect(mockHistoryManager.addItem).not.toHaveBeenCalled();
-      expect(mockGeminiClient.resumeChat).not.toHaveBeenCalled();
-    });
-
-    it('should not resume when user is authenticating', () => {
-      const conversation: ConversationRecord = {
-        sessionId: 'auto-resume-123',
-        projectHash: 'project-123',
-        startTime: '2025-01-01T00:00:00Z',
-        lastUpdated: '2025-01-01T01:00:00Z',
-        messages: [
-          {
-            id: 'msg-1',
-            timestamp: '2025-01-01T00:01:00Z',
-            content: 'Test message',
-            type: 'user',
-          },
-        ] as MessageRecord[],
-      };
-
-      renderHook(() =>
-        useSessionResume({
-          ...getDefaultProps(),
-          resumedSessionData: {
-            conversation,
-            filePath: '/path/to/session.json',
-          },
-          isAuthenticating: true,
-        }),
-      );
 
       expect(mockHistoryManager.clearItems).not.toHaveBeenCalled();
       expect(mockHistoryManager.addItem).not.toHaveBeenCalled();

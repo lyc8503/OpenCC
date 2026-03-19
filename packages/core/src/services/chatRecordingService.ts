@@ -346,7 +346,7 @@ export class ChatRecordingService {
       const toolInstance = toolRegistry.getTool(toolCall.name);
       return {
         ...toolCall,
-        displayName: toolInstance?.displayName || toolCall.name,
+        displayName: toolCall.name,
         description:
           toolCall.description?.trim() || toolInstance?.description || '',
         renderOutputAsMarkdown: toolInstance?.isOutputMarkdown || false,

@@ -608,7 +608,7 @@ export class Session {
                 toolCall.status === CoreToolCallStatus.Success
                   ? 'completed'
                   : 'failed',
-              title: toolCall.displayName || toolCall.name,
+              title: toolCall.name,
               content: toolCallContent,
               kind: tool ? toAcpToolKind(tool.kind) : 'other',
             });

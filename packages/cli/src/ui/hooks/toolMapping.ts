@@ -37,7 +37,9 @@ export function mapToDisplay(
     let description: string;
     let renderOutputAsMarkdown = false;
 
-    const displayName = call.tool?.displayName ?? call.request.name;
+    // Use the actual tool name from the request (what the model called)
+    // rather than the displayName, to match Claude Code behavior
+    const displayName = call.request.name;
 
     if (call.status === CoreToolCallStatus.Error) {
       description = JSON.stringify(call.request.args);

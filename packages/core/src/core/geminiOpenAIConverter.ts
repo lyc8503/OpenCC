@@ -90,13 +90,28 @@ function normalizeContents(
 }
 
 /**
+ * Result of converting Gemini params to OpenAI params.
+ * Includes the abortSignal separately since it's not part of the OpenAI API.
+ */
+export interface ConversionResult {
+  params: OpenAIChatParams;
+  abortSignal?: AbortSignal;
+}
+
+/**
  * Converts Gemini-style content to OpenAI messages.
+ * Returns both the OpenAI params and the abortSignal (if present in config).
  */
 export function convertGeminiToOpenAI(
   params: GenerateContentParameters,
-): OpenAIChatParams {
+): ConversionResult {
   const messages: OpenAIMessage[] = [];
   const config = params.config;
+
+  // Extract abortSignal from config (it's not part of OpenAI API params)
+  const abortSignal = config
+    ? (config as { abortSignal?: AbortSignal }).abortSignal
+    : undefined;
 
   // Add system instruction if present
   if (config?.systemInstruction) {
@@ -222,14 +237,18 @@ export function convertGeminiToOpenAI(
   // Convert tools from config if present
   const tools: OpenAITool[] | undefined = config?.tools?.flatMap((tool) => {
     if ('functionDeclarations' in tool && tool.functionDeclarations) {
-      return tool.functionDeclarations.map((fn) => ({
-        type: 'function' as const,
-        function: {
-          name: fn.name || '',
-          description: fn.description || '',
-          parameters: fn.parameters as Record<string, unknown> | undefined,
-        },
-      }));
+      return tool.functionDeclarations.map((fn) => {
+        // Handle both 'parameters' and 'parametersJsonSchema' field names
+        const params = fn.parameters ?? (fn as unknown as { parametersJsonSchema?: unknown }).parametersJsonSchema;
+        return {
+          type: 'function' as const,
+          function: {
+            name: fn.name || '',
+            description: fn.description || '',
+            parameters: params as Record<string, unknown> | undefined,
+          },
+        };
+      });
     }
     return [];
   });
@@ -243,15 +262,39 @@ export function convertGeminiToOpenAI(
   }
 
   return {
-    model: params.model,
-    messages,
-    tools: tools?.length ? tools : undefined,
-    tool_choice: toolChoice,
-    temperature: config?.temperature,
-    max_tokens: config?.maxOutputTokens,
-    top_p: config?.topP,
-    stop: config?.stopSequences,
+    params: {
+      model: params.model,
+      messages,
+      tools: tools?.length ? tools : undefined,
+      tool_choice: toolChoice,
+      temperature: config?.temperature,
+      max_tokens: config?.maxOutputTokens,
+      top_p: config?.topP,
+      stop: config?.stopSequences,
+    },
+    abortSignal,
   };
+}
+
+/**
+ * Maps OpenAI finish_reason to Gemini FinishReason enum.
+ */
+function mapFinishReason(
+  finishReason: string | null | undefined,
+): FinishReason | undefined {
+  if (!finishReason) return undefined;
+  switch (finishReason) {
+    case 'stop':
+      return FinishReason.STOP;
+    case 'tool_calls':
+      return FinishReason.STOP; // Tool calls also indicate normal completion
+    case 'length':
+      return FinishReason.MAX_TOKENS;
+    case 'content_filter':
+      return FinishReason.SAFETY;
+    default:
+      return FinishReason.STOP;
+  }
 }
 
 /**
@@ -283,7 +326,7 @@ export function convertOpenAIToGemini(
   result.candidates = [
     {
       content: { parts, role: 'model' },
-      finishReason: (choice.finish_reason as FinishReason) || FinishReason.STOP,
+      finishReason: mapFinishReason(choice.finish_reason),
     },
   ];
   result.usageMetadata = response.usage
@@ -299,9 +342,14 @@ export function convertOpenAIToGemini(
 
 /**
  * Converts streaming OpenAI chunk to Gemini-style response.
+ * @param chunk - The OpenAI stream chunk
+ * @param completeToolCalls - Map of complete tool calls (index -> {id, name, arguments})
+ *   When provided (typically at finish_reason), these complete tool calls are included
+ *   instead of partial delta.tool_calls
  */
 export function convertStreamChunkToGemini(
   chunk: OpenAIStreamChunk,
+  completeToolCalls?: Map<number, { id: string; name: string; arguments: string }>,
 ): GenerateContentResponse {
   const choice = chunk.choices[0];
   const delta = choice.delta;
@@ -310,26 +358,41 @@ export function convertStreamChunkToGemini(
   if (delta.content) {
     parts.push({ text: delta.content });
   }
-  if (delta.tool_calls) {
-    for (const tc of delta.tool_calls) {
-      if (tc.function?.name) {
+
+  // Handle tool calls
+  // If we have complete tool calls (at finish_reason), use those
+  // Otherwise, for mid-stream chunks, we only include tool calls if they have names
+  if (completeToolCalls && completeToolCalls.size > 0) {
+    // At finish_reason, yield all complete tool calls
+    for (const [, tc] of completeToolCalls) {
+      if (tc.name) {
+        let args = {};
+        try {
+          args = tc.arguments ? JSON.parse(tc.arguments) : {};
+        } catch {
+          // If parsing fails, use empty object
+          args = {};
+        }
         parts.push({
           functionCall: {
-            name: tc.function.name,
-            args: tc.function.arguments
-              ? JSON.parse(tc.function.arguments)
-              : {},
+            name: tc.name,
+            args,
+            id: tc.id || undefined,
           },
         });
       }
     }
+  } else if (delta.tool_calls) {
+    // Mid-stream: we should NOT yield functionCall yet because args are incomplete.
+    // The complete tool calls will be yielded at finish_reason via completeToolCalls.
+    // We only yield text content here.
   }
 
   const result = new GenerateContentResponse();
   result.candidates = [
     {
       content: { parts, role: 'model' },
-      finishReason: (choice.finish_reason as FinishReason) || undefined,
+      finishReason: mapFinishReason(choice.finish_reason),
     },
   ];
 

@@ -68,6 +68,17 @@ export const EDIT_PARAM_ALLOW_MULTIPLE = 'replace_all';
 export const WEB_SEARCH_TOOL_NAME = 'WebSearch';
 export const WEB_SEARCH_PARAM_QUERY = 'query';
 
+// -- Agent --
+export const AGENT_TOOL_NAME = 'Agent';
+export const AGENT_PARAM_DESCRIPTION = 'description';
+export const AGENT_PARAM_PROMPT = 'prompt';
+export const AGENT_PARAM_SUBAGENT_TYPE = 'subagent_type';
+export const AGENT_PARAM_MODEL = 'model';
+export const AGENT_PARAM_RESUME = 'resume';
+export const AGENT_PARAM_RUN_IN_BACKGROUND = 'run_in_background';
+export const AGENT_PARAM_ISOLATION = 'isolation';
+export const AGENT_PARAM_MAX_TURNS = 'max_turns';
+
 // -- TodoWrite --
 export const WRITE_TODOS_TOOL_NAME = 'TodoWrite';
 export const TODOS_PARAM_TODOS = 'todos';
@@ -104,3 +115,25 @@ export const EXIT_PLAN_PARAM_PLAN_PATH = 'plan_path';
 // -- EnterPlanMode --
 export const ENTER_PLAN_MODE_TOOL_NAME = 'EnterPlanMode';
 export const PLAN_MODE_PARAM_REASON = 'reason';
+
+// -- TaskOutput --
+export const TASK_OUTPUT_TOOL_NAME = 'TaskOutput';
+export const TASK_OUTPUT_PARAM_TASK_ID = 'task_id';
+export const TASK_OUTPUT_PARAM_BLOCK = 'block';
+export const TASK_OUTPUT_PARAM_TIMEOUT = 'timeout';
+
+// -- TaskStop --
+export const TASK_STOP_TOOL_NAME = 'TaskStop';
+export const TASK_STOP_PARAM_TASK_ID = 'task_id';
+
+// -- EnterWorktree --
+export const ENTER_WORKTREE_TOOL_NAME = 'EnterWorktree';
+export const ENTER_WORKTREE_PARAM_NAME = 'name';
+
+// -- NotebookEdit --
+export const NOTEBOOK_EDIT_TOOL_NAME = 'NotebookEdit';
+export const NOTEBOOK_EDIT_PARAM_PATH = 'notebook_path';
+export const NOTEBOOK_EDIT_PARAM_CELL_ID = 'cell_id';
+export const NOTEBOOK_EDIT_PARAM_NEW_SOURCE = 'new_source';
+export const NOTEBOOK_EDIT_PARAM_CELL_TYPE = 'cell_type';
+export const NOTEBOOK_EDIT_PARAM_EDIT_MODE = 'edit_mode';

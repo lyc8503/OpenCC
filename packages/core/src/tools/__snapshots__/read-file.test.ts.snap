@@ -1,8 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`ReadFileTool > getSchema > should return the Gemini 3 schema when a Gemini 3 modelId is provided 1`] = `
-"Reads a file from the local filesystem. You can access any file directly by using this tool.
-Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
+"Reads a file from the local filesystem. You can access any file directly by using this tool. Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
 Usage:
 - The file_path parameter must be an absolute path, not a relative path
@@ -20,8 +19,7 @@ Usage:
 `;
 
 exports[`ReadFileTool > getSchema > should return the base schema when no modelId is provided 1`] = `
-"Reads a file from the local filesystem. You can access any file directly by using this tool.
-Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
+"Reads a file from the local filesystem. You can access any file directly by using this tool. Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
 Usage:
 - The file_path parameter must be an absolute path, not a relative path
@@ -39,8 +37,7 @@ Usage:
 `;
 
 exports[`ReadFileTool > getSchema > should return the schema from the resolver when modelId is provided 1`] = `
-"Reads a file from the local filesystem. You can access any file directly by using this tool.
-Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
+"Reads a file from the local filesystem. You can access any file directly by using this tool. Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
 Usage:
 - The file_path parameter must be an absolute path, not a relative path

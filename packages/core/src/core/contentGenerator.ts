@@ -62,10 +62,6 @@ export interface ContentGenerator {
   countTokens?(
     request: import('@google/genai').CountTokensParameters,
   ): Promise<import('@google/genai').CountTokensResponse>;
-
-  embedContent?(
-    request: import('@google/genai').EmbedContentParameters,
-  ): Promise<import('@google/genai').EmbedContentResponse>;
 }
 
 /**
@@ -96,7 +92,6 @@ export type ContentGeneratorConfig = {
   apiKey?: string;
   baseUrl?: string;
   authType?: AuthType;
-  proxy?: string;
   customHeaders?: Record<string, string>;
   organization?: string;
 };
@@ -128,7 +123,6 @@ export async function createContentGeneratorConfig(
     apiKey: resolvedApiKey,
     baseUrl: resolvedBaseUrl,
     authType: AuthType.USE_API_KEY,
-    proxy: config?.getProxy(),
     customHeaders,
     organization: process.env['OPENAI_ORG_ID'],
   };
@@ -149,11 +143,12 @@ class OpenAIWrapper implements ContentGenerator {
     userPromptId: string,
     role: LlmRole,
   ): Promise<GenerateContentResponse> {
-    const openaiParams = convertGeminiToOpenAI(request);
+    const { params: openaiParams, abortSignal } = convertGeminiToOpenAI(request);
     const response = await this.generator.generateContent(
       openaiParams,
       userPromptId,
       role,
+      abortSignal,
     );
     return convertOpenAIToGemini(response);
   }
@@ -163,11 +158,12 @@ class OpenAIWrapper implements ContentGenerator {
     userPromptId: string,
     role: LlmRole,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
-    const openaiParams = convertGeminiToOpenAI(request);
+    const { params: openaiParams, abortSignal } = convertGeminiToOpenAI(request);
     const stream = await this.generator.generateContentStream(
       openaiParams,
       userPromptId,
       role,
+      abortSignal,
     );
     // Return an async generator that wraps the stream
     return this._wrapStream(stream);
@@ -176,8 +172,50 @@ class OpenAIWrapper implements ContentGenerator {
   private async *_wrapStream(
     stream: AsyncGenerator<OpenAIStreamChunk>,
   ): AsyncGenerator<GenerateContentResponse> {
+    // Aggregate tool calls across chunks since OpenAI streams them incrementally
+    // Key = index, Value = { id, name, arguments }
+    const aggregatedToolCalls: Map<
+      number,
+      { id: string; name: string; arguments: string }
+    > = new Map();
+
     for await (const chunk of stream) {
-      yield convertStreamChunkToGemini(chunk);
+      const choice = chunk.choices[0];
+
+      // Aggregate tool calls by index
+      if (choice?.delta?.tool_calls) {
+        for (const tc of choice.delta.tool_calls) {
+          const existing = aggregatedToolCalls.get(tc.index);
+          if (existing) {
+            // Append arguments to existing tool call
+            if (tc.function?.arguments) {
+              existing.arguments += tc.function.arguments;
+            }
+            // Update id if provided
+            if (tc.id) {
+              existing.id = tc.id;
+            }
+          } else {
+            // Create new tool call entry
+            aggregatedToolCalls.set(tc.index, {
+              id: tc.id || '',
+              name: tc.function?.name || '',
+              arguments: tc.function?.arguments || '',
+            });
+          }
+        }
+      }
+
+      // For streaming, we yield text content immediately
+      // For tool calls, we wait until finish_reason to yield complete calls
+      // This ensures we have complete JSON arguments before parsing
+      const shouldYieldToolCalls =
+        choice?.finish_reason && aggregatedToolCalls.size > 0;
+
+      yield convertStreamChunkToGemini(
+        chunk,
+        shouldYieldToolCalls ? aggregatedToolCalls : undefined,
+      );
     }
   }
 
@@ -263,21 +301,4 @@ export async function createContentGenerator(
   }
 
   return loggingGenerator;
-}
-
-const LOCAL_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]'];
-
-/**
- * Validates a base URL.
- */
-export function validateBaseUrl(baseUrl: string): void {
-  let url: URL;
-  try {
-    url = new URL(baseUrl);
-  } catch {
-    throw new Error(`Invalid custom base URL: ${baseUrl}`);
-  }
-  if (url.protocol !== 'https:' && !LOCAL_HOSTNAMES.includes(url.hostname)) {
-    throw new Error('Custom base URL must use HTTPS unless it is localhost.');
-  }
 }

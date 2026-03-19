@@ -7,11 +7,8 @@
 import type {
   GenerateContentResponse,
   CountTokensResponse,
-  EmbedContentResponse,
   GenerateContentParameters,
   CountTokensParameters,
-  EmbedContentParameters,
-  ContentEmbedding,
 } from '@google/genai';
 import { appendFileSync } from 'node:fs';
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
@@ -39,7 +36,6 @@ describe('RecordingContentGenerator', () => {
       generateContent: vi.fn(),
       generateContentStream: vi.fn(),
       countTokens: vi.fn(),
-      embedContent: vi.fn(),
     };
     recorder = new RecordingContentGenerator(mockRealGenerator, filePath);
     vi.clearAllMocks();
@@ -139,24 +135,6 @@ describe('RecordingContentGenerator', () => {
       filePath,
       safeJsonStringify({
         method: 'countTokens',
-        response: mockResponse,
-      }) + '\n',
-    );
-  });
-
-  it('should record embedContent responses', async () => {
-    const mockResponse = {
-      embeddings: [{ values: [1, 2, 3] } as ContentEmbedding],
-    } as EmbedContentResponse;
-    (mockRealGenerator.embedContent as Mock).mockResolvedValue(mockResponse);
-
-    const response = await recorder.embedContent({} as EmbedContentParameters);
-    expect(response).toEqual(mockResponse);
-    expect(mockRealGenerator.embedContent).toHaveBeenCalledWith({});
-    expect(appendFileSync).toHaveBeenCalledWith(
-      filePath,
-      safeJsonStringify({
-        method: 'embedContent',
         response: mockResponse,
       }) + '\n',
     );

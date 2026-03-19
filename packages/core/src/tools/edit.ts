@@ -142,7 +142,7 @@ async function calculateExactReplacement(
 
   const exactOccurrences = normalizedCode.split(normalizedSearch).length - 1;
 
-  if (!params.allow_multiple && exactOccurrences > 1) {
+  if (!params.replace_all && exactOccurrences > 1) {
     return {
       newContent: currentContent,
       occurrences: exactOccurrences,
@@ -273,7 +273,7 @@ async function calculateRegexReplacement(
   // Use the appropriate regex for replacement based on allow_multiple.
   const replaceRegex = new RegExp(
     finalPattern,
-    params.allow_multiple ? 'gm' : 'm',
+    params.replace_all ? 'gm' : 'm',
   );
 
   const modifiedCode = currentContent.replace(
@@ -359,10 +359,10 @@ export function getErrorReplaceResult(
       raw: `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${READ_FILE_TOOL_NAME} tool to verify.`,
       type: ToolErrorType.EDIT_NO_OCCURRENCE_FOUND,
     };
-  } else if (!params.allow_multiple && occurrences !== 1) {
+  } else if (!params.replace_all && occurrences !== 1) {
     error = {
       display: `Failed to edit, expected 1 occurrence but found ${occurrences}.`,
-      raw: `Failed to edit, Expected 1 occurrence but found ${occurrences} for old_string in file: ${params.file_path}. If you intended to replace multiple occurrences, set 'allow_multiple' to true.`,
+      raw: `Failed to edit, Expected 1 occurrence but found ${occurrences} for old_string in file: ${params.file_path}. If you intended to replace multiple occurrences, set 'replace_all' to true.`,
       type: ToolErrorType.EDIT_EXPECTED_OCCURRENCE_MISMATCH,
     };
   } else if (finalOldString === finalNewString) {
@@ -395,23 +395,22 @@ export interface EditToolParams {
   new_string: string;
 
   /**
-   * If true, the tool will replace all occurrences of `old_string` with `new_string`.
-   * If false (default), the tool will only succeed if exactly one occurrence is found.
+   * Replace all occurrences of old_string (default false)
    */
-  allow_multiple?: boolean;
+  replace_all?: boolean;
 
   /**
-   * The instruction for what needs to be done.
+   * The instruction for what needs to be done (internal use).
    */
   instruction?: string;
 
   /**
-   * Whether the edit was modified manually by the user.
+   * Whether the edit was modified manually by the user (internal use).
    */
   modified_by_user?: boolean;
 
   /**
-   * Initially proposed content.
+   * Initially proposed content (internal use).
    */
   ai_proposed_content?: string;
 }

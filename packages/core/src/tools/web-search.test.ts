@@ -35,6 +35,7 @@ describe('WebSearchTool', () => {
         return mockGeminiClient;
       },
       getProxy: () => undefined,
+      getActiveModel: () => 'gemini-3-flash-preview',
       generationConfigService: {
         getResolvedConfig: vi.fn().mockImplementation(({ model }) => ({
           model,
@@ -74,7 +75,7 @@ describe('WebSearchTool', () => {
     it('should throw an error for a query with only whitespace', () => {
       const params: WebSearchToolParams = { query: '   ' };
       expect(() => tool.build(params)).toThrow(
-        'params/query must NOT have fewer than 2 characters',
+        "The 'query' parameter cannot be empty.",
       );
     });
   });

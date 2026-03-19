@@ -42,6 +42,7 @@ import {
 
 /**
  * Parameters for the ReadFile tool
+ * Parameter names match REF_PROMPT.md / tool-set.ts schema
  */
 export interface ReadFileToolParams {
   /**
@@ -52,12 +53,17 @@ export interface ReadFileToolParams {
   /**
    * The line number to start reading from (optional, 1-based)
    */
-  start_line?: number;
+  offset?: number;
 
   /**
-   * The line number to end reading at (optional, 1-based, inclusive)
+   * The number of lines to read (optional)
    */
-  end_line?: number;
+  limit?: number;
+
+  /**
+   * Page range for PDF files (e.g., "1-5", "3", "10-20")
+   */
+  pages?: string;
 }
 
 class ReadFileToolInvocation extends BaseToolInvocation<
@@ -91,7 +97,7 @@ class ReadFileToolInvocation extends BaseToolInvocation<
     return [
       {
         path: this.resolvedPath,
-        line: this.params.start_line,
+        line: this.params.offset,
       },
     ];
   }
@@ -120,12 +126,20 @@ class ReadFileToolInvocation extends BaseToolInvocation<
       };
     }
 
+    // Convert offset/limit to start_line/end_line for processSingleFileContent
+    // offset is 1-based line number to start reading from
+    // limit is number of lines to read
+    const startLine = this.params.offset;
+    const endLine = this.params.limit !== undefined && startLine !== undefined
+      ? startLine + this.params.limit - 1
+      : undefined;
+
     const result = await processSingleFileContent(
       this.resolvedPath,
       this.config.getTargetDir(),
       this.config.getFileSystemService(),
-      this.params.start_line,
-      this.params.end_line,
+      startLine,
+      endLine,
     );
 
     if (result.error) {
@@ -147,7 +161,7 @@ class ReadFileToolInvocation extends BaseToolInvocation<
       llmContent = `
 IMPORTANT: The file content has been truncated.
 Status: Showing lines ${start}-${end} of ${total} total lines.
-Action: To read more of the file, you can use the 'start_line' and 'end_line' parameters in a subsequent 'read_file' call. For example, to read the next section of the file, use start_line: ${end + 1}.
+Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'Read' call. For example, to read the next section of the file, use offset: ${end + 1}.
 
 --- FILE CONTENT (truncated) ---
 ${result.llmContent}`;
@@ -242,18 +256,11 @@ export class ReadFileTool extends BaseDeclarativeTool<
       return validationError;
     }
 
-    if (params.start_line !== undefined && params.start_line < 1) {
-      return 'start_line must be at least 1';
+    if (params.offset !== undefined && params.offset < 1) {
+      return 'offset must be at least 1';
     }
-    if (params.end_line !== undefined && params.end_line < 1) {
-      return 'end_line must be at least 1';
-    }
-    if (
-      params.start_line !== undefined &&
-      params.end_line !== undefined &&
-      params.start_line > params.end_line
-    ) {
-      return 'start_line cannot be greater than end_line';
+    if (params.limit !== undefined && params.limit < 1) {
+      return 'limit must be at least 1';
     }
 
     const fileFilteringOptions = this.config.getFileFilteringOptions();

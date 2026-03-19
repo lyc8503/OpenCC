@@ -31,6 +31,11 @@ import { WebSearchTool } from '../tools/web-search.js';
 import { AskUserTool } from '../tools/ask-user.js';
 import { ExitPlanModeTool } from '../tools/exit-plan-mode.js';
 import { EnterPlanModeTool } from '../tools/enter-plan-mode.js';
+import { TaskOutputTool } from '../tools/task-output.js';
+import { TaskStopTool } from '../tools/task-stop.js';
+import { EnterWorktreeTool } from '../tools/enter-worktree.js';
+import { NotebookEditTool } from '../tools/notebook-edit.js';
+import { AgentTool } from '../tools/agent-tool.js';
 import { GeminiClient } from '../core/client.js';
 import { BaseLlmClient } from '../core/baseLlmClient.js';
 import { LocalLiteRtLmClient } from '../core/localLiteRtLmClient.js';
@@ -59,14 +64,6 @@ import {
   type FileSystemService,
 } from '../services/fileSystemService.js';
 import {
-  TrackerCreateTaskTool,
-  TrackerUpdateTaskTool,
-  TrackerGetTaskTool,
-  TrackerListTasksTool,
-  TrackerAddDependencyTool,
-  TrackerVisualizeTool,
-} from '../tools/trackerTools.js';
-import {
   logRipgrepFallback,
   logFlashFallback,
   logApprovalModeSwitch,
@@ -91,7 +88,6 @@ import {
 } from '../services/modelConfigService.js';
 import { DEFAULT_MODEL_CONFIGS } from './defaultModelConfigs.js';
 import { ContextManager } from '../services/contextManager.js';
-import { TrackerService } from '../services/trackerService.js';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig, AnyToolInvocation, AnyDeclarativeTool };
@@ -598,7 +594,6 @@ export interface ConfigParameters {
   toolOutputMasking?: Partial<ToolOutputMaskingConfig>;
   disableLLMCorrection?: boolean;
   plan?: boolean;
-  tracker?: boolean;
   planSettings?: PlanSettings;
   modelSteering?: boolean;
   onModelChange?: (model: string) => void;
@@ -630,7 +625,6 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly clientName: string | undefined;
   private clientVersion: string;
   private fileSystemService: FileSystemService;
-  private trackerService?: TrackerService;
   private contentGeneratorConfig!: ContentGeneratorConfig;
   private contentGenerator!: ContentGenerator;
   readonly modelConfigService: ModelConfigService;
@@ -781,7 +775,6 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly topicUpdateNarration: boolean;
   private readonly disableLLMCorrection: boolean;
   private readonly planEnabled: boolean;
-  private readonly trackerEnabled: boolean;
   private readonly planModeRoutingEnabled: boolean;
   private readonly modelSteering: boolean;
   private contextManager?: ContextManager;
@@ -882,7 +875,6 @@ export class Config implements McpContext, AgentLoopContext {
     this.agents = params.agents ?? {};
     this.disableLLMCorrection = params.disableLLMCorrection ?? true;
     this.planEnabled = params.plan ?? true;
-    this.trackerEnabled = params.tracker ?? false;
     this.planModeRoutingEnabled = params.planSettings?.modelRouting ?? true;
     this.enableEventDrivenScheduler = params.enableEventDrivenScheduler ?? true;
     this.skillsSupport = params.skillsSupport ?? true;
@@ -1929,15 +1921,6 @@ export class Config implements McpContext, AgentLoopContext {
     return this.bugCommand;
   }
 
-  getTrackerService(): TrackerService {
-    if (!this.trackerService) {
-      this.trackerService = new TrackerService(
-        this.storage.getProjectTempTrackerDir(),
-      );
-    }
-    return this.trackerService;
-  }
-
   getFileService(): FileDiscoveryService {
     if (!this.fileDiscoveryService) {
       this.fileDiscoveryService = new FileDiscoveryService(this.targetDir, {
@@ -2003,10 +1986,6 @@ export class Config implements McpContext, AgentLoopContext {
 
   isPlanEnabled(): boolean {
     return this.planEnabled;
-  }
-
-  isTrackerEnabled(): boolean {
-    return this.trackerEnabled;
   }
 
   getApprovedPlanPath(): string | undefined {
@@ -2553,28 +2532,22 @@ export class Config implements McpContext, AgentLoopContext {
       );
     }
 
-    if (this.isTrackerEnabled()) {
-      maybeRegister(TrackerCreateTaskTool, () =>
-        registry.registerTool(new TrackerCreateTaskTool(this, this.messageBus)),
-      );
-      maybeRegister(TrackerUpdateTaskTool, () =>
-        registry.registerTool(new TrackerUpdateTaskTool(this, this.messageBus)),
-      );
-      maybeRegister(TrackerGetTaskTool, () =>
-        registry.registerTool(new TrackerGetTaskTool(this, this.messageBus)),
-      );
-      maybeRegister(TrackerListTasksTool, () =>
-        registry.registerTool(new TrackerListTasksTool(this, this.messageBus)),
-      );
-      maybeRegister(TrackerAddDependencyTool, () =>
-        registry.registerTool(
-          new TrackerAddDependencyTool(this, this.messageBus),
-        ),
-      );
-      maybeRegister(TrackerVisualizeTool, () =>
-        registry.registerTool(new TrackerVisualizeTool(this, this.messageBus)),
-      );
-    }
+    // Register new tools (TaskOutput, TaskStop, EnterWorktree, NotebookEdit)
+    maybeRegister(TaskOutputTool, () =>
+      registry.registerTool(new TaskOutputTool(this, this.messageBus)),
+    );
+    maybeRegister(TaskStopTool, () =>
+      registry.registerTool(new TaskStopTool(this, this.messageBus)),
+    );
+    maybeRegister(EnterWorktreeTool, () =>
+      registry.registerTool(new EnterWorktreeTool(this, this.messageBus)),
+    );
+    maybeRegister(NotebookEditTool, () =>
+      registry.registerTool(new NotebookEditTool(this, this.messageBus)),
+    );
+    maybeRegister(AgentTool, () =>
+      registry.registerTool(new AgentTool(this, this.messageBus)),
+    );
 
     // Register Subagents as Tools
     this.registerSubAgentTools(registry);

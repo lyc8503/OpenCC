@@ -224,7 +224,7 @@ describe('ShellTool', () => {
     it('should return an invocation for a valid relative directory path', () => {
       const invocation = shellTool.build({
         command: 'ls',
-        dir_path: 'subdir',
+        path: 'subdir',
       });
       expect(invocation).toBeDefined();
     });
@@ -232,14 +232,14 @@ describe('ShellTool', () => {
     it('should throw an error for a directory outside the workspace', () => {
       const outsidePath = path.resolve(tempRootDir, '../outside');
       expect(() =>
-        shellTool.build({ command: 'ls', dir_path: outsidePath }),
+        shellTool.build({ command: 'ls', path: outsidePath }),
       ).toThrow(/Path not in workspace/);
     });
 
     it('should return an invocation for a valid absolute directory path', () => {
       const invocation = shellTool.build({
         command: 'ls',
-        dir_path: path.join(tempRootDir, 'subdir'),
+        path: path.join(tempRootDir, 'subdir'),
       });
       expect(invocation).toBeDefined();
     });
@@ -298,7 +298,7 @@ describe('ShellTool', () => {
       const subdir = path.join(tempRootDir, 'subdir');
       const invocation = shellTool.build({
         command: 'ls',
-        dir_path: subdir,
+        path: subdir,
       });
       const promise = invocation.execute(mockAbortSignal);
       resolveShellExecution();
@@ -323,7 +323,7 @@ describe('ShellTool', () => {
     it('should use the provided relative directory as cwd', async () => {
       const invocation = shellTool.build({
         command: 'ls',
-        dir_path: 'subdir',
+        path: 'subdir',
       });
       const promise = invocation.execute(mockAbortSignal);
       resolveShellExecution();
@@ -345,11 +345,11 @@ describe('ShellTool', () => {
       );
     });
 
-    it('should handle is_background parameter by calling ShellExecutionService.background', async () => {
+    it('should handle run_in_background parameter by calling ShellExecutionService.background', async () => {
       vi.useFakeTimers();
       const invocation = shellTool.build({
         command: 'sleep 10',
-        is_background: true,
+        run_in_background: true,
       });
       const promise = invocation.execute(mockAbortSignal);
 
@@ -517,7 +517,7 @@ describe('ShellTool', () => {
 
       const invocation = shellTool.build({
         command: 'sleep 10',
-        is_background: true,
+        run_in_background: true,
       });
       const promise = invocation.execute(mockAbortSignal);
 
@@ -586,7 +586,7 @@ describe('ShellTool', () => {
       it('should NOT call updateOutput if the command is backgrounded', async () => {
         const invocation = shellTool.build({
           command: 'sleep 10',
-          is_background: true,
+          run_in_background: true,
         });
         const promise = invocation.execute(mockAbortSignal, updateOutputMock);
 

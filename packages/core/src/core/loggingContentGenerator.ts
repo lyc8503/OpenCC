@@ -9,8 +9,6 @@ import type {
   Content,
   CountTokensParameters,
   CountTokensResponse,
-  EmbedContentParameters,
-  EmbedContentResponse,
   GenerateContentConfig,
   GenerateContentParameters,
   GenerateContentResponseUsageMetadata,
@@ -557,27 +555,5 @@ export class LoggingContentGenerator implements ContentGenerator {
       throw new Error('countTokens is not supported');
     }
     return this.wrapped.countTokens(req);
-  }
-
-  async embedContent(
-    req: EmbedContentParameters,
-  ): Promise<EmbedContentResponse> {
-    if (!this.wrapped.embedContent) {
-      throw new Error('embedContent is not supported');
-    }
-    return runInDevTraceSpan(
-      {
-        operation: GeminiCliOperation.LLMCall,
-        attributes: {
-          [GEN_AI_REQUEST_MODEL]: req.model,
-        },
-      },
-      async ({ metadata: spanMetadata }) => {
-        spanMetadata.input = req.contents;
-        const output = await this.wrapped.embedContent!(req);
-        spanMetadata.output = output;
-        return output;
-      },
-    );
   }
 }

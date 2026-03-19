@@ -41,6 +41,7 @@ import { type GrepMatch, formatGrepResults } from './grep-utils.js';
 
 /**
  * Parameters for the GrepTool
+ * Parameter names match REF_PROMPT.md / tool-set.ts schema
  */
 export interface GrepToolParams {
   /**
@@ -49,34 +50,69 @@ export interface GrepToolParams {
   pattern: string;
 
   /**
-   * The directory to search in (optional, defaults to current directory relative to root)
+   * File or directory to search in. Defaults to current working directory.
    */
-  dir_path?: string;
+  path?: string;
 
   /**
-   * File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")
+   * Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}")
    */
-  include_pattern?: string;
+  glob?: string;
 
   /**
-   * Optional: A regular expression pattern to exclude from the search results.
+   * Output mode: "content" shows matching lines, "files_with_matches" shows file paths, "count" shows match counts
    */
-  exclude_pattern?: string;
+  output_mode?: 'content' | 'files_with_matches' | 'count';
 
   /**
-   * Optional: If true, only the file paths of the matches will be returned.
+   * Number of lines to show before each match
    */
-  names_only?: boolean;
+  '-B'?: number;
 
   /**
-   * Optional: Maximum number of matches to return per file. Use this to prevent being overwhelmed by repetitive matches in large files.
+   * Number of lines to show after each match
    */
-  max_matches_per_file?: number;
+  '-A'?: number;
 
   /**
-   * Optional: Maximum number of total matches to return. Use this to limit the overall size of the response. Defaults to 100 if omitted.
+   * Alias for context
    */
-  total_max_matches?: number;
+  '-C'?: number;
+
+  /**
+   * Number of lines to show before and after each match
+   */
+  context?: number;
+
+  /**
+   * Show line numbers in output. Defaults to true.
+   */
+  '-n'?: boolean;
+
+  /**
+   * Case insensitive search
+   */
+  '-i'?: boolean;
+
+  /**
+   * Maximum number of matches to return
+   */
+  head_limit?: number;
+
+  /**
+   * Skip first N lines/entries before applying head_limit
+   */
+  offset?: number;
+
+  /**
+   * Enable multiline matching
+   */
+  multiline?: boolean;
+
+  /**
+   * File type to search (e.g. "js", "py", "rust")
+   */
+  type?: string;
 }
 
 class GrepToolInvocation extends BaseToolInvocation<
@@ -141,7 +177,7 @@ class GrepToolInvocation extends BaseToolInvocation<
   async execute(signal: AbortSignal): Promise<ToolResult> {
     try {
       const workspaceContext = this.config.getWorkspaceContext();
-      const pathParam = this.params.dir_path;
+      const pathParam = this.params.path;
 
       let searchDirAbs: string | null = null;
       if (pathParam) {
@@ -211,7 +247,7 @@ class GrepToolInvocation extends BaseToolInvocation<
       // Collect matches from all search directories
       let allMatches: GrepMatch[] = [];
       const totalMaxMatches =
-        this.params.total_max_matches ?? DEFAULT_TOTAL_MAX_MATCHES;
+        this.params.head_limit ?? DEFAULT_TOTAL_MAX_MATCHES;
 
       // Create a timeout controller to prevent indefinitely hanging searches
       const timeoutController = new AbortController();
@@ -235,10 +271,10 @@ class GrepToolInvocation extends BaseToolInvocation<
           const matches = await this.performGrepSearch({
             pattern: this.params.pattern,
             path: searchDir,
-            include_pattern: this.params.include_pattern,
-            exclude_pattern: this.params.exclude_pattern,
+            include_pattern: this.params.glob,
+            exclude_pattern: undefined,
             maxMatches: remainingLimit,
-            max_matches_per_file: this.params.max_matches_per_file,
+            max_matches_per_file: undefined,
             signal: timeoutController.signal,
           });
 
@@ -595,17 +631,17 @@ class GrepToolInvocation extends BaseToolInvocation<
 
   getDescription(): string {
     let description = `'${this.params.pattern}'`;
-    if (this.params.include_pattern) {
-      description += ` in ${this.params.include_pattern}`;
+    if (this.params.glob) {
+      description += ` in ${this.params.glob}`;
     }
-    if (this.params.dir_path) {
+    if (this.params.path) {
       const resolvedPath = path.resolve(
         this.config.getTargetDir(),
-        this.params.dir_path,
+        this.params.path,
       );
       if (
         resolvedPath === this.config.getTargetDir() ||
-        this.params.dir_path === '.'
+        this.params.path === '.'
       ) {
         description += ` within ./`;
       } else {
@@ -662,33 +698,18 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
       return `Invalid regular expression pattern provided: ${params.pattern}. Error: ${getErrorMessage(error)}`;
     }
 
-    if (params.exclude_pattern) {
-      try {
-        new RegExp(params.exclude_pattern);
-      } catch (error) {
-        return `Invalid exclude regular expression pattern provided: ${params.exclude_pattern}. Error: ${getErrorMessage(error)}`;
-      }
-    }
-
     if (
-      params.max_matches_per_file !== undefined &&
-      params.max_matches_per_file < 1
+      params.head_limit !== undefined &&
+      params.head_limit < 1
     ) {
-      return 'max_matches_per_file must be at least 1.';
+      return 'head_limit must be at least 1.';
     }
 
-    if (
-      params.total_max_matches !== undefined &&
-      params.total_max_matches < 1
-    ) {
-      return 'total_max_matches must be at least 1.';
-    }
-
-    // Only validate dir_path if one is provided
-    if (params.dir_path) {
+    // Only validate path if one is provided
+    if (params.path) {
       const resolvedPath = path.resolve(
         this.config.getTargetDir(),
-        params.dir_path,
+        params.path,
       );
       const validationError = this.config.validatePathAccess(
         resolvedPath,

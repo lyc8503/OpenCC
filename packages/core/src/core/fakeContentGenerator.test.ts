@@ -13,10 +13,8 @@ import { promises } from 'node:fs';
 import {
   GenerateContentResponse,
   type CountTokensResponse,
-  type EmbedContentResponse,
   type GenerateContentParameters,
   type CountTokensParameters,
-  type EmbedContentParameters,
 } from '@google/genai';
 import { LlmRole } from '../telemetry/types.js';
 
@@ -64,13 +62,6 @@ describe('FakeContentGenerator', () => {
     response: { totalTokens: 10 } as CountTokensResponse,
   };
 
-  const fakeEmbedContentResponse: FakeResponse = {
-    method: 'embedContent',
-    response: {
-      embeddings: [{ values: [1, 2, 3] }],
-    } as EmbedContentResponse,
-  };
-
   beforeEach(() => {
     vi.resetAllMocks();
   });
@@ -109,18 +100,11 @@ describe('FakeContentGenerator', () => {
     expect(response).toEqual(fakeCountTokensResponse.response);
   });
 
-  it('should return responses for embedContent', async () => {
-    const generator = new FakeContentGenerator([fakeEmbedContentResponse]);
-    const response = await generator.embedContent({} as EmbedContentParameters);
-    expect(response).toEqual(fakeEmbedContentResponse.response);
-  });
-
   it('should handle a mixture of calls', async () => {
     const fakeResponses = [
       fakeGenerateContentResponse,
       fakeGenerateContentStreamResponse,
       fakeCountTokensResponse,
-      fakeEmbedContentResponse,
     ];
     const generator = new FakeContentGenerator(fakeResponses);
     for (const fakeResponse of fakeResponses) {
@@ -149,9 +133,6 @@ describe('FakeContentGenerator', () => {
       'id',
       LlmRole.MAIN,
     );
-    await expect(
-      generator.embedContent({} as EmbedContentParameters),
-    ).rejects.toThrowError('No more mock responses for embedContent');
     await expect(
       generator.countTokens({} as CountTokensParameters),
     ).rejects.toThrowError('No more mock responses for countTokens');

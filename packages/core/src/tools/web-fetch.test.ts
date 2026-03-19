@@ -286,6 +286,7 @@ describe('WebFetchTool', () => {
       getRetryFetchErrors: vi.fn().mockReturnValue(false),
       getMaxAttempts: vi.fn().mockReturnValue(3),
       getDirectWebFetch: vi.fn().mockReturnValue(false),
+      getActiveModel: vi.fn().mockReturnValue('gemini-3-flash-preview'),
       modelConfigService: {
         getResolvedConfig: vi.fn().mockImplementation(({ model }) => ({
           model,
@@ -298,31 +299,31 @@ describe('WebFetchTool', () => {
 
   describe('validateToolParamValues', () => {
     describe('standard mode', () => {
-      it.each([
-        {
-          name: 'empty prompt',
-          prompt: '',
-          expectedError: "The 'prompt' parameter cannot be empty",
-        },
-        {
-          name: 'prompt with no URLs',
-          prompt: 'hello world',
-          expectedError: "The 'prompt' must contain at least one valid URL",
-        },
-        {
-          name: 'prompt with malformed URLs',
-          prompt: 'fetch httpshttps://example.com',
-          expectedError: 'Error(s) in prompt URLs:',
-        },
-      ])('should throw if $name', ({ prompt, expectedError }) => {
+      it('should throw if url is missing', () => {
         const tool = new WebFetchTool(mockConfig, bus);
-        expect(() => tool.build({ prompt })).toThrow(expectedError);
+        expect(() => tool.build({ prompt: 'fetch content' })).toThrow(
+          "params must have required property 'url'",
+        );
       });
 
-      it('should pass if prompt contains at least one valid URL', () => {
+      it('should throw if prompt is missing', () => {
+        const tool = new WebFetchTool(mockConfig, bus);
+        expect(() => tool.build({ url: 'https://example.com' })).toThrow(
+          "params must have required property 'prompt'",
+        );
+      });
+
+      it('should throw if url is invalid', () => {
+        const tool = new WebFetchTool(mockConfig, bus);
+        expect(() => tool.build({ url: 'not-a-url', prompt: 'fetch' })).toThrow(
+          'params/url must match format "uri"',
+        );
+      });
+
+      it('should pass if both url and prompt are provided', () => {
         const tool = new WebFetchTool(mockConfig, bus);
         expect(() =>
-          tool.build({ prompt: 'fetch https://example.com' }),
+          tool.build({ url: 'https://example.com', prompt: 'Extract the content' }),
         ).not.toThrow();
       });
     });
@@ -339,37 +340,34 @@ describe('WebFetchTool', () => {
         );
       });
 
+      it('should throw if prompt is missing', () => {
+        const tool = new WebFetchTool(mockConfig, bus);
+        expect(() => tool.build({ url: 'https://example.com' })).toThrow(
+          "params must have required property 'prompt'",
+        );
+      });
+
       it('should throw if url is invalid', () => {
         const tool = new WebFetchTool(mockConfig, bus);
-        expect(() => tool.build({ url: 'not-a-url' })).toThrow(
-          'Invalid URL: "not-a-url"',
+        expect(() => tool.build({ url: 'not-a-url', prompt: 'fetch' })).toThrow(
+          'params/url must match format "uri"',
         );
       });
 
       it('should pass if url is valid', () => {
         const tool = new WebFetchTool(mockConfig, bus);
-        expect(() => tool.build({ url: 'https://example.com' })).not.toThrow();
+        expect(() => tool.build({ url: 'https://example.com', prompt: 'fetch' })).not.toThrow();
       });
     });
   });
 
   describe('getSchema', () => {
-    it('should return standard schema by default', () => {
-      const tool = new WebFetchTool(mockConfig, bus);
-      const schema = tool.getSchema();
-      expect(schema.parametersJsonSchema).toHaveProperty('properties.prompt');
-      expect(schema.parametersJsonSchema).not.toHaveProperty('properties.url');
-    });
-
-    it('should return experimental schema when enabled', () => {
-      vi.spyOn(mockConfig, 'getDirectWebFetch').mockReturnValue(true);
+    it('should return schema with both url and prompt', () => {
       const tool = new WebFetchTool(mockConfig, bus);
       const schema = tool.getSchema();
       expect(schema.parametersJsonSchema).toHaveProperty('properties.url');
-      expect(schema.parametersJsonSchema).not.toHaveProperty(
-        'properties.prompt',
-      );
-      expect(schema.parametersJsonSchema).toHaveProperty('required', ['url']);
+      expect(schema.parametersJsonSchema).toHaveProperty('properties.prompt');
+      expect(schema.parametersJsonSchema).toHaveProperty('required', ['url', 'prompt']);
     });
   });
 
@@ -380,7 +378,7 @@ describe('WebFetchTool', () => {
         candidates: [{ content: { parts: [{ text: 'response' }] } }],
       });
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { prompt: 'fetch https://ratelimit.example.com' };
+      const params = { url: 'https://ratelimit.example.com', prompt: 'fetch content' };
       const invocation = tool.build(params);
 
       // Execute 10 times to hit the limit
@@ -392,18 +390,14 @@ describe('WebFetchTool', () => {
       const result = await invocation.execute(new AbortController().signal);
       expect(result.error?.type).toBe(ToolErrorType.WEB_FETCH_PROCESSING_ERROR);
       expect(result.error?.message).toContain(
-        'All requested URLs were skipped',
+        'URL was skipped',
       );
     });
 
-    it('should skip rate-limited URLs but fetch others', async () => {
+    it('should handle rate-limited URLs', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = {
-        prompt: 'fetch https://ratelimit-multi.com and https://healthy.com',
-      };
-      const invocation = tool.build(params);
 
       // Hit rate limit for one host
       for (let i = 0; i < 10; i++) {
@@ -411,74 +405,43 @@ describe('WebFetchTool', () => {
           candidates: [{ content: { parts: [{ text: 'response' }] } }],
         });
         await tool
-          .build({ prompt: 'fetch https://ratelimit-multi.com' })
+          .build({ url: 'https://ratelimit-multi.com', prompt: 'fetch content' })
           .execute(new AbortController().signal);
       }
-      // 11th call - should be rate limited and not use a mock
-      await tool
-        .build({ prompt: 'fetch https://ratelimit-multi.com' })
+      // 11th call - should be rate limited
+      const result = await tool
+        .build({ url: 'https://ratelimit-multi.com', prompt: 'fetch content' })
         .execute(new AbortController().signal);
 
-      mockGenerateContent.mockResolvedValueOnce({
-        candidates: [{ content: { parts: [{ text: 'healthy response' }] } }],
-      });
-
-      const result = await invocation.execute(new AbortController().signal);
-      expect(result.llmContent).toContain('healthy response');
-      expect(result.llmContent).toContain(
-        '[Warning] The following URLs were skipped:',
-      );
-      expect(result.llmContent).toContain(
-        '[Rate limit exceeded] https://ratelimit-multi.com/',
-      );
+      // Rate limited URLs should return error
+      expect(result.error?.type).toBe(ToolErrorType.WEB_FETCH_PROCESSING_ERROR);
     });
 
-    it('should skip private or local URLs but fetch others and log telemetry', async () => {
-      vi.mocked(fetchUtils.isPrivateIp).mockImplementation(
-        (url) => url === 'https://private.com/',
-      );
+    it('should block private or local URLs', async () => {
+      vi.mocked(fetchUtils.isPrivateIp).mockReturnValue(true);
 
       const tool = new WebFetchTool(mockConfig, bus);
       const params = {
-        prompt:
-          'fetch https://private.com and https://healthy.com and http://localhost',
+        url: 'https://private.com',
+        prompt: 'fetch content',
       };
       const invocation = tool.build(params);
 
-      mockGenerateContent.mockResolvedValueOnce({
-        candidates: [{ content: { parts: [{ text: 'healthy response' }] } }],
-      });
-
       const result = await invocation.execute(new AbortController().signal);
 
-      expect(logWebFetchFallbackAttempt).toHaveBeenCalledTimes(2);
-      expect(logWebFetchFallbackAttempt).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ reason: 'private_ip_skipped' }),
-      );
-
-      expect(result.llmContent).toContain('healthy response');
-      expect(result.llmContent).toContain(
-        '[Warning] The following URLs were skipped:',
-      );
-      expect(result.llmContent).toContain(
-        '[Blocked Host] https://private.com/',
-      );
-      expect(result.llmContent).toContain('[Blocked Host] http://localhost');
+      expect(result.error?.type).toBe(ToolErrorType.WEB_FETCH_PROCESSING_ERROR);
+      expect(result.llmContent).toContain('skipped');
     });
 
-    it('should fallback to all public URLs if primary fails', async () => {
+    it('should fallback if primary fails', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
 
       // Primary fetch fails
       mockGenerateContent.mockRejectedValueOnce(new Error('primary fail'));
 
-      // Mock fallback fetch for BOTH URLs
+      // Mock fallback fetch
       mockFetch('https://url1.com/', {
         text: () => Promise.resolve('content 1'),
-      });
-      mockFetch('https://url2.com/', {
-        text: () => Promise.resolve('content 2'),
       });
 
       // Mock fallback LLM call
@@ -490,7 +453,8 @@ describe('WebFetchTool', () => {
 
       const tool = new WebFetchTool(mockConfig, bus);
       const params = {
-        prompt: 'fetch https://url1.com and https://url2.com/',
+        url: 'https://url1.com/',
+        prompt: 'fetch content',
       };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
@@ -521,7 +485,8 @@ describe('WebFetchTool', () => {
 
       const tool = new WebFetchTool(mockConfig, bus);
       const params = {
-        prompt: 'fetch https://public.com/ and https://private.com',
+        url: 'https://public.com',
+        prompt: 'fetch content',
       };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
@@ -535,7 +500,7 @@ describe('WebFetchTool', () => {
       mockGenerateContent.mockRejectedValue(new Error('primary fail'));
       mockFetch('https://public.ip/', new Error('fallback fetch failed'));
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { prompt: 'fetch https://public.ip' };
+      const params = { url: 'https://public.ip', prompt: 'fetch content' };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
       expect(result.error?.type).toBe(ToolErrorType.WEB_FETCH_FALLBACK_FAILED);
@@ -557,7 +522,7 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { prompt: 'fetch https://public.ip' };
+      const params = { url: 'https://public.ip', prompt: 'fetch content' };
       const invocation = tool.build(params);
       await invocation.execute(new AbortController().signal);
 
@@ -625,7 +590,7 @@ describe('WebFetchTool', () => {
         }));
 
         const tool = new WebFetchTool(mockConfig, bus);
-        const params = { prompt: 'fetch https://example.com' };
+        const params = { url: 'https://example.com', prompt: 'fetch content' };
         const invocation = tool.build(params);
         const result = await invocation.execute(new AbortController().signal);
 
@@ -659,7 +624,7 @@ describe('WebFetchTool', () => {
   describe('shouldConfirmExecute', () => {
     it('should return confirmation details with the correct prompt and parsed urls', async () => {
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { prompt: 'fetch https://example.com' };
+      const params = { url: 'https://example.com', prompt: 'fetch content' };
       const invocation = tool.build(params);
       const confirmationDetails = await invocation.shouldConfirmExecute(
         new AbortController().signal,
@@ -668,8 +633,8 @@ describe('WebFetchTool', () => {
       expect(confirmationDetails).toEqual({
         type: 'info',
         title: 'Confirm Web Fetch',
-        prompt: 'fetch https://example.com',
-        urls: ['https://example.com/'],
+        prompt: 'fetch content',
+        urls: ['https://example.com'],
         onConfirm: expect.any(Function),
       });
     });
@@ -677,7 +642,7 @@ describe('WebFetchTool', () => {
     it('should handle URL param in confirmation details', async () => {
       vi.spyOn(mockConfig, 'getDirectWebFetch').mockReturnValue(true);
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://example.com' };
+      const params = { url: 'https://example.com', prompt: 'fetch content' };
       const invocation = tool.build(params);
       const confirmationDetails = await invocation.shouldConfirmExecute(
         new AbortController().signal,
@@ -686,7 +651,7 @@ describe('WebFetchTool', () => {
       expect(confirmationDetails).toEqual({
         type: 'info',
         title: 'Confirm Web Fetch',
-        prompt: 'Fetch https://example.com',
+        prompt: 'fetch content',
         urls: ['https://example.com'],
         onConfirm: expect.any(Function),
       });
@@ -695,8 +660,8 @@ describe('WebFetchTool', () => {
     it('should convert github urls to raw format', async () => {
       const tool = new WebFetchTool(mockConfig, bus);
       const params = {
-        prompt:
-          'fetch https://github.com/google/gemini-react/blob/main/README.md',
+        url: 'https://github.com/google/gemini-react/blob/main/README.md',
+        prompt: 'fetch README',
       };
       const invocation = tool.build(params);
       const confirmationDetails = await invocation.shouldConfirmExecute(
@@ -706,8 +671,7 @@ describe('WebFetchTool', () => {
       expect(confirmationDetails).toEqual({
         type: 'info',
         title: 'Confirm Web Fetch',
-        prompt:
-          'fetch https://github.com/google/gemini-react/blob/main/README.md',
+        prompt: 'fetch README',
         urls: [
           'https://raw.githubusercontent.com/google/gemini-react/main/README.md',
         ],
@@ -720,7 +684,7 @@ describe('WebFetchTool', () => {
         ApprovalMode.AUTO_EDIT,
       );
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { prompt: 'fetch https://example.com' };
+      const params = { url: 'https://example.com', prompt: 'fetch content' };
       const invocation = tool.build(params);
       const confirmationDetails = await invocation.shouldConfirmExecute(
         new AbortController().signal,
@@ -731,7 +695,7 @@ describe('WebFetchTool', () => {
 
     it('should NOT call setApprovalMode when onConfirm is called with ProceedAlways (now handled by scheduler)', async () => {
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { prompt: 'fetch https://example.com' };
+      const params = { url: 'https://example.com', prompt: 'fetch content' };
       const invocation = tool.build(params);
       const confirmationDetails = await invocation.shouldConfirmExecute(
         new AbortController().signal,
@@ -759,7 +723,7 @@ describe('WebFetchTool', () => {
 
     const createToolWithMessageBus = (customBus?: MessageBus) => {
       const tool = new WebFetchTool(mockConfig, customBus ?? bus);
-      const params = { prompt: 'fetch https://example.com' };
+      const params = { url: 'https://example.com', prompt: 'fetch content' };
       return { tool, invocation: tool.build(params) };
     };
 
@@ -799,10 +763,12 @@ describe('WebFetchTool', () => {
       expect(publishSpy).toHaveBeenCalledWith({
         type: MessageBusType.TOOL_CONFIRMATION_REQUEST,
         toolCall: {
-          name: 'web_fetch',
-          args: { prompt: 'fetch https://example.com' },
+          name: 'WebFetch',
+          args: { url: 'https://example.com', prompt: 'fetch content' },
         },
         correlationId: 'test-correlation-id',
+        serverName: undefined,
+        toolAnnotations: undefined,
       });
 
       expect(subscribeSpy).toHaveBeenCalledWith(
@@ -936,7 +902,7 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://example.com' };
+      const params = { url: 'https://example.com', prompt: 'fetch content' };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
@@ -963,7 +929,7 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://example.com' };
+      const params = { url: 'https://example.com', prompt: 'fetch content' };
       const invocation = tool.build(params);
       await invocation.execute(new AbortController().signal);
 
@@ -995,7 +961,7 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://example.com/image.png' };
+      const params = { url: 'https://example.com/image.png', prompt: 'fetch image' };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
@@ -1016,7 +982,7 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://example.com/404' };
+      const params = { url: 'https://example.com/404', prompt: 'fetch content' };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
@@ -1034,7 +1000,7 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const invocation = tool.build({ url: 'https://example.com/large' });
+      const invocation = tool.build({ url: 'https://example.com/large', prompt: 'fetch content' });
       const result = await invocation.execute(new AbortController().signal);
 
       expect(result.llmContent).toContain('Error');
@@ -1059,6 +1025,7 @@ describe('WebFetchTool', () => {
       const tool = new WebFetchTool(mockConfig, bus);
       const invocation = tool.build({
         url: 'https://example.com/large-stream',
+        prompt: 'fetch content',
       });
       const result = await invocation.execute(new AbortController().signal);
 

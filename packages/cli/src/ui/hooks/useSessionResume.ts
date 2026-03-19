@@ -23,7 +23,6 @@ interface UseSessionResumeParams {
   isGeminiClientInitialized: boolean;
   setQuittingMessages: (messages: null) => void;
   resumedSessionData?: ResumedSessionData;
-  isAuthenticating: boolean;
 }
 
 /**
@@ -38,7 +37,6 @@ export function useSessionResume({
   isGeminiClientInitialized,
   setQuittingMessages,
   resumedSessionData,
-  isAuthenticating,
 }: UseSessionResumeParams) {
   const [isResuming, setIsResuming] = useState(false);
 
@@ -99,12 +97,11 @@ export function useSessionResume({
   );
 
   // Handle interactive resume from the command line (-r/--resume without -p/--prompt-interactive).
-  // Only if we're not authenticating and the client is initialized, though.
+  // Only if the client is initialized.
   const hasLoadedResumedSession = useRef(false);
   useEffect(() => {
     if (
       resumedSessionData &&
-      !isAuthenticating &&
       isGeminiClientInitialized &&
       !hasLoadedResumedSession.current
     ) {
@@ -120,7 +117,6 @@ export function useSessionResume({
     }
   }, [
     resumedSessionData,
-    isAuthenticating,
     isGeminiClientInitialized,
     loadHistoryForResume,
   ]);

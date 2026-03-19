@@ -207,13 +207,14 @@ function sanitizeXml(text: string): string {
  */
 export interface WebFetchToolParams {
   /**
-   * The prompt containing URL(s) (up to 20) and instructions for processing their content.
+   * The URL to fetch content from
    */
-  prompt?: string;
+  url: string;
+
   /**
-   * Direct URL to fetch (experimental mode).
+   * The prompt to run on the fetched content
    */
-  url?: string;
+  prompt: string;
 }
 
 interface ErrorWithStatus extends Error {
@@ -489,25 +490,17 @@ ${aggregatedContent}
   }
 
   getDescription(): string {
-    if (this.params.url) {
-      return `Fetching content from: ${this.params.url}`;
-    }
-    const prompt = this.params.prompt || '';
-    const displayPrompt =
-      prompt.length > 100 ? prompt.substring(0, 97) + '...' : prompt;
-    return `Processing URLs and instructions from prompt: "${displayPrompt}"`;
+    // Use the url parameter directly per REF_PROMPT.md
+    return `Fetching content from: ${this.params.url}`;
   }
 
   override getPolicyUpdateOptions(
     _outcome: ToolConfirmationOutcome,
   ): PolicyUpdateOptions | undefined {
+    // Use the url parameter for policy updates
     if (this.params.url) {
       return {
         argsPattern: buildParamArgsPattern('url', this.params.url),
-      };
-    } else if (this.params.prompt) {
-      return {
-        argsPattern: buildParamArgsPattern('prompt', this.params.prompt),
       };
     }
     return undefined;
@@ -522,25 +515,18 @@ ${aggregatedContent}
       return false;
     }
 
-    let urls: string[] = [];
-    let prompt = this.params.prompt || '';
-
-    if (this.params.url) {
-      urls = [this.params.url];
-      prompt = `Fetch ${this.params.url}`;
-    } else if (this.params.prompt) {
-      const { validUrls } = parsePrompt(this.params.prompt);
-      urls = validUrls;
-    }
+    // Use the url parameter directly per REF_PROMPT.md
+    const urls = [this.params.url!];
+    const prompt = this.params.prompt || `Fetch ${this.params.url}`;
 
     // Perform GitHub URL conversion here
-    urls = urls.map((url) => convertGithubUrlToRaw(url));
+    const convertedUrls = urls.map((url) => convertGithubUrlToRaw(url));
 
     const confirmationDetails: ToolCallConfirmationDetails = {
       type: 'info',
       title: `Confirm Web Fetch`,
       prompt,
-      urls,
+      urls: convertedUrls,
       onConfirm: async (_outcome: ToolConfirmationOutcome) => {
         // Mode transitions (e.g. AUTO_EDIT) and policy updates are now
         // handled centrally by the scheduler.
@@ -755,14 +741,17 @@ Response: ${truncateString(rawResponseText, 10000, '\n\n... [Error response trun
     if (this.context.config.getDirectWebFetch()) {
       return this.executeExperimental(signal);
     }
+
+    // Use the url parameter directly per REF_PROMPT.md
+    const urlToFetch = this.params.url!;
     const userPrompt = this.params.prompt!;
-    const { validUrls } = parsePrompt(userPrompt);
 
-    const { toFetch, skipped } = this.filterAndValidateUrls(validUrls);
+    // Validate and normalize the URL
+    const { toFetch, skipped } = this.filterAndValidateUrls([urlToFetch]);
 
-    // If everything was skipped, fail early
+    // If URL was skipped, fail early
     if (toFetch.length === 0 && skipped.length > 0) {
-      const errorMessage = `All requested URLs were skipped: ${skipped.join(', ')}`;
+      const errorMessage = `URL was skipped: ${skipped.join(', ')}`;
       debugLogger.error(`[WebFetchTool] ${errorMessage}`);
       return {
         llmContent: `Error: ${errorMessage}`,
@@ -776,15 +765,15 @@ Response: ${truncateString(rawResponseText, 10000, '\n\n... [Error response trun
 
     try {
       const geminiClient = this.context.geminiClient;
-      const sanitizedPrompt = `Follow the user's instructions to process the authorized URLs.
+      const sanitizedPrompt = `Follow the user's instructions to process the content from the URL.
 
 <user_instructions>
 ${sanitizeXml(userPrompt)}
 </user_instructions>
 
-<authorized_urls>
-${toFetch.join('\n')}
-</authorized_urls>
+<url>
+${sanitizeXml(urlToFetch)}
+</url>
 `;
       const response = await geminiClient.generateContent(
         { model: 'web-fetch' },
@@ -904,30 +893,19 @@ export class WebFetchTool extends BaseDeclarativeTool<
   protected override validateToolParamValues(
     params: WebFetchToolParams,
   ): string | null {
-    if (this.context.config.getDirectWebFetch()) {
-      if (!params.url) {
-        return "The 'url' parameter is required.";
-      }
-      try {
-        new URL(params.url);
-      } catch {
-        return `Invalid URL: "${params.url}"`;
-      }
-      return null;
+    // URL is always required
+    if (!params.url) {
+      return "The 'url' parameter is required.";
+    }
+    try {
+      new URL(params.url);
+    } catch {
+      return `Invalid URL: "${params.url}"`;
     }
 
+    // Prompt is required per REF_PROMPT.md
     if (!params.prompt || params.prompt.trim() === '') {
-      return "The 'prompt' parameter cannot be empty and must contain URL(s) and instructions.";
-    }
-
-    const { validUrls, errors } = parsePrompt(params.prompt);
-
-    if (errors.length > 0) {
-      return `Error(s) in prompt URLs:\n- ${errors.join('\n- ')}`;
-    }
-
-    if (validUrls.length === 0) {
-      return "The 'prompt' must contain at least one valid URL (starting with http:// or https://).";
+      return "The 'prompt' parameter is required.";
     }
 
     return null;
@@ -950,24 +928,7 @@ export class WebFetchTool extends BaseDeclarativeTool<
 
   override getSchema(modelId?: string) {
     const schema = resolveToolDeclaration(WEB_FETCH_DEFINITION, modelId);
-    if (this.context.config.getDirectWebFetch()) {
-      return {
-        ...schema,
-        description:
-          'Fetch content from a URL directly. Send multiple requests for this tool if multiple URL fetches are needed.',
-        parametersJsonSchema: {
-          type: 'object',
-          properties: {
-            url: {
-              type: 'string',
-              description:
-                'The URL to fetch. Must be a valid http or https URL.',
-            },
-          },
-          required: ['url'],
-        },
-      };
-    }
+    // Always require both url and prompt per REF_PROMPT.md
     return schema;
   }
 }

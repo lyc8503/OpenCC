@@ -53,8 +53,17 @@ export interface WebSearchToolParams {
   /**
    * The search query.
    */
-
   query: string;
+
+  /**
+   * Only include search results from these domains.
+   */
+  allowed_domains?: string[];
+
+  /**
+   * Never include search results from these domains.
+   */
+  blocked_domains?: string[];
 }
 
 /**

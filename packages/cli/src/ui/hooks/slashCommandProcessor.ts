@@ -65,7 +65,6 @@ import {
 import { runExitCleanup } from '../../utils/cleanup.js';
 
 interface SlashCommandProcessorActions {
-  openAuthDialog: () => void;
   openThemeDialog: () => void;
   openEditorDialog: () => void;
   openPrivacyNotice: () => void;
@@ -468,7 +467,14 @@ export const useSlashCommandProcessor = (
                       onSelect: async (choice: LogoutChoice) => {
                         setCustomDialog(null);
                         if (choice === LogoutChoice.LOGIN) {
-                          actions.openAuthDialog();
+                          // Auth dialog has been removed
+                          addItem(
+                            {
+                              type: MessageType.INFO,
+                              text: 'Auth selection is no longer available. Use API key authentication.',
+                            },
+                            Date.now(),
+                          );
                         } else {
                           await runExitCleanup();
                           process.exit(0);
@@ -480,7 +486,14 @@ export const useSlashCommandProcessor = (
                 case 'dialog':
                   switch (result.dialog) {
                     case 'auth':
-                      actions.openAuthDialog();
+                      // Auth dialog has been removed
+                      addItem(
+                        {
+                          type: MessageType.INFO,
+                          text: 'Auth selection is no longer available. Use API key authentication.',
+                        },
+                        Date.now(),
+                      );
                       return { type: 'handled' };
                     case 'theme':
                       actions.openThemeDialog();
