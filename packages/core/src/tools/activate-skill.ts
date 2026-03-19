@@ -29,7 +29,7 @@ export interface ActivateSkillToolParams {
   /**
    * The name of the skill to activate
    */
-  name: string;
+  skill: string;
 }
 
 class ActivateSkillToolInvocation extends BaseToolInvocation<
@@ -49,7 +49,7 @@ class ActivateSkillToolInvocation extends BaseToolInvocation<
   }
 
   getDescription(): string {
-    const skillName = this.params.name;
+    const skillName = this.params.skill;
     const skill = this.config.getSkillManager().getSkill(skillName);
     if (skill) {
       return `"${skillName}": ${skill.description}`;
@@ -75,7 +75,7 @@ class ActivateSkillToolInvocation extends BaseToolInvocation<
       return false;
     }
 
-    const skillName = this.params.name;
+    const skillName = this.params.skill;
     const skill = this.config.getSkillManager().getSkill(skillName);
 
     if (!skill) {
@@ -108,7 +108,7 @@ ${folderStructure}`,
   }
 
   async execute(_signal: AbortSignal): Promise<ToolResult> {
-    const skillName = this.params.name;
+    const skillName = this.params.skill;
     const skillManager = this.config.getSkillManager();
     const skill = skillManager.getSkill(skillName);
 

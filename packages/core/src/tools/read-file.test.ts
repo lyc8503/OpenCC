@@ -146,31 +146,20 @@ describe('ReadFileTool', () => {
       );
     });
 
-    it('should throw error if start_line is less than 1', () => {
+    it('should throw error if offset is less than 1', () => {
       const params: ReadFileToolParams = {
         file_path: path.join(tempRootDir, 'test.txt'),
-        start_line: 0,
+        offset: 0,
       };
-      expect(() => tool.build(params)).toThrow('start_line must be at least 1');
+      expect(() => tool.build(params)).toThrow('offset must be at least 1');
     });
 
-    it('should throw error if end_line is less than 1', () => {
+    it('should throw error if limit is less than 1', () => {
       const params: ReadFileToolParams = {
         file_path: path.join(tempRootDir, 'test.txt'),
-        end_line: 0,
+        limit: 0,
       };
-      expect(() => tool.build(params)).toThrow('end_line must be at least 1');
-    });
-
-    it('should throw error if start_line is greater than end_line', () => {
-      const params: ReadFileToolParams = {
-        file_path: path.join(tempRootDir, 'test.txt'),
-        start_line: 10,
-        end_line: 5,
-      };
-      expect(() => tool.build(params)).toThrow(
-        'start_line cannot be greater than end_line',
-      );
+      expect(() => tool.build(params)).toThrow('limit must be at least 1');
     });
   });
 
@@ -424,8 +413,8 @@ describe('ReadFileTool', () => {
 
       const params: ReadFileToolParams = {
         file_path: filePath,
-        start_line: 6,
-        end_line: 8,
+        offset: 6,
+        limit: 3,
       };
       const invocation = tool.build(params);
 
@@ -595,7 +584,11 @@ describe('ReadFileTool', () => {
       expect(
         (schema.parametersJsonSchema as { properties: Record<string, unknown> })
           .properties,
-      ).not.toHaveProperty('offset');
+      ).toHaveProperty('offset');
+      expect(
+        (schema.parametersJsonSchema as { properties: Record<string, unknown> })
+          .properties,
+      ).toHaveProperty('limit');
     });
 
     it('should return the schema from the resolver when modelId is provided', () => {
@@ -605,12 +598,11 @@ describe('ReadFileTool', () => {
       expect(schema.description).toMatchSnapshot();
     });
 
-    it('should return the Gemini 3 schema when a Gemini 3 modelId is provided', () => {
+    it('should return the schema when a Gemini 3 modelId is provided', () => {
       const modelId = 'gemini-3-pro-preview';
       const schema = tool.getSchema(modelId);
       expect(schema.name).toBe(ReadFileTool.Name);
       expect(schema.description).toMatchSnapshot();
-      expect(schema.description).toContain('surgical reads');
     });
   });
 

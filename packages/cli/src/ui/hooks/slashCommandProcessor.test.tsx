@@ -199,7 +199,6 @@ describe('useSlashCommandProcessor', () => {
           {
             openThemeDialog: mockOpenThemeDialog,
             openEditorDialog: vi.fn(),
-            openPrivacyNotice: vi.fn(),
             openSettingsDialog: vi.fn(),
             openSessionBrowser: vi.fn(),
             openModelDialog: mockOpenModelDialog,

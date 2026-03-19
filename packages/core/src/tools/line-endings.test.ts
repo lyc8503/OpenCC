@@ -247,7 +247,6 @@ describe('Line Ending Preservation', () => {
         file_path: filePath,
         old_string: oldString,
         new_string: newString,
-        instruction: 'Change line2 to modified',
       };
       const invocation = tool.build(params);
 

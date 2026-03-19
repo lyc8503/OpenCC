@@ -31,7 +31,6 @@ export interface UIActions {
     scope: LoadableSettingScope,
   ) => void;
   exitEditorDialog: () => void;
-  exitPrivacyNotice: () => void;
   closeSettingsDialog: () => void;
   closeModelDialog: () => void;
   openAgentConfigDialog: (

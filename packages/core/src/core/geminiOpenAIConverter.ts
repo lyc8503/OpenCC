@@ -239,7 +239,10 @@ export function convertGeminiToOpenAI(
     if ('functionDeclarations' in tool && tool.functionDeclarations) {
       return tool.functionDeclarations.map((fn) => {
         // Handle both 'parameters' and 'parametersJsonSchema' field names
-        const params = fn.parameters ?? (fn as unknown as { parametersJsonSchema?: unknown }).parametersJsonSchema;
+        const params =
+          fn.parameters ??
+          (fn as unknown as { parametersJsonSchema?: unknown })
+            .parametersJsonSchema;
         return {
           type: 'function' as const,
           function: {
@@ -349,7 +352,10 @@ export function convertOpenAIToGemini(
  */
 export function convertStreamChunkToGemini(
   chunk: OpenAIStreamChunk,
-  completeToolCalls?: Map<number, { id: string; name: string; arguments: string }>,
+  completeToolCalls?: Map<
+    number,
+    { id: string; name: string; arguments: string }
+  >,
 ): GenerateContentResponse {
   const choice = chunk.choices[0];
   const delta = choice.delta;

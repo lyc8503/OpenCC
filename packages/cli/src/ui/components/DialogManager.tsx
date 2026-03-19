@@ -12,7 +12,6 @@ import { ConsentPrompt } from './ConsentPrompt.js';
 import { ThemeDialog } from './ThemeDialog.js';
 import { SettingsDialog } from './SettingsDialog.js';
 import { EditorSettingsDialog } from './EditorSettingsDialog.js';
-import { PrivacyNotice } from '../privacy/PrivacyNotice.js';
 import { ProQuotaDialog } from './ProQuotaDialog.js';
 import { ValidationDialog } from './ValidationDialog.js';
 import { relaunchApp } from '../../utils/processUtils.js';
@@ -248,14 +247,6 @@ export const DialogManager = ({
           onExit={uiActions.exitEditorDialog}
         />
       </Box>
-    );
-  }
-  if (uiState.showPrivacyNotice) {
-    return (
-      <PrivacyNotice
-        onExit={() => uiActions.exitPrivacyNotice()}
-        config={config}
-      />
     );
   }
   if (uiState.isSessionBrowserOpen) {

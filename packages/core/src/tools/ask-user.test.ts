@@ -59,7 +59,7 @@ describe('AskUserTool', () => {
   });
 
   it('should have correct metadata', () => {
-    expect(tool.name).toBe('ask_user');
+    expect(tool.name).toBe('AskUserQuestion');
     expect(tool.displayName).toBe('Ask User');
   });
 
@@ -79,7 +79,7 @@ describe('AskUserTool', () => {
       const questions = Array(5).fill({
         question: 'Test?',
         header: 'Test',
-        type: QuestionType.CHOICE,
+        multiSelect: false,
         options: [
           { label: 'A', description: 'A' },
           { label: 'B', description: 'B' },
@@ -114,9 +114,7 @@ describe('AskUserTool', () => {
           },
         ],
       });
-      expect(result).toContain(
-        "type='choice' requires 'options' array with 2-4 items",
-      );
+      expect(result).toContain('must NOT have fewer than 2 items');
     });
 
     it('should return error if options has more than 4 items', () => {
@@ -136,7 +134,7 @@ describe('AskUserTool', () => {
           },
         ],
       });
-      expect(result).toContain("'options' array must have at most 4 items");
+      expect(result).toContain('must NOT have more than 4 items');
     });
 
     it('should return null for valid params', () => {

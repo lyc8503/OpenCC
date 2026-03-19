@@ -219,6 +219,11 @@ export const AppContainer = (props: AppContainerProps) => {
     chatRecordingService: config.getGeminiClient()?.getChatRecordingService(),
   });
 
+  // Store historyManager.addItem in a ref to avoid triggering useEffect re-runs
+  // when historyManager changes (which happens on every new history item)
+  const historyManagerAddItemRef = useRef(historyManager.addItem);
+  historyManagerAddItemRef.current = historyManager.addItem;
+
   useMemoryMonitor(historyManager);
   const isAlternateBuffer = config.getUseAlternateBuffer();
   const [corgiMode, setCorgiMode] = useState(false);
@@ -227,7 +232,6 @@ export const AppContainer = (props: AppContainerProps) => {
   const [quittingMessages, setQuittingMessages] = useState<
     HistoryItem[] | null
   >(null);
-  const [showPrivacyNotice, setShowPrivacyNotice] = useState<boolean>(false);
   const [themeError, setThemeError] = useState<string | null>(
     initializationResult.themeError,
   );
@@ -419,7 +423,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
       if (result) {
         if (result.systemMessage) {
-          historyManager.addItem(
+          historyManagerAddItemRef.current(
             {
               type: MessageType.INFO,
               text: result.systemMessage,
@@ -462,12 +466,6 @@ export const AppContainer = (props: AppContainerProps) => {
       // Fire SessionEnd hook on cleanup (only if hooks are enabled)
       await config?.getHookSystem()?.fireSessionEndEvent(SessionEndReason.Exit);
     });
-    // Disable the dependencies check here. historyManager gets flagged
-    // but we don't want to react to changes to it because each new history
-    // item, including the ones from the start session hook will cause a
-    // re-render and an error when we try to reload config.
-    //
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, resumedSessionData]);
 
   useEffect(
@@ -709,7 +707,6 @@ export const AppContainer = (props: AppContainerProps) => {
     () => ({
       openThemeDialog,
       openEditorDialog,
-      openPrivacyNotice: () => setShowPrivacyNotice(true),
       openSettingsDialog,
       openSessionBrowser,
       openModelDialog,
@@ -750,7 +747,6 @@ export const AppContainer = (props: AppContainerProps) => {
       openAgentConfigDialog,
       setQuittingMessages,
       setDebugMessage,
-      setShowPrivacyNotice,
       setCorgiMode,
       dispatchExtensionStateUpdate,
       openPermissionsDialog,
@@ -1261,7 +1257,6 @@ export const AppContainer = (props: AppContainerProps) => {
       !initialPromptSubmitted.current &&
       !isThemeDialogOpen &&
       !isEditorDialogOpen &&
-      !showPrivacyNotice &&
       geminiClient?.isInitialized?.()
     ) {
       void handleFinalSubmit(initialPrompt);
@@ -1273,7 +1268,6 @@ export const AppContainer = (props: AppContainerProps) => {
     handleFinalSubmit,
     isThemeDialogOpen,
     isEditorDialogOpen,
-    showPrivacyNotice,
     geminiClient,
   ]);
 
@@ -1827,7 +1821,6 @@ export const AppContainer = (props: AppContainerProps) => {
     isAgentConfigDialogOpen ||
     isPermissionsDialogOpen ||
     isEditorDialogOpen ||
-    showPrivacyNotice ||
     showIdeRestartPrompt ||
     !!proQuotaRequest ||
     !!validationRequest ||
@@ -1986,7 +1979,6 @@ export const AppContainer = (props: AppContainerProps) => {
       isConfigInitialized,
       editorError,
       isEditorDialogOpen,
-      showPrivacyNotice,
       corgiMode,
       debugMessage,
       quittingMessages,
@@ -2106,7 +2098,6 @@ export const AppContainer = (props: AppContainerProps) => {
       isConfigInitialized,
       editorError,
       isEditorDialogOpen,
-      showPrivacyNotice,
       corgiMode,
       debugMessage,
       quittingMessages,
@@ -2213,11 +2204,6 @@ export const AppContainer = (props: AppContainerProps) => {
     ],
   );
 
-  const exitPrivacyNotice = useCallback(
-    () => setShowPrivacyNotice(false),
-    [setShowPrivacyNotice],
-  );
-
   const uiActions: UIActions = useMemo(
     () => ({
       handleThemeSelect,
@@ -2225,7 +2211,6 @@ export const AppContainer = (props: AppContainerProps) => {
       handleThemeHighlight,
       handleEditorSelect,
       exitEditorDialog,
-      exitPrivacyNotice,
       closeSettingsDialog,
       closeModelDialog,
       openAgentConfigDialog,
@@ -2295,7 +2280,6 @@ export const AppContainer = (props: AppContainerProps) => {
       handleThemeHighlight,
       handleEditorSelect,
       exitEditorDialog,
-      exitPrivacyNotice,
       closeSettingsDialog,
       closeModelDialog,
       openAgentConfigDialog,

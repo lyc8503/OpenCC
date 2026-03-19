@@ -586,7 +586,6 @@ const mockUIActions: UIActions = {
   handleThemeHighlight: vi.fn(),
   handleEditorSelect: vi.fn(),
   exitEditorDialog: vi.fn(),
-  exitPrivacyNotice: vi.fn(),
   closeSettingsDialog: vi.fn(),
   closeModelDialog: vi.fn(),
   openAgentConfigDialog: vi.fn(),

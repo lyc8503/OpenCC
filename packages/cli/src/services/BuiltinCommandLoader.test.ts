@@ -66,7 +66,6 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
   };
 });
 
-vi.mock('../ui/commands/authCommand.js', () => ({ authCommand: {} }));
 vi.mock('../ui/commands/agentsCommand.js', () => ({
   agentsCommand: { name: 'agents' },
 }));
@@ -101,7 +100,6 @@ vi.mock('../ui/commands/memoryCommand.js', () => ({ memoryCommand: {} }));
 vi.mock('../ui/commands/modelCommand.js', () => ({
   modelCommand: { name: 'model' },
 }));
-vi.mock('../ui/commands/privacyCommand.js', () => ({ privacyCommand: {} }));
 vi.mock('../ui/commands/quitCommand.js', () => ({ quitCommand: {} }));
 vi.mock('../ui/commands/resumeCommand.js', () => ({
   resumeCommand: {
@@ -137,14 +135,6 @@ vi.mock('../ui/commands/mcpCommand.js', () => ({
   mcpCommand: {
     name: 'mcp',
     description: 'MCP command',
-    kind: 'BUILT_IN',
-  },
-}));
-
-vi.mock('../ui/commands/upgradeCommand.js', () => ({
-  upgradeCommand: {
-    name: 'upgrade',
-    description: 'Upgrade command',
     kind: 'BUILT_IN',
   },
 }));

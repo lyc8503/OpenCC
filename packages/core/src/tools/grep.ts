@@ -698,10 +698,7 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
       return `Invalid regular expression pattern provided: ${params.pattern}. Error: ${getErrorMessage(error)}`;
     }
 
-    if (
-      params.head_limit !== undefined &&
-      params.head_limit < 1
-    ) {
+    if (params.head_limit !== undefined && params.head_limit < 1) {
       return 'head_limit must be at least 1.';
     }
 

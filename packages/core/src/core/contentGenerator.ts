@@ -143,7 +143,8 @@ class OpenAIWrapper implements ContentGenerator {
     userPromptId: string,
     role: LlmRole,
   ): Promise<GenerateContentResponse> {
-    const { params: openaiParams, abortSignal } = convertGeminiToOpenAI(request);
+    const { params: openaiParams, abortSignal } =
+      convertGeminiToOpenAI(request);
     const response = await this.generator.generateContent(
       openaiParams,
       userPromptId,
@@ -158,7 +159,8 @@ class OpenAIWrapper implements ContentGenerator {
     userPromptId: string,
     role: LlmRole,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
-    const { params: openaiParams, abortSignal } = convertGeminiToOpenAI(request);
+    const { params: openaiParams, abortSignal } =
+      convertGeminiToOpenAI(request);
     const stream = await this.generator.generateContentStream(
       openaiParams,
       userPromptId,

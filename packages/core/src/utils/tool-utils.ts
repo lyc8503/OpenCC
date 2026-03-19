@@ -21,6 +21,7 @@ import {
   WRITE_FILE_DISPLAY_NAME,
   EDIT_DISPLAY_NAME,
 } from '../tools/tool-names.js';
+import { checkExhaustive } from './checks.js';
 
 /**
  * Validates if an object is a ToolCallResponseInfo.
@@ -81,8 +82,11 @@ export function shouldHideToolCall(params: ShouldHideToolCallParams): boolean {
           return true;
         case CoreToolCallStatus.Error:
           return !hasResultDisplay;
-        default:
+        case CoreToolCallStatus.Success:
+        case CoreToolCallStatus.Cancelled:
           return false;
+        default:
+          checkExhaustive(status);
       }
     case WRITE_FILE_DISPLAY_NAME:
     case EDIT_DISPLAY_NAME:

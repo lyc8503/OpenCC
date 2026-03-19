@@ -72,7 +72,6 @@ export interface UIState {
   isConfigInitialized: boolean;
   editorError: string | null;
   isEditorDialogOpen: boolean;
-  showPrivacyNotice: boolean;
   corgiMode: boolean;
   debugMessage: string;
   quittingMessages: HistoryItem[] | null;

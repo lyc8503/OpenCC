@@ -17,10 +17,8 @@ vi.mock('./settings.js', () => ({
 
 describe('validateAuthMethod', () => {
   beforeEach(() => {
+    vi.stubEnv('OPENAI_API_KEY', undefined);
     vi.stubEnv('GEMINI_API_KEY', undefined);
-    vi.stubEnv('GOOGLE_CLOUD_PROJECT', undefined);
-    vi.stubEnv('GOOGLE_CLOUD_LOCATION', undefined);
-    vi.stubEnv('GOOGLE_API_KEY', undefined);
   });
 
   afterEach(() => {
@@ -29,58 +27,26 @@ describe('validateAuthMethod', () => {
 
   it.each([
     {
-      description: 'should return null for LOGIN_WITH_GOOGLE',
-      authType: AuthType.LOGIN_WITH_GOOGLE,
-      envs: {},
+      description:
+        'should return null for USE_API_KEY if OPENAI_API_KEY is set',
+      authType: AuthType.USE_API_KEY,
+      envs: { OPENAI_API_KEY: 'test-key' },
       expected: null,
     },
     {
-      description: 'should return null for COMPUTE_ADC',
-      authType: AuthType.COMPUTE_ADC,
-      envs: {},
-      expected: null,
-    },
-    {
-      description: 'should return null for USE_GEMINI if GEMINI_API_KEY is set',
-      authType: AuthType.USE_GEMINI,
+      description:
+        'should return null for USE_API_KEY if GEMINI_API_KEY is set',
+      authType: AuthType.USE_API_KEY,
       envs: { GEMINI_API_KEY: 'test-key' },
       expected: null,
     },
     {
       description:
-        'should return an error message for USE_GEMINI if GEMINI_API_KEY is not set',
-      authType: AuthType.USE_GEMINI,
+        'should return an error message for USE_API_KEY if no API key is set',
+      authType: AuthType.USE_API_KEY,
       envs: {},
       expected:
-        'When using Gemini API, you must specify the GEMINI_API_KEY environment variable.\n' +
-        'Update your environment and try again (no reload needed if using .env)!',
-    },
-    {
-      description:
-        'should return null for USE_VERTEX_AI if GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION are set',
-      authType: AuthType.USE_VERTEX_AI,
-      envs: {
-        GOOGLE_CLOUD_PROJECT: 'test-project',
-        GOOGLE_CLOUD_LOCATION: 'test-location',
-      },
-      expected: null,
-    },
-    {
-      description:
-        'should return null for USE_VERTEX_AI if GOOGLE_API_KEY is set',
-      authType: AuthType.USE_VERTEX_AI,
-      envs: { GOOGLE_API_KEY: 'test-api-key' },
-      expected: null,
-    },
-    {
-      description:
-        'should return an error message for USE_VERTEX_AI if no required environment variables are set',
-      authType: AuthType.USE_VERTEX_AI,
-      envs: {},
-      expected:
-        'When using Vertex AI, you must specify either:\n' +
-        '• GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION environment variables.\n' +
-        '• GOOGLE_API_KEY environment variable (if using express mode).\n' +
+        'When using API key, you must specify the OPENAI_API_KEY or GEMINI_API_KEY environment variable.\n' +
         'Update your environment and try again (no reload needed if using .env)!',
     },
     {

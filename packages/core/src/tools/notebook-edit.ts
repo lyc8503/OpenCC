@@ -4,17 +4,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import fsPromises from 'node:fs/promises';
+import path from 'node:path';
 import {
   BaseDeclarativeTool,
   BaseToolInvocation,
   type ToolResult,
   Kind,
+  type ToolCallConfirmationDetails,
+  ToolConfirmationOutcome,
 } from './tools.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import type { Config } from '../config/config.js';
 import { NOTEBOOK_EDIT_TOOL_NAME } from './tool-names.js';
 import { NOTEBOOK_EDIT_DEFINITION } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
+import { ToolErrorType } from './tool-error.js';
+import { checkExhaustive } from '../utils/checks.js';
 
 export interface NotebookEditParams {
   notebook_path: string;
@@ -25,9 +31,37 @@ export interface NotebookEditParams {
 }
 
 /**
- * Tool for editing Jupyter notebooks.
- * Note: This is a placeholder implementation. Full implementation requires
- * integration with Jupyter notebook file handling.
+ * Represents a Jupyter notebook cell
+ */
+interface NotebookCell {
+  id?: string;
+  cell_type: 'code' | 'markdown' | 'raw';
+  source: string | string[];
+  metadata?: Record<string, unknown>;
+  execution_count?: number | null;
+  outputs?: unknown[];
+}
+
+/**
+ * Represents a Jupyter notebook structure
+ */
+interface Notebook {
+  nbformat: number;
+  nbformat_minor: number;
+  metadata: Record<string, unknown>;
+  cells: NotebookCell[];
+}
+
+/**
+ * Generates a random cell ID
+ */
+function generateCellId(): string {
+  return `cell-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * Tool for editing Jupyter notebooks (.ipynb files).
+ * Supports replacing, inserting, and deleting cells.
  */
 export class NotebookEditTool extends BaseDeclarativeTool<
   NotebookEditParams,
@@ -35,10 +69,7 @@ export class NotebookEditTool extends BaseDeclarativeTool<
 > {
   static readonly Name = NOTEBOOK_EDIT_TOOL_NAME;
 
-  constructor(
-    _config: Config,
-    messageBus: MessageBus,
-  ) {
+  constructor(_config: Config, messageBus: MessageBus) {
     super(
       NotebookEditTool.Name,
       'Notebook Edit',
@@ -56,7 +87,10 @@ export class NotebookEditTool extends BaseDeclarativeTool<
       return "The 'notebook_path' parameter is required.";
     }
     if (!params.new_source && params.edit_mode !== 'delete') {
-      return "The 'new_source' parameter is required.";
+      return "The 'new_source' parameter is required for replace and insert modes.";
+    }
+    if (params.edit_mode === 'replace' && !params.cell_id) {
+      return "The 'cell_id' parameter is required for replace mode.";
     }
     return null;
   }
@@ -84,6 +118,9 @@ export class NotebookEditInvocation extends BaseToolInvocation<
   NotebookEditParams,
   ToolResult
 > {
+  private confirmationOutcome: ToolConfirmationOutcome | null = null;
+  private notebookContent: Notebook | null = null;
+
   constructor(
     params: NotebookEditParams,
     messageBus: MessageBus,
@@ -98,20 +135,174 @@ export class NotebookEditInvocation extends BaseToolInvocation<
     return `Notebook edit (${mode}): ${this.params.notebook_path}`;
   }
 
-  async execute(_signal: AbortSignal): Promise<ToolResult> {
-    const { notebook_path, cell_id, new_source, cell_type, edit_mode } = this.params;
+  override async shouldConfirmExecute(
+    _abortSignal: AbortSignal,
+  ): Promise<ToolCallConfirmationDetails | false> {
+    // This tool requires user confirmation
+    return {
+      type: 'info',
+      title: 'Edit Notebook',
+      prompt: `Edit notebook ${this.params.notebook_path}? Mode: ${this.params.edit_mode || 'replace'}`,
+      onConfirm: async (outcome: ToolConfirmationOutcome) => {
+        this.confirmationOutcome = outcome;
+      },
+    };
+  }
+
+  private async loadNotebook(filePath: string): Promise<Notebook> {
+    const content = await fsPromises.readFile(filePath, 'utf-8');
+    const notebook = JSON.parse(content) as Notebook;
+
+    // Validate basic structure
+    if (
+      typeof notebook.nbformat !== 'number' ||
+      !Array.isArray(notebook.cells)
+    ) {
+      throw new Error('Invalid notebook format');
+    }
+
+    return notebook;
+  }
+
+  private normalizeSource(source: string): string[] {
+    // Convert single string to array of lines
+    if (!source.includes('\n')) {
+      return [source];
+    }
+    const lines = source.split('\n');
+    // Ensure each line ends with newline except the last one (Jupyter convention)
+    return lines.map((line, i) => (i < lines.length - 1 ? line + '\n' : line));
+  }
+
+  private findCellIndex(
+    notebook: Notebook,
+    cellId: string,
+  ): number {
+    return notebook.cells.findIndex(
+      (cell) => cell.id === cellId || cell.id?.includes(cellId),
+    );
+  }
+
+  private applyEdit(notebook: Notebook): Notebook {
+    const { cell_id, new_source, cell_type, edit_mode } = this.params;
     const mode = edit_mode || 'replace';
 
-    // TODO: Integrate with actual Jupyter notebook file handling
-    // For now, return a placeholder message
-    return {
-      llmContent: `Jupyter notebook editing is not yet implemented.
-Notebook: ${notebook_path}
-Cell ID: ${cell_id || 'N/A'}
-Mode: ${mode}
-Cell Type: ${cell_type || 'N/A'}
-Source length: ${new_source?.length || 0} characters`,
-      returnDisplay: `Notebook edit pending: ${notebook_path}`,
-    };
+    switch (mode) {
+      case 'replace': {
+        const index = this.findCellIndex(notebook, cell_id!);
+        if (index === -1) {
+          throw new Error(`Cell with ID "${cell_id}" not found`);
+        }
+        notebook.cells[index] = {
+          ...notebook.cells[index],
+          cell_type: (cell_type as 'code' | 'markdown') || notebook.cells[index].cell_type,
+          source: this.normalizeSource(new_source),
+        };
+        break;
+      }
+
+      case 'insert': {
+        const newCell: NotebookCell = {
+          id: generateCellId(),
+          cell_type: (cell_type as 'code' | 'markdown') || 'code',
+          source: this.normalizeSource(new_source),
+          metadata: {},
+          execution_count: null,
+          outputs: [],
+        };
+
+        if (cell_id) {
+          // Insert after the specified cell
+          const index = this.findCellIndex(notebook, cell_id);
+          if (index === -1) {
+            throw new Error(`Cell with ID "${cell_id}" not found`);
+          }
+          notebook.cells.splice(index + 1, 0, newCell);
+        } else {
+          // Append at the end
+          notebook.cells.push(newCell);
+        }
+        break;
+      }
+
+      case 'delete': {
+        if (!cell_id) {
+          throw new Error('cell_id is required for delete mode');
+        }
+        const index = this.findCellIndex(notebook, cell_id);
+        if (index === -1) {
+          throw new Error(`Cell with ID "${cell_id}" not found`);
+        }
+        notebook.cells.splice(index, 1);
+        break;
+      }
+
+      default:
+        checkExhaustive(mode, `Unknown edit mode: ${mode}`);
+    }
+
+    return notebook;
+  }
+
+  async execute(_signal: AbortSignal): Promise<ToolResult> {
+    if (this.confirmationOutcome === ToolConfirmationOutcome.Cancel) {
+      return {
+        llmContent: 'Notebook edit cancelled by user.',
+        returnDisplay: 'Cancelled',
+      };
+    }
+
+    const { notebook_path, edit_mode } = this.params;
+    const mode = edit_mode || 'replace';
+
+    try {
+      // Load the notebook
+      this.notebookContent = await this.loadNotebook(notebook_path);
+
+      // Apply the edit
+      const editedNotebook = this.applyEdit(this.notebookContent);
+
+      // Write back to file
+      await fsPromises.writeFile(
+        notebook_path,
+        JSON.stringify(editedNotebook, null, 2),
+        'utf-8',
+      );
+
+      const actionDescription =
+        mode === 'replace'
+          ? `Updated cell in notebook`
+          : mode === 'insert'
+            ? `Inserted new cell in notebook`
+            : `Deleted cell from notebook`;
+
+      return {
+        llmContent: `${actionDescription}: ${notebook_path}`,
+        returnDisplay: `${actionDescription}: ${path.basename(notebook_path)}`,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes('ENOENT')) {
+        return {
+          llmContent: `Notebook not found: ${notebook_path}`,
+          returnDisplay: 'Notebook not found',
+          error: {
+            message: errorMessage,
+            type: ToolErrorType.FILE_NOT_FOUND,
+          },
+        };
+      }
+
+      return {
+        llmContent: `Failed to edit notebook ${notebook_path}: ${errorMessage}`,
+        returnDisplay: `Error: ${errorMessage}`,
+        error: {
+          message: errorMessage,
+          type: ToolErrorType.FILE_WRITE_FAILURE,
+        },
+      };
+    }
   }
 }

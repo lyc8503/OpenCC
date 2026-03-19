@@ -449,8 +449,10 @@ I was unable to access the URL(s) directly using the primary fetch tool. Instead
 ${aggregatedContent}
 </content>
 `;
+      // Use the user's currently active model
+      const activeModel = this.context.config.getActiveModel();
       const result = await geminiClient.generateContent(
-        { model: 'web-fetch-fallback' },
+        { model: activeModel },
         [{ role: 'user', parts: [{ text: fallbackPrompt }] }],
         signal,
         LlmRole.UTILITY_TOOL,
@@ -775,8 +777,10 @@ ${sanitizeXml(userPrompt)}
 ${sanitizeXml(urlToFetch)}
 </url>
 `;
+      // Use the user's currently active model
+      const activeModel = this.context.config.getActiveModel();
       const response = await geminiClient.generateContent(
-        { model: 'web-fetch' },
+        { model: activeModel },
         [{ role: 'user', parts: [{ text: sanitizedPrompt }] }],
         signal,
         LlmRole.UTILITY_TOOL,

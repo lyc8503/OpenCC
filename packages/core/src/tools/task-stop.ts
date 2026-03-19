@@ -15,16 +15,20 @@ import type { Config } from '../config/config.js';
 import { TASK_STOP_TOOL_NAME } from './tool-names.js';
 import { TASK_STOP_DEFINITION } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
+import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
+import { ShellExecutionService } from '../services/shellExecutionService.js';
 
 export interface TaskStopParams {
   task_id: string;
   shell_id?: string; // Deprecated, use task_id instead
+  block?: boolean;
+  timeout?: number;
 }
 
 /**
- * Tool for stopping background tasks.
- * Note: This is a placeholder implementation. Full implementation requires
- * integration with the task management system.
+ * Tool for stopping background tasks and shell executions.
+ * Integrates with ExecutionLifecycleService and ShellExecutionService
+ * to terminate running processes.
  */
 export class TaskStopTool extends BaseDeclarativeTool<
   TaskStopParams,
@@ -32,10 +36,7 @@ export class TaskStopTool extends BaseDeclarativeTool<
 > {
   static readonly Name = TASK_STOP_TOOL_NAME;
 
-  constructor(
-    _config: Config,
-    messageBus: MessageBus,
-  ) {
+  constructor(_config: Config, messageBus: MessageBus) {
     super(
       TaskStopTool.Name,
       'Task Stop',
@@ -93,11 +94,51 @@ export class TaskStopInvocation extends BaseToolInvocation<
       };
     }
 
-    // TODO: Integrate with actual task management system
-    // For now, return a placeholder message
-    return {
-      llmContent: `Task stop is not yet implemented. Task ID: ${taskId}`,
-      returnDisplay: `Task ${taskId} stop requested`,
-    };
+    // Try to parse as numeric PID
+    const numericId = parseInt(taskId, 10);
+
+    if (isNaN(numericId)) {
+      return {
+        llmContent: `Error: Invalid task ID format. Expected a numeric process ID, got: ${taskId}`,
+        returnDisplay: `Error: Invalid task ID`,
+      };
+    }
+
+    // Check if this is an active execution managed by ExecutionLifecycleService
+    const isActive = ExecutionLifecycleService.isActive(numericId);
+
+    if (!isActive) {
+      return {
+        llmContent: `Task ${taskId} is not running or has already completed.`,
+        returnDisplay: `Task ${taskId} not found or already stopped`,
+      };
+    }
+
+    try {
+      // Try to kill via ExecutionLifecycleService first (for virtual/external executions)
+      ExecutionLifecycleService.kill(numericId);
+
+      return {
+        llmContent: `Successfully stopped task ${taskId}.`,
+        returnDisplay: `Task ${taskId} stopped`,
+      };
+    } catch (error) {
+      // Fallback: try to kill via ShellExecutionService
+      try {
+        ShellExecutionService.kill(numericId);
+
+        return {
+          llmContent: `Successfully stopped shell process ${taskId}.`,
+          returnDisplay: `Process ${taskId} stopped`,
+        };
+      } catch (shellError) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        return {
+          llmContent: `Failed to stop task ${taskId}: ${errorMessage}`,
+          returnDisplay: `Failed to stop task ${taskId}`,
+        };
+      }
+    }
   }
 }

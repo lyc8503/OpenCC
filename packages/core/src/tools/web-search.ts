@@ -96,9 +96,12 @@ class WebSearchToolInvocation extends BaseToolInvocation<
   async execute(signal: AbortSignal): Promise<WebSearchToolResult> {
     const geminiClient = this.context.geminiClient;
 
+    // Use the user's currently active model
+    const activeModel = this.context.config.getActiveModel();
+
     try {
       const response = await geminiClient.generateContent(
-        { model: 'web-search' },
+        { model: activeModel },
         [{ role: 'user', parts: [{ text: this.params.query }] }],
         signal,
         LlmRole.UTILITY_TOOL,

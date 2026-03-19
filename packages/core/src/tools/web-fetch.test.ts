@@ -323,7 +323,10 @@ describe('WebFetchTool', () => {
       it('should pass if both url and prompt are provided', () => {
         const tool = new WebFetchTool(mockConfig, bus);
         expect(() =>
-          tool.build({ url: 'https://example.com', prompt: 'Extract the content' }),
+          tool.build({
+            url: 'https://example.com',
+            prompt: 'Extract the content',
+          }),
         ).not.toThrow();
       });
     });
@@ -356,7 +359,9 @@ describe('WebFetchTool', () => {
 
       it('should pass if url is valid', () => {
         const tool = new WebFetchTool(mockConfig, bus);
-        expect(() => tool.build({ url: 'https://example.com', prompt: 'fetch' })).not.toThrow();
+        expect(() =>
+          tool.build({ url: 'https://example.com', prompt: 'fetch' }),
+        ).not.toThrow();
       });
     });
   });
@@ -367,7 +372,10 @@ describe('WebFetchTool', () => {
       const schema = tool.getSchema();
       expect(schema.parametersJsonSchema).toHaveProperty('properties.url');
       expect(schema.parametersJsonSchema).toHaveProperty('properties.prompt');
-      expect(schema.parametersJsonSchema).toHaveProperty('required', ['url', 'prompt']);
+      expect(schema.parametersJsonSchema).toHaveProperty('required', [
+        'url',
+        'prompt',
+      ]);
     });
   });
 
@@ -378,7 +386,10 @@ describe('WebFetchTool', () => {
         candidates: [{ content: { parts: [{ text: 'response' }] } }],
       });
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://ratelimit.example.com', prompt: 'fetch content' };
+      const params = {
+        url: 'https://ratelimit.example.com',
+        prompt: 'fetch content',
+      };
       const invocation = tool.build(params);
 
       // Execute 10 times to hit the limit
@@ -389,9 +400,7 @@ describe('WebFetchTool', () => {
       // The 11th time should fail due to rate limit
       const result = await invocation.execute(new AbortController().signal);
       expect(result.error?.type).toBe(ToolErrorType.WEB_FETCH_PROCESSING_ERROR);
-      expect(result.error?.message).toContain(
-        'URL was skipped',
-      );
+      expect(result.error?.message).toContain('URL was skipped');
     });
 
     it('should handle rate-limited URLs', async () => {
@@ -405,7 +414,10 @@ describe('WebFetchTool', () => {
           candidates: [{ content: { parts: [{ text: 'response' }] } }],
         });
         await tool
-          .build({ url: 'https://ratelimit-multi.com', prompt: 'fetch content' })
+          .build({
+            url: 'https://ratelimit-multi.com',
+            prompt: 'fetch content',
+          })
           .execute(new AbortController().signal);
       }
       // 11th call - should be rate limited
@@ -961,7 +973,10 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://example.com/image.png', prompt: 'fetch image' };
+      const params = {
+        url: 'https://example.com/image.png',
+        prompt: 'fetch image',
+      };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
@@ -982,7 +997,10 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const params = { url: 'https://example.com/404', prompt: 'fetch content' };
+      const params = {
+        url: 'https://example.com/404',
+        prompt: 'fetch content',
+      };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
@@ -1000,7 +1018,10 @@ describe('WebFetchTool', () => {
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
-      const invocation = tool.build({ url: 'https://example.com/large', prompt: 'fetch content' });
+      const invocation = tool.build({
+        url: 'https://example.com/large',
+        prompt: 'fetch content',
+      });
       const result = await invocation.execute(new AbortController().signal);
 
       expect(result.llmContent).toContain('Error');

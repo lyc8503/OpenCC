@@ -53,13 +53,13 @@ describe('ActivateSkillTool', () => {
   });
 
   it('should return enhanced description', () => {
-    const params = { name: 'test-skill' };
+    const params = { skill: 'test-skill' };
     const invocation = tool.build(params);
     expect(invocation.getDescription()).toBe('"test-skill": A test skill');
   });
 
   it('should return enhanced confirmation details', async () => {
-    const params = { name: 'test-skill' };
+    const params = { skill: 'test-skill' };
     const invocation = tool.build(params);
     const details = await (
       invocation as unknown as {
@@ -91,7 +91,7 @@ describe('ActivateSkillTool', () => {
       builtinSkill,
     ]);
 
-    const params = { name: 'builtin-skill' };
+    const params = { skill: 'builtin-skill' };
     const toolWithBuiltin = new ActivateSkillTool(mockConfig, mockMessageBus);
     const invocation = toolWithBuiltin.build(params);
 
@@ -105,7 +105,7 @@ describe('ActivateSkillTool', () => {
   });
 
   it('should activate a valid skill and return its content in XML tags', async () => {
-    const params = { name: 'test-skill' };
+    const params = { skill: 'test-skill' };
     const invocation = tool.build(params);
     const result = await invocation.execute(new AbortController().signal);
 
@@ -128,13 +128,13 @@ describe('ActivateSkillTool', () => {
   });
 
   it('should throw error if skill is not in enum', async () => {
-    const params = { name: 'non-existent' };
-    expect(() => tool.build(params as { name: string })).toThrow();
+    const params = { skill: 'non-existent' };
+    expect(() => tool.build(params as { skill: string })).toThrow();
   });
 
   it('should return an error if skill content cannot be read', async () => {
     vi.mocked(mockConfig.getSkillManager().getSkill).mockReturnValue(null);
-    const params = { name: 'test-skill' };
+    const params = { skill: 'test-skill' };
     const invocation = tool.build(params);
     const result = await invocation.execute(new AbortController().signal);
 
@@ -142,9 +142,9 @@ describe('ActivateSkillTool', () => {
     expect(mockConfig.getSkillManager().activateSkill).not.toHaveBeenCalled();
   });
 
-  it('should validate that name is provided', () => {
+  it('should validate that skill name is provided', () => {
     expect(() =>
-      tool.build({ name: '' } as unknown as { name: string }),
+      tool.build({ skill: '' } as unknown as { skill: string }),
     ).toThrow();
   });
 });

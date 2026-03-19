@@ -67,25 +67,30 @@ Usage notes:
           type: 'string',
         },
         model: {
-          description: 'Optional model to use for this agent. If not specified, inherits from parent. Prefer haiku for quick, straightforward tasks to minimize cost and latency.',
+          description:
+            'Optional model to use for this agent. If not specified, inherits from parent. Prefer haiku for quick, straightforward tasks to minimize cost and latency.',
           type: 'string',
           enum: ['sonnet', 'opus', 'haiku'],
         },
         resume: {
-          description: 'Optional agent ID to resume from. If provided, the agent will continue from the previous execution transcript.',
+          description:
+            'Optional agent ID to resume from. If provided, the agent will continue from the previous execution transcript.',
           type: 'string',
         },
         run_in_background: {
-          description: 'Set to true to run this agent in the background. The tool result will include an output_file path - use Read tool or Bash tail to check on output.',
+          description:
+            'Set to true to run this agent in the background. The tool result will include an output_file path - use Read tool or Bash tail to check on output.',
           type: 'boolean',
         },
         isolation: {
-          description: 'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo.',
+          description:
+            'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo.',
           type: 'string',
           enum: ['worktree'],
         },
         max_turns: {
-          description: 'Maximum number of agentic turns (API round-trips) before stopping. Used internally for warmup.',
+          description:
+            'Maximum number of agentic turns (API round-trips) before stopping. Used internally for warmup.',
           type: 'integer',
           exclusiveMinimum: 0,
         },
@@ -120,15 +125,18 @@ Usage:
           type: 'string',
         },
         offset: {
-          description: 'The line number to start reading from. Only provide if the file is too large to read at once',
+          description:
+            'The line number to start reading from. Only provide if the file is too large to read at once',
           type: 'number',
         },
         limit: {
-          description: 'The number of lines to read. Only provide if the file is too large to read at once.',
+          description:
+            'The number of lines to read. Only provide if the file is too large to read at once.',
           type: 'number',
         },
         pages: {
-          description: 'Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files. Maximum 20 pages per request.',
+          description:
+            'Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files. Maximum 20 pages per request.',
           type: 'string',
         },
       },
@@ -151,7 +159,8 @@ Usage:
       type: 'object',
       properties: {
         file_path: {
-          description: 'The absolute path to the file to write (must be absolute, not relative)',
+          description:
+            'The absolute path to the file to write (must be absolute, not relative)',
           type: 'string',
         },
         content: {
@@ -180,28 +189,34 @@ Usage:
       type: 'object',
       properties: {
         pattern: {
-          description: 'The regular expression pattern to search for in file contents',
+          description:
+            'The regular expression pattern to search for in file contents',
           type: 'string',
         },
         path: {
-          description: 'File or directory to search in (rg PATH). Defaults to current working directory.',
+          description:
+            'File or directory to search in (rg PATH). Defaults to current working directory.',
           type: 'string',
         },
         glob: {
-          description: 'Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob',
+          description:
+            'Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob',
           type: 'string',
         },
         output_mode: {
-          description: 'Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".',
+          description:
+            'Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit), "files_with_matches" shows file paths (supports head_limit), "count" shows match counts (supports head_limit). Defaults to "files_with_matches".',
           type: 'string',
           enum: ['content', 'files_with_matches', 'count'],
         },
         '-B': {
-          description: 'Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.',
+          description:
+            'Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.',
           type: 'number',
         },
         '-A': {
-          description: 'Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.',
+          description:
+            'Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.',
           type: 'number',
         },
         '-C': {
@@ -209,11 +224,13 @@ Usage:
           type: 'number',
         },
         context: {
-          description: 'Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.',
+          description:
+            'Number of lines to show before and after each match (rg -C). Requires output_mode: "content", ignored otherwise.',
           type: 'number',
         },
         '-n': {
-          description: 'Show line numbers in output (rg -n). Requires output_mode: "content", ignored otherwise. Defaults to true.',
+          description:
+            'Show line numbers in output (rg -n). Requires output_mode: "content", ignored otherwise. Defaults to true.',
           type: 'boolean',
         },
         '-i': {
@@ -221,19 +238,23 @@ Usage:
           type: 'boolean',
         },
         type: {
-          description: 'File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.',
+          description:
+            'File type to search (rg --type). Common types: js, py, rust, go, java, etc. More efficient than include for standard file types.',
           type: 'string',
         },
         head_limit: {
-          description: 'Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited).',
+          description:
+            'Limit output to first N lines/entries, equivalent to "| head -N". Works across all output modes: content (limits output lines), files_with_matches (limits file paths), count (limits count entries). Defaults to 0 (unlimited).',
           type: 'number',
         },
         offset: {
-          description: 'Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N". Works across all output modes. Defaults to 0.',
+          description:
+            'Skip first N lines/entries before applying head_limit, equivalent to "| tail -n +N | head -N". Works across all output modes. Defaults to 0.',
           type: 'number',
         },
         multiline: {
-          description: 'Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.',
+          description:
+            'Enable multiline mode where . matches newlines and patterns can span lines (rg -U --multiline-dotall). Default: false.',
           type: 'boolean',
         },
       },
@@ -258,7 +279,8 @@ Usage:
           type: 'string',
         },
         path: {
-          description: 'The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.',
+          description:
+            'The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.',
           type: 'string',
         },
       },
@@ -293,7 +315,8 @@ Usage:
           type: 'string',
         },
         new_string: {
-          description: 'The text to replace it with (must be different from old_string)',
+          description:
+            'The text to replace it with (must be different from old_string)',
           type: 'string',
         },
         replace_all: {
@@ -488,15 +511,25 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
             type: 'object',
             properties: {
               question: {
-                description: 'The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"',
+                description:
+                  'The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"',
                 type: 'string',
               },
               header: {
-                description: 'Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach".',
+                description:
+                  'Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach".',
                 type: 'string',
               },
+              type: {
+                description:
+                  "Question type: 'choice' renders selectable options, 'text' renders free-form input, 'yesno' renders a binary Yes/No choice.",
+                type: 'string',
+                enum: ['choice', 'text', 'yesno'],
+                default: 'choice',
+              },
               options: {
-                description: 'The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no \'Other\' option, that will be provided automatically.',
+                description:
+                  "The available choices for this question. Must have 2-4 options. REQUIRED when type='choice'. IGNORED for 'text' and 'yesno'.",
                 minItems: 2,
                 maxItems: 4,
                 type: 'array',
@@ -504,15 +537,18 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
                   type: 'object',
                   properties: {
                     label: {
-                      description: 'The display text for this option that the user will see and select. Should be concise (1-5 words) and clearly describe the choice.',
+                      description:
+                        'The display text for this option that the user will see and select. Should be concise (1-5 words) and clearly describe the choice.',
                       type: 'string',
                     },
                     description: {
-                      description: 'Explanation of what this option means or what will happen if chosen. Useful for providing context about trade-offs or implications.',
+                      description:
+                        'Explanation of what this option means or what will happen if chosen. Useful for providing context about trade-offs or implications.',
                       type: 'string',
                     },
                     markdown: {
-                      description: 'Optional preview content shown in a monospace box when this option is focused. Use for ASCII mockups, code snippets, or diagrams that help users visually compare options. Supports multi-line text with newlines.',
+                      description:
+                        'Optional preview content shown in a monospace box when this option is focused. Use for ASCII mockups, code snippets, or diagrams that help users visually compare options. Supports multi-line text with newlines.',
                       type: 'string',
                     },
                   },
@@ -521,12 +557,18 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
                 },
               },
               multiSelect: {
-                description: 'Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.',
+                description:
+                  'Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive. Only applies when type="choice".',
                 default: false,
                 type: 'boolean',
               },
+              placeholder: {
+                description:
+                  "Placeholder hint text. For type='text', shown in the input field. For type='choice', shown in the 'Other' custom input.",
+                type: 'string',
+              },
             },
-            required: ['question', 'header', 'options', 'multiSelect'],
+            required: ['question', 'header', 'type'],
             additionalProperties: false,
           },
         },
@@ -588,7 +630,13 @@ Only skip EnterPlanMode for simple tasks:
 - Users appreciate being consulted before significant changes are made to their codebase`,
     parametersJsonSchema: {
       type: 'object',
-      properties: {},
+      properties: {
+        reason: {
+          description:
+            'Optional reason for entering plan mode. Shown to the user for context.',
+          type: 'string',
+        },
+      },
       additionalProperties: false,
     },
   },
@@ -685,7 +733,8 @@ Only skip EnterPlanMode for simple tasks:
       type: 'object',
       properties: {
         name: {
-          description: 'Optional name for the worktree. A random name is generated if not provided.',
+          description:
+            'Optional name for the worktree. A random name is generated if not provided.',
           type: 'string',
         },
       },
@@ -700,11 +749,13 @@ Only skip EnterPlanMode for simple tasks:
       type: 'object',
       properties: {
         notebook_path: {
-          description: 'The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)',
+          description:
+            'The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)',
           type: 'string',
         },
         cell_id: {
-          description: 'The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified.',
+          description:
+            'The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified.',
           type: 'string',
         },
         new_source: {
@@ -712,17 +763,19 @@ Only skip EnterPlanMode for simple tasks:
           type: 'string',
         },
         cell_type: {
-          description: 'The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.',
+          description:
+            'The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.',
           type: 'string',
           enum: ['code', 'markdown'],
         },
         edit_mode: {
-          description: 'The type of edit to make (replace, insert, delete). Defaults to replace.',
+          description:
+            'The type of edit to make (replace, insert, delete). Defaults to replace.',
           type: 'string',
           enum: ['replace', 'insert', 'delete'],
         },
       },
-      required: ['notebook_path', 'new_source'],
+      required: ['notebook_path'],
       additionalProperties: false,
     },
   },

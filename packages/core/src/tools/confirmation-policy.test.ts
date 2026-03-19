@@ -113,7 +113,6 @@ describe('Tool Confirmation Policy Updates', () => {
       create: (config: Config, bus: MessageBus) => new EditTool(config, bus),
       params: {
         file_path: 'test.txt',
-        instruction: 'change content',
         old_string: 'existing',
         new_string: 'new',
       },
@@ -132,6 +131,7 @@ describe('Tool Confirmation Policy Updates', () => {
       create: (config: Config, bus: MessageBus) =>
         new WebFetchTool(config, bus),
       params: {
+        url: 'https://example.com',
         prompt: 'fetch https://example.com',
       },
     },

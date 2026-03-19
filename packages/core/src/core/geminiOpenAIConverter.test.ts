@@ -10,10 +10,7 @@ import {
   convertOpenAIToGemini,
   convertStreamChunkToGemini,
 } from './geminiOpenAIConverter.js';
-import type {
-  OpenAIChatResponse,
-  OpenAIStreamChunk,
-} from './openaiClient.js';
+import type { OpenAIChatResponse, OpenAIStreamChunk } from './openaiClient.js';
 import { FinishReason, type GenerateContentParameters } from '@google/genai';
 
 describe('geminiOpenAIConverter', () => {
@@ -275,7 +272,9 @@ describe('geminiOpenAIConverter', () => {
 
       const result = convertStreamChunkToGemini(chunk);
 
-      expect(result.candidates?.[0]?.content?.parts).toEqual([{ text: 'Hello' }]);
+      expect(result.candidates?.[0]?.content?.parts).toEqual([
+        { text: 'Hello' },
+      ]);
     });
 
     it('aggregates tool calls at finish_reason', () => {
@@ -361,7 +360,10 @@ describe('geminiOpenAIConverter', () => {
       };
 
       // Simulate the aggregation that happens in _wrapStream
-      const aggregated = new Map<number, { id: string; name: string; arguments: string }>();
+      const aggregated = new Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >();
       aggregated.set(0, {
         id: 'call_123',
         name: 'get_weather',
@@ -384,7 +386,13 @@ describe('geminiOpenAIConverter', () => {
       // Final chunk with complete tool calls
       const result4 = convertStreamChunkToGemini(chunk4, aggregated);
       expect(result4.candidates?.[0]?.content?.parts).toEqual([
-        { functionCall: { name: 'get_weather', args: { city: 'Tokyo' }, id: 'call_123' } },
+        {
+          functionCall: {
+            name: 'get_weather',
+            args: { city: 'Tokyo' },
+            id: 'call_123',
+          },
+        },
       ]);
       expect(result4.candidates?.[0]?.finishReason).toBe(FinishReason.STOP);
     });

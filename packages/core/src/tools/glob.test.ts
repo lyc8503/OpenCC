@@ -118,17 +118,6 @@ describe('GlobTool', () => {
       expect(result.returnDisplay).toBe('Found 2 matching file(s)');
     }, 30000);
 
-    it('should find files case-sensitively when case_sensitive is true', async () => {
-      const params: GlobToolParams = { pattern: '*.txt', case_sensitive: true };
-      const invocation = globTool.build(params);
-      const result = await invocation.execute(abortSignal);
-      expect(result.llmContent).toContain('Found 1 file(s)');
-      expect(result.llmContent).toContain(path.join(tempRootDir, 'fileA.txt'));
-      expect(result.llmContent).not.toContain(
-        path.join(tempRootDir, 'FileB.TXT'),
-      );
-    }, 30000);
-
     it('should find files case-insensitively by default (pattern: *.TXT)', async () => {
       const params: GlobToolParams = { pattern: '*.TXT' };
       const invocation = globTool.build(params);
@@ -137,18 +126,6 @@ describe('GlobTool', () => {
 
       expect(result.llmContent).toContain('fileA.txt');
       expect(result.llmContent).toContain('FileB.TXT');
-    }, 30000);
-
-    it('should find files case-insensitively when case_sensitive is false (pattern: *.TXT)', async () => {
-      const params: GlobToolParams = {
-        pattern: '*.TXT',
-        case_sensitive: false,
-      };
-      const invocation = globTool.build(params);
-      const result = await invocation.execute(abortSignal);
-      expect(result.llmContent).toContain('Found 2 file(s)');
-      expect(result.llmContent).toContain(path.join(tempRootDir, 'fileA.txt'));
-      expect(result.llmContent).toContain(path.join(tempRootDir, 'FileB.TXT'));
     }, 30000);
 
     it('should find files using a pattern that includes a subdirectory', async () => {
@@ -165,7 +142,7 @@ describe('GlobTool', () => {
     }, 30000);
 
     it('should find files in a specified relative path (relative to rootDir)', async () => {
-      const params: GlobToolParams = { pattern: '*.md', dir_path: 'sub' };
+      const params: GlobToolParams = { pattern: '*.md', path: 'sub' };
       const invocation = globTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain('Found 2 file(s)');
@@ -236,7 +213,7 @@ describe('GlobTool', () => {
     }, 30000);
 
     it('should return a PATH_NOT_IN_WORKSPACE error if path is outside workspace', async () => {
-      const params: GlobToolParams = { pattern: '*', dir_path: '/etc' };
+      const params: GlobToolParams = { pattern: '*', path: '/etc' };
       expect(() => globTool.build(params)).toThrow(/Path not in workspace/);
     });
 
@@ -255,15 +232,15 @@ describe('GlobTool', () => {
       expect(globTool.validateToolParams(params)).toBeNull();
     });
 
-    it('should return null for valid parameters with dir_path', () => {
-      const params: GlobToolParams = { pattern: '*.txt', dir_path: 'sub' };
+    it('should return null for valid parameters with path', () => {
+      const params: GlobToolParams = { pattern: '*.txt', path: 'sub' };
       expect(globTool.validateToolParams(params)).toBeNull();
     });
 
-    it('should return null for valid parameters with absolute dir_path within workspace', async () => {
+    it('should return null for valid parameters with absolute path within workspace', async () => {
       const params: GlobToolParams = {
         pattern: '*.txt',
-        dir_path: tempRootDir,
+        path: tempRootDir,
       };
       expect(globTool.validateToolParams(params)).toBeNull();
     });
@@ -289,28 +266,8 @@ describe('GlobTool', () => {
       );
     });
 
-    it('should return error if dir_path is not a string', () => {
-      const params = {
-        pattern: '*',
-        dir_path: 123,
-      } as unknown as GlobToolParams;
-      expect(globTool.validateToolParams(params)).toContain(
-        'params/dir_path must be string',
-      );
-    });
-
-    it('should return error if case_sensitive is not a boolean', () => {
-      const params = {
-        pattern: '*',
-        case_sensitive: 'true',
-      } as unknown as GlobToolParams;
-      expect(globTool.validateToolParams(params)).toContain(
-        'params/case_sensitive must be boolean',
-      );
-    });
-
     it('should return error if search path resolves outside workspace', () => {
-      const params: GlobToolParams = { pattern: '*', dir_path: '../' };
+      const params: GlobToolParams = { pattern: '*', path: '../' };
       expect(globTool.validateToolParams(params)).toContain(
         'resolves outside the allowed workspace directories',
       );
@@ -319,7 +276,7 @@ describe('GlobTool', () => {
     it('should return error if specified search path does not exist', () => {
       const params: GlobToolParams = {
         pattern: '*',
-        dir_path: 'non-existent',
+        path: 'non-existent',
       };
       expect(globTool.validateToolParams(params)).toContain(
         'Search path does not exist',
@@ -328,7 +285,7 @@ describe('GlobTool', () => {
 
     it('should return error if specified search path is not a directory', async () => {
       await fs.writeFile(path.join(tempRootDir, 'not-a-dir'), 'content');
-      const params: GlobToolParams = { pattern: '*', dir_path: 'not-a-dir' };
+      const params: GlobToolParams = { pattern: '*', path: 'not-a-dir' };
       expect(globTool.validateToolParams(params)).toContain(
         'Search path is not a directory',
       );
@@ -339,24 +296,24 @@ describe('GlobTool', () => {
     it('should validate search paths are within workspace boundaries', () => {
       expect(globTool.validateToolParams({ pattern: '*' })).toBeNull();
       expect(
-        globTool.validateToolParams({ pattern: '*', dir_path: '.' }),
+        globTool.validateToolParams({ pattern: '*', path: '.' }),
       ).toBeNull();
       expect(
-        globTool.validateToolParams({ pattern: '*', dir_path: tempRootDir }),
+        globTool.validateToolParams({ pattern: '*', path: tempRootDir }),
       ).toBeNull();
 
       expect(
-        globTool.validateToolParams({ pattern: '*', dir_path: '..' }),
+        globTool.validateToolParams({ pattern: '*', path: '..' }),
       ).toContain('resolves outside the allowed workspace directories');
       expect(
-        globTool.validateToolParams({ pattern: '*', dir_path: '/' }),
+        globTool.validateToolParams({ pattern: '*', path: '/' }),
       ).toContain('resolves outside the allowed workspace directories');
     });
 
     it('should provide clear error messages when path is outside workspace', () => {
       const result = globTool.validateToolParams({
         pattern: '*',
-        dir_path: '/tmp/outside',
+        path: '/tmp/outside',
       });
       expect(result).toContain(
         'resolves outside the allowed workspace directories',
@@ -367,7 +324,7 @@ describe('GlobTool', () => {
       const subDir = path.join(tempRootDir, 'allowed-sub');
       await fs.mkdir(subDir);
       expect(
-        globTool.validateToolParams({ pattern: '*', dir_path: 'allowed-sub' }),
+        globTool.validateToolParams({ pattern: '*', path: 'allowed-sub' }),
       ).toBeNull();
     });
   });
@@ -408,45 +365,6 @@ describe('GlobTool', () => {
       expect(result.llmContent).toContain('Found 1 file(s)');
       expect(result.llmContent).toContain('visible_test.txt');
       expect(result.llmContent).not.toContain('gemini-ignored_test.txt');
-    }, 30000);
-
-    it('should not respect .gitignore when respect_git_ignore is false', async () => {
-      await fs.writeFile(
-        path.join(tempRootDir, '.gitignore'),
-        'ignored_test.txt',
-      );
-      await fs.writeFile(path.join(tempRootDir, 'ignored_test.txt'), 'content');
-
-      const params: GlobToolParams = {
-        pattern: 'ignored_test.txt',
-        respect_git_ignore: false,
-      };
-      const invocation = globTool.build(params);
-      const result = await invocation.execute(abortSignal);
-
-      expect(result.llmContent).toContain('Found 1 file(s)');
-      expect(result.llmContent).toContain('ignored_test.txt');
-    }, 30000);
-
-    it('should not respect .geminiignore when respect_gemini_ignore is false', async () => {
-      await fs.writeFile(
-        path.join(tempRootDir, GEMINI_IGNORE_FILE_NAME),
-        'gemini-ignored_test.txt',
-      );
-      await fs.writeFile(
-        path.join(tempRootDir, 'gemini-ignored_test.txt'),
-        'content',
-      );
-
-      const params: GlobToolParams = {
-        pattern: 'gemini-ignored_test.txt',
-        respect_gemini_ignore: false,
-      };
-      const invocation = globTool.build(params);
-      const result = await invocation.execute(abortSignal);
-
-      expect(result.llmContent).toContain('Found 1 file(s)');
-      expect(result.llmContent).toContain('gemini-ignored_test.txt');
     }, 30000);
   });
 });

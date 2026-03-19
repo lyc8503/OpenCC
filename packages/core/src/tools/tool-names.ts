@@ -154,7 +154,6 @@ export const SENSITIVE_TOOLS = new Set([
   SHELL_TOOL_NAME,
 ]);
 
-
 // Tool Display Names
 export const WRITE_FILE_DISPLAY_NAME = 'WriteFile';
 export const EDIT_DISPLAY_NAME = 'Edit';

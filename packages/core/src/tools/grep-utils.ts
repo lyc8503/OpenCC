@@ -67,12 +67,15 @@ export async function enrichWithAutoContext(
   matchCount: number,
   params: {
     names_only?: boolean;
+    output_mode?: 'content' | 'files_with_matches' | 'count';
     context?: number;
     before?: number;
     after?: number;
   },
 ): Promise<void> {
-  const { names_only, context, before, after } = params;
+  const { output_mode, context, before, after } = params;
+  // Support both new (output_mode) and legacy (names_only) parameters
+  const names_only = output_mode === 'files_with_matches' || params.names_only;
 
   if (
     matchCount >= 1 &&
@@ -140,7 +143,9 @@ export async function formatGrepResults(
   params: {
     pattern: string;
     names_only?: boolean;
+    output_mode?: 'content' | 'files_with_matches' | 'count';
     include_pattern?: string;
+    glob?: string;
     // Context params to determine if auto-context should be skipped
     context?: number;
     before?: number;
@@ -149,7 +154,10 @@ export async function formatGrepResults(
   searchLocationDescription: string,
   totalMaxMatches: number,
 ): Promise<{ llmContent: string; returnDisplay: string }> {
-  const { pattern, names_only, include_pattern } = params;
+  const { pattern, output_mode } = params;
+  // Support both new (output_mode) and legacy (names_only) parameters
+  const names_only = output_mode === 'files_with_matches' || params.names_only;
+  const include_pattern = params.glob || params.include_pattern;
 
   if (allMatches.length === 0) {
     const noMatchMsg = `No matches found for pattern "${pattern}" ${searchLocationDescription}${include_pattern ? ` (filter: "${include_pattern}")` : ''}.`;

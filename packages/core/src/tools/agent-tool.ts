@@ -9,12 +9,20 @@ import {
   BaseToolInvocation,
   type ToolResult,
   Kind,
+  type ToolLiveOutput,
+  type ToolCallConfirmationDetails,
+  ToolConfirmationOutcome,
 } from './tools.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import type { Config } from '../config/config.js';
 import { AGENT_TOOL_NAME } from './tool-names.js';
 import { AGENT_DEFINITION } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
+import { type AgentLoopContext } from '../config/agent-loop-context.js';
+import { LocalSubagentInvocation } from '../agents/local-invocation.js';
+import { type LocalAgentDefinition, type AgentInputs } from '../agents/types.js';
+import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
+import { ToolErrorType } from './tool-error.js';
 
 export interface AgentParams {
   description: string;
@@ -28,18 +36,66 @@ export interface AgentParams {
 }
 
 /**
- * Tool for launching specialized agents to handle complex tasks.
- * Note: This is a placeholder implementation. Full implementation requires
- * integration with the agent execution system.
+ * Agent type definitions for the Agent tool
  */
-export class AgentTool extends BaseDeclarativeTool<
-  AgentParams,
-  ToolResult
-> {
+interface AgentTypeInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  systemPrompt: string;
+  tools: string[];
+}
+
+/**
+ * Built-in agent type configurations
+ */
+const AGENT_TYPES: Record<string, AgentTypeInfo> = {
+  'general-purpose': {
+    name: 'general-purpose',
+    displayName: 'General Purpose Agent',
+    description: 'A general-purpose agent for complex tasks',
+    systemPrompt: `You are a helpful AI assistant. Complete the task thoroughly and accurately.
+Use available tools as needed. When done, provide a clear summary of what was accomplished.`,
+    tools: ['*'], // All tools
+  },
+  Explore: {
+    name: 'Explore',
+    displayName: 'Code Explorer',
+    description: 'Fast agent specialized for exploring codebases',
+    systemPrompt: `You are an expert code explorer. Your job is to efficiently search and understand codebases.
+Focus on finding relevant files, understanding code structure, and answering questions about the code.
+Be thorough but concise in your findings.`,
+    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
+  },
+  Plan: {
+    name: 'Plan',
+    displayName: 'Planning Agent',
+    description: 'Software architect agent for designing implementation plans',
+    systemPrompt: `You are a software architect. Design implementation plans step-by-step.
+Identify critical files and consider architectural trade-offs.
+Return a clear, actionable plan with specific file paths and code changes.`,
+    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
+  },
+  'claude-code-guide': {
+    name: 'claude-code-guide',
+    displayName: 'Claude Code Guide',
+    description: 'Agent for answering questions about Claude Code features',
+    systemPrompt: `You are a helpful guide for Claude Code CLI tool.
+Answer questions about features, hooks, slash commands, MCP servers, settings, IDE integrations, and keyboard shortcuts.
+Provide clear, actionable guidance.`,
+    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
+  },
+};
+
+/**
+ * Tool for launching specialized agents to handle complex tasks.
+ * Integrates with the LocalAgentExecutor for subagent execution.
+ */
+export class AgentTool extends BaseDeclarativeTool<AgentParams, ToolResult> {
   static readonly Name = AGENT_TOOL_NAME;
 
   constructor(
-    _config: Config,
+    private readonly context: AgentLoopContext,
     messageBus: MessageBus,
   ) {
     super(
@@ -59,6 +115,8 @@ export class AgentTool extends BaseDeclarativeTool<
     toolDisplayName: string,
   ): AgentInvocation {
     return new AgentInvocation(
+      this.context.config,
+      this.context,
       params,
       messageBus,
       toolName,
@@ -75,7 +133,11 @@ export class AgentInvocation extends BaseToolInvocation<
   AgentParams,
   ToolResult
 > {
+  private confirmationOutcome: ToolConfirmationOutcome | null = null;
+
   constructor(
+    private readonly config: Config,
+    private readonly context: AgentLoopContext,
     params: AgentParams,
     messageBus: MessageBus,
     toolName: string,
@@ -88,21 +150,242 @@ export class AgentInvocation extends BaseToolInvocation<
     return this.params.description || 'Agent task';
   }
 
-  async execute(_signal: AbortSignal): Promise<ToolResult> {
-    const { description, prompt, subagent_type, model, resume, run_in_background, isolation } = this.params;
+  override async shouldConfirmExecute(
+    _abortSignal: AbortSignal,
+  ): Promise<ToolCallConfirmationDetails | false> {
+    // Check if we have a message bus for policy decisions
+    if (!this.messageBus) {
+      return false;
+    }
 
-    // TODO: Integrate with actual agent execution system
-    // For now, return a placeholder message
-    return {
-      llmContent: `Agent execution is not yet implemented.
-Description: ${description}
-Subagent Type: ${subagent_type}
-Prompt: ${prompt.substring(0, 200)}${prompt.length > 200 ? '...' : ''}
-Model: ${model || 'default'}
-Resume: ${resume || 'N/A'}
-Background: ${run_in_background ? 'Yes' : 'No'}
-Isolation: ${isolation || 'None'}`,
-      returnDisplay: `Agent task: ${description}`,
+    // Agent tool requires user confirmation for isolation mode
+    if (this.params.isolation === 'worktree') {
+      return {
+        type: 'info',
+        title: 'Agent with Worktree Isolation',
+        prompt: `This agent task will run in an isolated git worktree. Continue?`,
+        onConfirm: async (outcome: ToolConfirmationOutcome) => {
+          this.confirmationOutcome = outcome;
+        },
+      };
+    }
+
+    return false;
+  }
+
+  private getAgentDefinition(): LocalAgentDefinition {
+    const { subagent_type, model, max_turns } = this.params;
+    const agentType = AGENT_TYPES[subagent_type] || AGENT_TYPES['general-purpose'];
+
+    // Map model parameter to model config
+    const modelId = model
+      ? model === 'haiku'
+        ? 'claude-haiku-4-5-20251001'
+        : model === 'opus'
+          ? 'claude-opus-4-6'
+          : 'claude-sonnet-4-6'
+      : this.config.getActiveModel();
+
+    const definition: LocalAgentDefinition = {
+      name: agentType.name,
+      displayName: agentType.displayName,
+      description: agentType.description,
+      kind: 'local',
+      inputConfig: {
+        inputSchema: {
+          type: 'object',
+          properties: {
+            prompt: { type: 'string', description: 'The task to perform' },
+          },
+          required: ['prompt'],
+        },
+      },
+      promptConfig: {
+        systemPrompt: agentType.systemPrompt,
+        query: '${prompt}',
+      },
+      modelConfig: {
+        model: modelId,
+      },
+      runConfig: {
+        maxTurns: max_turns || 30,
+        maxTimeMinutes: 10,
+      },
     };
+
+    return definition;
+  }
+
+  async execute(
+    signal: AbortSignal,
+    updateOutput?: (output: ToolLiveOutput) => void,
+  ): Promise<ToolResult> {
+    const {
+      description,
+      prompt,
+      subagent_type,
+      model,
+      resume,
+      run_in_background,
+      isolation,
+    } = this.params;
+
+    // Check cancellation
+    if (this.confirmationOutcome === ToolConfirmationOutcome.Cancel) {
+      return {
+        llmContent: 'Agent task cancelled by user.',
+        returnDisplay: 'Cancelled',
+      };
+    }
+
+    // Handle resume case
+    if (resume) {
+      // For now, we don't support resuming agents
+      return {
+        llmContent: `Agent resume is not yet implemented. Resume ID: ${resume}`,
+        returnDisplay: 'Resume not supported',
+      };
+    }
+
+    // Get agent definition
+    const agentDefinition = this.getAgentDefinition();
+
+    // Prepare inputs
+    const inputs: AgentInputs = { prompt };
+
+    try {
+      if (run_in_background) {
+        // Create a virtual execution for background mode
+        const handle = ExecutionLifecycleService.createExecution(
+          '',
+          () => {
+            // Kill handler - signal abort
+            signal.addEventListener('abort', () => {});
+          },
+          'none',
+          (output, error) => {
+            if (error) {
+              return `Agent "${description}" failed: ${error.message}`;
+            }
+            return output || `Agent "${description}" completed`;
+          },
+        );
+
+        const executionId = handle.pid;
+        if (executionId === undefined) {
+          return {
+            llmContent: 'Failed to create background execution: no execution ID',
+            returnDisplay: 'Failed to start agent',
+            error: {
+              message: 'Failed to allocate execution ID',
+              type: ToolErrorType.EXECUTION_FAILED,
+            },
+          };
+        }
+
+        // Run agent in background
+        this.runAgentInBackground(
+          agentDefinition,
+          inputs,
+          executionId,
+          signal,
+        ).catch((error) => {
+          ExecutionLifecycleService.completeExecution(executionId, {
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+        });
+
+        return {
+          llmContent: `Agent "${description}" started in background (ID: ${executionId}).
+Subagent Type: ${subagent_type}
+Model: ${model || 'default'}
+Isolation: ${isolation || 'None'}`,
+          returnDisplay: `Agent started: ${description}`,
+          data: {
+            pid: executionId,
+            command: `agent: ${description}`,
+            initialOutput: '',
+          },
+        };
+      }
+
+      // Run agent in foreground
+      const invocation = new LocalSubagentInvocation(
+        agentDefinition,
+        this.context,
+        inputs,
+        this.messageBus,
+        AgentTool.Name,
+        'Agent',
+      );
+
+      const result = await invocation.execute(signal, updateOutput);
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // Check if this was an abort
+      if (signal.aborted || errorMessage.includes('Abort')) {
+        return {
+          llmContent: `Agent "${description}" was cancelled.`,
+          returnDisplay: 'Agent cancelled',
+        };
+      }
+
+      return {
+        llmContent: `Agent "${description}" failed: ${errorMessage}`,
+        returnDisplay: `Agent failed: ${errorMessage}`,
+        error: {
+          message: errorMessage,
+          type: ToolErrorType.EXECUTION_FAILED,
+        },
+      };
+    }
+  }
+
+  private async runAgentInBackground(
+    definition: LocalAgentDefinition,
+    inputs: AgentInputs,
+    executionId: number,
+    signal: AbortSignal,
+  ): Promise<void> {
+    try {
+      const invocation = new LocalSubagentInvocation(
+        definition,
+        this.context,
+        inputs,
+        this.messageBus,
+        AgentTool.Name,
+        'Agent',
+      );
+
+      // Subscribe to output and forward to execution lifecycle
+      const unsubscribe = ExecutionLifecycleService.subscribe(
+        executionId,
+        (event) => {
+          if (event.type === 'data' && typeof event.chunk === 'string') {
+            ExecutionLifecycleService.appendOutput(executionId, event.chunk);
+          }
+        },
+      );
+
+      const result = await invocation.execute(signal);
+
+      unsubscribe();
+
+      // Complete the execution
+      ExecutionLifecycleService.completeExecution(executionId, {
+        exitCode: result.error ? 1 : 0,
+        error: result.error
+          ? new Error(result.error.message)
+          : undefined,
+      });
+    } catch (error) {
+      ExecutionLifecycleService.completeExecution(executionId, {
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+    }
   }
 }

@@ -115,11 +115,7 @@ export function useSessionResume({
         resumedSessionData,
       );
     }
-  }, [
-    resumedSessionData,
-    isGeminiClientInitialized,
-    loadHistoryForResume,
-  ]);
+  }, [resumedSessionData, isGeminiClientInitialized, loadHistoryForResume]);
 
   return { loadHistoryForResume, isResuming };
 }

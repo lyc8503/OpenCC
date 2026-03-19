@@ -359,6 +359,7 @@ class GrepToolInvocation extends BaseToolInvocation<
     if (
       matchCount >= 1 &&
       matchCount <= 3 &&
+      this.params.output_mode !== 'files_with_matches' &&
       !this.params.names_only &&
       this.params.context === undefined &&
       this.params.before === undefined &&
@@ -588,10 +589,10 @@ class GrepToolInvocation extends BaseToolInvocation<
    */
   getDescription(): string {
     let description = `'${this.params.pattern}'`;
-    if (this.params.include_pattern) {
-      description += ` in ${this.params.include_pattern}`;
+    if (this.params.glob) {
+      description += ` in ${this.params.glob}`;
     }
-    const pathParam = this.params.dir_path || '.';
+    const pathParam = this.params.path || '.';
     const resolvedPath = path.resolve(this.config.getTargetDir(), pathParam);
     if (resolvedPath === this.config.getTargetDir() || pathParam === '.') {
       description += ` within ./`;
@@ -675,10 +676,11 @@ export class RipGrepTool extends BaseDeclarativeTool<
     }
 
     // Only validate path if one is provided
-    if (params.dir_path) {
+    const pathParam = params.path || params.dir_path;
+    if (pathParam) {
       const resolvedPath = path.resolve(
         this.config.getTargetDir(),
-        params.dir_path,
+        pathParam,
       );
       const validationError = this.config.validatePathAccess(
         resolvedPath,

@@ -15,6 +15,7 @@ import type { Config } from '../config/config.js';
 import { TASK_OUTPUT_TOOL_NAME } from './tool-names.js';
 import { TASK_OUTPUT_DEFINITION } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
+import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
 
 export interface TaskOutputParams {
   task_id: string;
@@ -24,8 +25,8 @@ export interface TaskOutputParams {
 
 /**
  * Tool for retrieving output from background tasks.
- * Note: This is a placeholder implementation. Full implementation requires
- * integration with the task management system.
+ * Integrates with ExecutionLifecycleService to get output from running
+ * or recently completed executions.
  */
 export class TaskOutputTool extends BaseDeclarativeTool<
   TaskOutputParams,
@@ -33,10 +34,7 @@ export class TaskOutputTool extends BaseDeclarativeTool<
 > {
   static readonly Name = TASK_OUTPUT_TOOL_NAME;
 
-  constructor(
-    _config: Config,
-    messageBus: MessageBus,
-  ) {
+  constructor(_config: Config, messageBus: MessageBus) {
     super(
       TaskOutputTool.Name,
       'Task Output',
@@ -83,12 +81,129 @@ export class TaskOutputInvocation extends BaseToolInvocation<
     return `Getting output for task: ${this.params.task_id}`;
   }
 
-  async execute(_signal: AbortSignal): Promise<ToolResult> {
-    // TODO: Integrate with actual task management system
-    // For now, return a placeholder message
-    return {
-      llmContent: `Task output retrieval is not yet implemented. Task ID: ${this.params.task_id}`,
-      returnDisplay: `Task ${this.params.task_id} output not available`,
-    };
+  async execute(signal: AbortSignal): Promise<ToolResult> {
+    const { task_id, block = true, timeout = 30000 } = this.params;
+
+    if (!task_id) {
+      return {
+        llmContent: 'Error: No task ID provided.',
+        returnDisplay: 'Error: Missing task ID',
+      };
+    }
+
+    // Try to parse as numeric PID
+    const numericId = parseInt(task_id, 10);
+
+    if (isNaN(numericId)) {
+      return {
+        llmContent: `Error: Invalid task ID format. Expected a numeric process ID, got: ${task_id}`,
+        returnDisplay: `Error: Invalid task ID`,
+      };
+    }
+
+    // Check if this is an active execution
+    const isActive = ExecutionLifecycleService.isActive(numericId);
+
+    if (!isActive) {
+      // Task has already completed or doesn't exist
+      return {
+        llmContent: `Task ${task_id} has completed or does not exist.`,
+        returnDisplay: `Task ${task_id} not found or completed`,
+      };
+    }
+
+    if (block) {
+      // Wait for the task to complete with timeout
+      return this.waitForCompletion(numericId, timeout, signal);
+    } else {
+      // Non-blocking: just get current output snapshot
+      return this.getCurrentOutput(numericId);
+    }
+  }
+
+  private async waitForCompletion(
+    executionId: number,
+    timeoutMs: number,
+    signal: AbortSignal,
+  ): Promise<ToolResult> {
+    return new Promise((resolve) => {
+      let settled = false;
+      let output = '';
+
+      const cleanup = () => {
+        settled = true;
+        timeoutId?.unref();
+        unsubscribe?.();
+        signal.removeEventListener('abort', abortHandler);
+      };
+
+      const abortHandler = () => {
+        if (settled) return;
+        cleanup();
+        resolve({
+          llmContent: `Task ${executionId} output retrieval was cancelled.`,
+          returnDisplay: 'Cancelled',
+        });
+      };
+
+      // Subscribe to output events
+      const unsubscribe = ExecutionLifecycleService.subscribe(
+        executionId,
+        (event) => {
+          if (settled) return;
+
+          if (event.type === 'data') {
+            output += typeof event.chunk === 'string' ? event.chunk : '';
+          } else if (event.type === 'exit') {
+            cleanup();
+            resolve({
+              llmContent:
+                output ||
+                `Task ${executionId} completed with exit code ${event.exitCode ?? 0}.`,
+              returnDisplay: output || `Task ${executionId} completed`,
+            });
+          }
+        },
+      );
+
+      // Set up timeout
+      const timeoutId = setTimeout(() => {
+        if (settled) return;
+        cleanup();
+        resolve({
+          llmContent:
+            output ||
+            `Task ${executionId} is still running. Timeout reached after ${timeoutMs}ms.`,
+          returnDisplay: output || `Task still running (timeout)`,
+        });
+      }, timeoutMs);
+
+      signal.addEventListener('abort', abortHandler, { once: true });
+    });
+  }
+
+  private getCurrentOutput(executionId: number): Promise<ToolResult> {
+    return new Promise((resolve) => {
+      let output = '';
+
+      const unsubscribe = ExecutionLifecycleService.subscribe(
+        executionId,
+        (event) => {
+          if (event.type === 'data') {
+            output += typeof event.chunk === 'string' ? event.chunk : '';
+          }
+        },
+      );
+
+      // Immediately unsubscribe after getting snapshot
+      unsubscribe();
+
+      resolve({
+        llmContent:
+          output ||
+          `Task ${executionId} is still running. No output available yet.`,
+        returnDisplay: output || `Task ${executionId} running`,
+      });
+    });
   }
 }

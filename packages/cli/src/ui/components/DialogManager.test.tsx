@@ -34,9 +34,6 @@ vi.mock('./SettingsDialog.js', () => ({
 vi.mock('./EditorSettingsDialog.js', () => ({
   EditorSettingsDialog: () => <Text>EditorSettingsDialog</Text>,
 }));
-vi.mock('../privacy/PrivacyNotice.js', () => ({
-  PrivacyNotice: () => <Text>PrivacyNotice</Text>,
-}));
 vi.mock('./ProQuotaDialog.js', () => ({
   ProQuotaDialog: () => <Text>ProQuotaDialog</Text>,
 }));
@@ -83,7 +80,6 @@ describe('DialogManager', () => {
     isSettingsDialogOpen: false,
     isModelDialogOpen: false,
     isEditorDialogOpen: false,
-    showPrivacyNotice: false,
     isPermissionsDialogOpen: false,
     isAgentConfigDialogOpen: false,
     selectedAgentName: undefined,
@@ -158,7 +154,6 @@ describe('DialogManager', () => {
     [{ isSettingsDialogOpen: true }, 'SettingsDialog'],
     [{ isModelDialogOpen: true }, 'ModelDialog'],
     [{ isEditorDialogOpen: true }, 'EditorSettingsDialog'],
-    [{ showPrivacyNotice: true }, 'PrivacyNotice'],
     [{ isPermissionsDialogOpen: true }, 'PermissionsModifyTrustDialog'],
     [
       {

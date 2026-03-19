@@ -109,21 +109,21 @@ describe('GrepTool', () => {
     });
 
     it('should return null for valid params (pattern and path)', () => {
-      const params: GrepToolParams = { pattern: 'hello', dir_path: '.' };
+      const params: GrepToolParams = { pattern: 'hello', path: '.' };
       expect(grepTool.validateToolParams(params)).toBeNull();
     });
 
     it('should return null for valid params (pattern, path, and include)', () => {
       const params: GrepToolParams = {
         pattern: 'hello',
-        dir_path: '.',
-        include_pattern: '*.txt',
+        path: '.',
+        glob: '*.txt',
       };
       expect(grepTool.validateToolParams(params)).toBeNull();
     });
 
     it('should return error if pattern is missing', () => {
-      const params = { dir_path: '.' } as unknown as GrepToolParams;
+      const params = { path: '.' } as unknown as GrepToolParams;
       expect(grepTool.validateToolParams(params)).toBe(
         `params must have required property 'pattern'`,
       );
@@ -139,7 +139,7 @@ describe('GrepTool', () => {
     it('should return error if path does not exist', () => {
       const params: GrepToolParams = {
         pattern: 'hello',
-        dir_path: 'nonexistent',
+        path: 'nonexistent',
       };
       // Check for the core error message, as the full path might vary
       expect(grepTool.validateToolParams(params)).toContain(
@@ -150,7 +150,7 @@ describe('GrepTool', () => {
 
     it('should return error if path is a file, not a directory', async () => {
       const filePath = path.join(tempRootDir, 'fileA.txt');
-      const params: GrepToolParams = { pattern: 'hello', dir_path: filePath };
+      const params: GrepToolParams = { pattern: 'hello', path: filePath };
       expect(grepTool.validateToolParams(params)).toContain(
         `Path is not a directory: ${filePath}`,
       );
@@ -213,7 +213,7 @@ describe('GrepTool', () => {
     });
 
     it('should find matches in a specific path', async () => {
-      const params: GrepToolParams = { pattern: 'world', dir_path: 'sub' };
+      const params: GrepToolParams = { pattern: 'world', path: 'sub' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(
@@ -227,7 +227,7 @@ describe('GrepTool', () => {
     it('should find matches with an include glob', async () => {
       const params: GrepToolParams = {
         pattern: 'hello',
-        include_pattern: '*.js',
+        glob: '*.js',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -248,8 +248,8 @@ describe('GrepTool', () => {
       );
       const params: GrepToolParams = {
         pattern: 'hello',
-        dir_path: 'sub',
-        include_pattern: '*.js',
+        path: 'sub',
+        glob: '*.js',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -298,7 +298,7 @@ describe('GrepTool', () => {
     }, 30000);
 
     it('should throw an error if params are invalid', async () => {
-      const params = { dir_path: '.' } as unknown as GrepToolParams; // Invalid: pattern missing
+      const params = { path: '.' } as unknown as GrepToolParams; // Invalid: pattern missing
       expect(() => grepTool.build(params)).toThrow(
         /params must have required property 'pattern'/,
       );
@@ -443,7 +443,7 @@ describe('GrepTool', () => {
       );
 
       // Search only in the 'sub' directory of the first workspace
-      const params: GrepToolParams = { pattern: 'world', dir_path: 'sub' };
+      const params: GrepToolParams = { pattern: 'world', path: 'sub' };
       const invocation = multiDirGrepTool.build(params);
       const result = await invocation.execute(abortSignal);
 
@@ -465,7 +465,7 @@ describe('GrepTool', () => {
       // Use 'world' pattern which has 3 matches across fileA.txt and sub/fileC.txt
       const params: GrepToolParams = {
         pattern: 'world',
-        total_max_matches: 2,
+        head_limit: 2,
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -483,30 +483,10 @@ describe('GrepTool', () => {
       expect(result.returnDisplay).toBe('Found 2 matches (limited)');
     });
 
-    it('should respect max_matches_per_file in JS fallback', async () => {
+    it('should return only file paths when output_mode is files_with_matches', async () => {
       const params: GrepToolParams = {
         pattern: 'world',
-        max_matches_per_file: 1,
-      };
-      const invocation = grepTool.build(params);
-      const result = await invocation.execute(abortSignal);
-
-      // fileA.txt has 2 worlds, but should only return 1.
-      // sub/fileC.txt has 1 world, so total matches = 2.
-      expect(result.llmContent).toContain('Found 2 matches');
-      expect(result.llmContent).toContain('File: fileA.txt');
-      // Should be a match
-      expect(result.llmContent).toContain('L1: hello world');
-      // Should NOT be a match (but might be in context as L2-)
-      expect(result.llmContent).not.toContain('L2: second line with world');
-      expect(result.llmContent).toContain('File: sub/fileC.txt');
-      expect(result.llmContent).toContain('L1: another world in sub dir');
-    });
-
-    it('should return only file paths when names_only is true', async () => {
-      const params: GrepToolParams = {
-        pattern: 'world',
-        names_only: true,
+        output_mode: 'files_with_matches',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -516,28 +496,6 @@ describe('GrepTool', () => {
       expect(result.llmContent).toContain('sub/fileC.txt');
       expect(result.llmContent).not.toContain('L1:');
       expect(result.llmContent).not.toContain('hello world');
-    });
-
-    it('should filter out matches based on exclude_pattern', async () => {
-      await fs.writeFile(
-        path.join(tempRootDir, 'copyright.txt'),
-        'Copyright 2025 Google LLC\nCopyright 2026 Google LLC',
-      );
-
-      const params: GrepToolParams = {
-        pattern: 'Copyright .* Google LLC',
-        exclude_pattern: '2026',
-        dir_path: '.',
-      };
-      const invocation = grepTool.build(params);
-      const result = await invocation.execute(abortSignal);
-
-      expect(result.llmContent).toContain('Found 1 match');
-      expect(result.llmContent).toContain('copyright.txt');
-      // Should be a match
-      expect(result.llmContent).toContain('L1: Copyright 2025 Google LLC');
-      // Should NOT be a match (but might be in context as L2-)
-      expect(result.llmContent).not.toContain('L2: Copyright 2026 Google LLC');
     });
 
     it('should include context when matches are <= 3', async () => {
@@ -590,7 +548,7 @@ describe('GrepTool', () => {
     it('should generate correct description with pattern and include', () => {
       const params: GrepToolParams = {
         pattern: 'testPattern',
-        include_pattern: '*.ts',
+        glob: '*.ts',
       };
       const invocation = grepTool.build(params);
       expect(invocation.getDescription()).toBe("'testPattern' in *.ts");
@@ -601,7 +559,7 @@ describe('GrepTool', () => {
       await fs.mkdir(dirPath, { recursive: true });
       const params: GrepToolParams = {
         pattern: 'testPattern',
-        dir_path: path.join('src', 'app'),
+        path: path.join('src', 'app'),
       };
       const invocation = grepTool.build(params);
       // The path will be relative to the tempRootDir, so we check for containment.
@@ -636,8 +594,8 @@ describe('GrepTool', () => {
       await fs.mkdir(dirPath, { recursive: true });
       const params: GrepToolParams = {
         pattern: 'testPattern',
-        include_pattern: '*.ts',
-        dir_path: path.join('src', 'app'),
+        glob: '*.ts',
+        path: path.join('src', 'app'),
       };
       const invocation = grepTool.build(params);
       expect(invocation.getDescription()).toContain(
@@ -647,7 +605,7 @@ describe('GrepTool', () => {
     });
 
     it('should use ./ for root path in description', () => {
-      const params: GrepToolParams = { pattern: 'testPattern', dir_path: '.' };
+      const params: GrepToolParams = { pattern: 'testPattern', path: '.' };
       const invocation = grepTool.build(params);
       expect(invocation.getDescription()).toBe("'testPattern' within ./");
     });

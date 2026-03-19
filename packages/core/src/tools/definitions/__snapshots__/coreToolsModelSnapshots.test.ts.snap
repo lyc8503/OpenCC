@@ -99,11 +99,11 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
             },
             "multiSelect": {
               "default": false,
-              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
+              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive. Only applies when type="choice".",
               "type": "boolean",
             },
             "options": {
-              "description": "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically.",
+              "description": "The available choices for this question. Must have 2-4 options. REQUIRED when type='choice'. IGNORED for 'text' and 'yesno'.",
               "items": {
                 "additionalProperties": false,
                 "properties": {
@@ -130,16 +130,29 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
               "minItems": 2,
               "type": "array",
             },
+            "placeholder": {
+              "description": "Placeholder hint text. For type='text', shown in the input field. For type='choice', shown in the 'Other' custom input.",
+              "type": "string",
+            },
             "question": {
               "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"",
+              "type": "string",
+            },
+            "type": {
+              "default": "choice",
+              "description": "Question type: 'choice' renders selectable options, 'text' renders free-form input, 'yesno' renders a binary Yes/No choice.",
+              "enum": [
+                "choice",
+                "text",
+                "yesno",
+              ],
               "type": "string",
             },
           },
           "required": [
             "question",
             "header",
-            "options",
-            "multiSelect",
+            "type",
           ],
           "type": "object",
         },
@@ -209,7 +222,12 @@ Only skip EnterPlanMode for simple tasks:
   "name": "EnterPlanMode",
   "parametersJsonSchema": {
     "additionalProperties": false,
-    "properties": {},
+    "properties": {
+      "reason": {
+        "description": "Optional reason for entering plan mode. Shown to the user for context.",
+        "type": "string",
+      },
+    },
     "type": "object",
   },
 }
@@ -879,11 +897,11 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
             },
             "multiSelect": {
               "default": false,
-              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
+              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive. Only applies when type="choice".",
               "type": "boolean",
             },
             "options": {
-              "description": "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically.",
+              "description": "The available choices for this question. Must have 2-4 options. REQUIRED when type='choice'. IGNORED for 'text' and 'yesno'.",
               "items": {
                 "additionalProperties": false,
                 "properties": {
@@ -910,16 +928,29 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
               "minItems": 2,
               "type": "array",
             },
+            "placeholder": {
+              "description": "Placeholder hint text. For type='text', shown in the input field. For type='choice', shown in the 'Other' custom input.",
+              "type": "string",
+            },
             "question": {
               "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"",
+              "type": "string",
+            },
+            "type": {
+              "default": "choice",
+              "description": "Question type: 'choice' renders selectable options, 'text' renders free-form input, 'yesno' renders a binary Yes/No choice.",
+              "enum": [
+                "choice",
+                "text",
+                "yesno",
+              ],
               "type": "string",
             },
           },
           "required": [
             "question",
             "header",
-            "options",
-            "multiSelect",
+            "type",
           ],
           "type": "object",
         },
@@ -989,7 +1020,12 @@ Only skip EnterPlanMode for simple tasks:
   "name": "EnterPlanMode",
   "parametersJsonSchema": {
     "additionalProperties": false,
-    "properties": {},
+    "properties": {
+      "reason": {
+        "description": "Optional reason for entering plan mode. Shown to the user for context.",
+        "type": "string",
+      },
+    },
     "type": "object",
   },
 }

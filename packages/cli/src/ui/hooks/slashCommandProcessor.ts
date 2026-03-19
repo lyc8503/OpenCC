@@ -9,7 +9,6 @@ import {
   useMemo,
   useEffect,
   useState,
-  createElement,
 } from 'react';
 import { type PartListUnion } from '@google/genai';
 import process from 'node:process';
@@ -58,16 +57,10 @@ import {
   type ExtensionUpdateAction,
   type ExtensionUpdateStatus,
 } from '../state/extensions.js';
-import {
-  LogoutConfirmationDialog,
-  LogoutChoice,
-} from '../components/LogoutConfirmationDialog.js';
-import { runExitCleanup } from '../../utils/cleanup.js';
 
 interface SlashCommandProcessorActions {
   openThemeDialog: () => void;
   openEditorDialog: () => void;
-  openPrivacyNotice: () => void;
   openSettingsDialog: () => void;
   openSessionBrowser: () => void;
   openModelDialog: () => void;
@@ -460,49 +453,13 @@ export const useSlashCommandProcessor = (
                     Date.now(),
                   );
                   return { type: 'handled' };
-                case 'logout':
-                  // Show logout confirmation dialog with Login/Exit options
-                  setCustomDialog(
-                    createElement(LogoutConfirmationDialog, {
-                      onSelect: async (choice: LogoutChoice) => {
-                        setCustomDialog(null);
-                        if (choice === LogoutChoice.LOGIN) {
-                          // Auth dialog has been removed
-                          addItem(
-                            {
-                              type: MessageType.INFO,
-                              text: 'Auth selection is no longer available. Use API key authentication.',
-                            },
-                            Date.now(),
-                          );
-                        } else {
-                          await runExitCleanup();
-                          process.exit(0);
-                        }
-                      },
-                    }),
-                  );
-                  return { type: 'handled' };
                 case 'dialog':
                   switch (result.dialog) {
-                    case 'auth':
-                      // Auth dialog has been removed
-                      addItem(
-                        {
-                          type: MessageType.INFO,
-                          text: 'Auth selection is no longer available. Use API key authentication.',
-                        },
-                        Date.now(),
-                      );
-                      return { type: 'handled' };
                     case 'theme':
                       actions.openThemeDialog();
                       return { type: 'handled' };
                     case 'editor':
                       actions.openEditorDialog();
-                      return { type: 'handled' };
-                    case 'privacy':
-                      actions.openPrivacyNotice();
                       return { type: 'handled' };
                     case 'sessionBrowser':
                       actions.openSessionBrowser();

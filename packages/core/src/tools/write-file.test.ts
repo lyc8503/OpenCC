@@ -803,12 +803,12 @@ describe('WriteFileTool', () => {
     });
 
     it.skip('should include modification message when modified_by_user is true', async () => {
-        // Skipped: modified_by_user is not in REF_PROMPT.md schema
-      });
+      // Skipped: modified_by_user is not in REF_PROMPT.md schema
+    });
 
     it.skip('should not include modification message when modified_by_user is false', async () => {
-        // Skipped: modified_by_user is not in REF_PROMPT.md schema
-      });
+      // Skipped: modified_by_user is not in REF_PROMPT.md schema
+    });
 
     it('should include the file content in llmContent', async () => {
       const filePath = path.join(rootDir, 'content_check.txt');

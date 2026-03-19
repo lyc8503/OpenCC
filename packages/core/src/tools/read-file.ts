@@ -130,9 +130,10 @@ class ReadFileToolInvocation extends BaseToolInvocation<
     // offset is 1-based line number to start reading from
     // limit is number of lines to read
     const startLine = this.params.offset;
-    const endLine = this.params.limit !== undefined && startLine !== undefined
-      ? startLine + this.params.limit - 1
-      : undefined;
+    const endLine =
+      this.params.limit !== undefined && startLine !== undefined
+        ? startLine + this.params.limit - 1
+        : undefined;
 
     const result = await processSingleFileContent(
       this.resolvedPath,
