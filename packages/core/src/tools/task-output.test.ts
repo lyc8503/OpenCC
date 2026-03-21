@@ -70,14 +70,40 @@ describe('TaskOutputTool', () => {
       expect(result.llmContent).toContain('Invalid task ID');
     });
 
-    it('should return not found for inactive task', async () => {
+    it('should return not found for unknown inactive task', async () => {
       vi.mocked(ExecutionLifecycleService.isActive).mockReturnValue(false);
+      vi.mocked(ExecutionLifecycleService.isKnown).mockReturnValue(false);
+      vi.mocked(ExecutionLifecycleService.getCompletedResult).mockReturnValue(
+        undefined,
+      );
 
       const params: TaskOutputParams = { task_id: '12345' };
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
-      expect(result.llmContent).toContain('completed or does not exist');
+      expect(result.llmContent).toContain('does not exist');
+    });
+
+    it('should return completed output for completed task', async () => {
+      vi.mocked(ExecutionLifecycleService.isActive).mockReturnValue(false);
+      vi.mocked(ExecutionLifecycleService.isKnown).mockReturnValue(true);
+      vi.mocked(ExecutionLifecycleService.getCompletedResult).mockReturnValue({
+        rawOutput: Buffer.from('completed output'),
+        output: 'completed output',
+        exitCode: 0,
+        signal: null,
+        error: null,
+        aborted: false,
+        pid: 12345,
+        executionMethod: 'child_process',
+      });
+
+      const params: TaskOutputParams = { task_id: '12345' };
+      const invocation = tool.build(params);
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(result.llmContent).toContain('completed output');
+      expect(result.returnDisplay).toContain('completed output');
     });
 
     it('should get current output for active task (non-blocking)', async () => {

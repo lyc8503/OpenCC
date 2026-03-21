@@ -42,10 +42,13 @@ vi.mock('node:util', () => ({
 describe('EnterWorktreeTool', () => {
   let mockConfig: Config;
   let tool: EnterWorktreeTool;
+  let setTargetDirMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    setTargetDirMock = vi.fn();
     mockConfig = {
       getTargetDir: () => '/test/repo',
+      setTargetDir: setTargetDirMock,
     } as unknown as Config;
     tool = new EnterWorktreeTool(mockConfig, createMockMessageBus());
     vi.resetAllMocks();
@@ -87,12 +90,37 @@ describe('EnterWorktreeTool', () => {
     });
   });
 
-  describe('execute', () => {
-    it('should return cancelled if user cancels', async () => {
+  describe('shouldConfirmExecute', () => {
+    it('should return confirmation dialog', async () => {
       const params: EnterWorktreeParams = { name: 'my-feature' };
       const invocation = tool.build(params);
 
-      // Simulate user cancellation
+      const result = await invocation.shouldConfirmExecute(
+        new AbortController().signal,
+      );
+
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty('type', 'info');
+      expect(result).toHaveProperty('title', 'Enter Worktree');
+      expect(result).toHaveProperty('prompt');
+      expect((result as { prompt: string }).prompt).toContain('my-feature');
+    });
+
+    it('should include name in prompt when provided', async () => {
+      const params: EnterWorktreeParams = { name: 'test-worktree' };
+      const invocation = tool.build(params);
+
+      const result = await invocation.shouldConfirmExecute(
+        new AbortController().signal,
+      );
+
+      expect((result as { prompt: string }).prompt).toContain('test-worktree');
+    });
+
+    it('should not require confirmation when cancelled', async () => {
+      const params: EnterWorktreeParams = { name: 'my-feature' };
+      const invocation = tool.build(params);
+
       const confirmResult = await invocation.shouldConfirmExecute(
         new AbortController().signal,
       );
@@ -103,7 +131,9 @@ describe('EnterWorktreeTool', () => {
       const result = await invocation.execute(new AbortController().signal);
       expect(result.llmContent).toContain('cancelled');
     });
+  });
 
+  describe('execute', () => {
     it('should return error for non-git directory', async () => {
       mockExecAsync.mockRejectedValueOnce(new Error('Not a git repository'));
 
@@ -120,9 +150,11 @@ describe('EnterWorktreeTool', () => {
 
       const result = await invocation.execute(new AbortController().signal);
       expect(result.llmContent).toContain('Not a git repository');
+      expect(result.error).toBeDefined();
+      expect(result.error?.type).toBe('path_not_in_workspace');
     });
 
-    it('should create worktree successfully', async () => {
+    it('should create worktree successfully and switch directory', async () => {
       // Mock git repository check
       mockExecAsync
         .mockResolvedValueOnce({ stdout: '.git' }) // rev-parse --git-dir
@@ -149,7 +181,18 @@ describe('EnterWorktreeTool', () => {
       }
 
       const result = await invocation.execute(new AbortController().signal);
+
       expect(result.llmContent).toContain('Successfully created worktree');
+      expect(result.llmContent).toContain('my-feature');
+      expect(result.llmContent).toContain('/test/repo/.claude/worktrees/my-feature');
+      expect(result.returnDisplay).toContain('my-feature');
+      expect(result.data).toBeDefined();
+      expect((result.data as { worktreePath: string }).worktreePath).toContain('my-feature');
+
+      // Verify directory was switched
+      expect(setTargetDirMock).toHaveBeenCalledWith(
+        expect.stringContaining('my-feature'),
+      );
     });
 
     it('should return error if already in worktree', async () => {
@@ -176,6 +219,105 @@ describe('EnterWorktreeTool', () => {
 
       const result = await invocation.execute(new AbortController().signal);
       expect(result.llmContent).toContain('Already in a worktree');
+      expect(result.error).toBeDefined();
+      expect(result.error?.type).toBe('execution_failed');
+    });
+
+    it('should generate random name when name not provided', async () => {
+      // Mock git repository check
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: '.git' }) // rev-parse --git-dir
+        .mockResolvedValueOnce({ stdout: 'true' }) // is-inside-work-tree
+        .mockResolvedValueOnce({ stdout: 'main' }) // abbrev-ref HEAD
+        .mockResolvedValueOnce({ stdout: '' }); // worktree add
+
+      // Mock fs operations
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      vi.mocked(fs.mkdirSync).mockReturnValue(undefined);
+      vi.mocked(fs.statSync).mockReturnValue({
+        isFile: () => false,
+      } as fs.Stats);
+
+      const params: EnterWorktreeParams = {};
+      const invocation = tool.build(params);
+
+      // Simulate user confirmation
+      const confirmResult = await invocation.shouldConfirmExecute(
+        new AbortController().signal,
+      );
+      if (confirmResult && 'onConfirm' in confirmResult) {
+        await confirmResult.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+      }
+
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(result.llmContent).toContain('Successfully created worktree');
+      // Random name should contain 'worktree-'
+      expect(result.llmContent).toMatch(/worktree-\d+/);
+    });
+
+    it('should handle worktree already exists error', async () => {
+      // Mock git repository check
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: '.git' }) // rev-parse --git-dir
+        .mockResolvedValueOnce({ stdout: 'true' }) // is-inside-work-tree
+        .mockResolvedValueOnce({ stdout: 'main' }) // abbrev-ref HEAD
+        .mockRejectedValueOnce(new Error('worktree "existing-name" already exists'));
+
+      // Mock fs operations - worktree already exists
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.mkdirSync).mockReturnValue(undefined);
+      vi.mocked(fs.statSync).mockReturnValue({
+        isFile: () => false,
+      } as fs.Stats);
+
+      const params: EnterWorktreeParams = { name: 'existing-name' };
+      const invocation = tool.build(params);
+
+      // Simulate user confirmation
+      const confirmResult = await invocation.shouldConfirmExecute(
+        new AbortController().signal,
+      );
+      if (confirmResult && 'onConfirm' in confirmResult) {
+        await confirmResult.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+      }
+
+      const result = await invocation.execute(new AbortController().signal);
+      expect(result.error).toBeDefined();
+      expect(result.llmContent).toContain('already exists');
+    });
+
+    it('should include branch info in result', async () => {
+      // Mock git repository check
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: '.git' }) // rev-parse --git-dir
+        .mockResolvedValueOnce({ stdout: 'true' }) // is-inside-work-tree
+        .mockResolvedValueOnce({ stdout: 'feature/my-branch' }) // abbrev-ref HEAD
+        .mockResolvedValueOnce({ stdout: '' }); // worktree add
+
+      // Mock fs operations
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      vi.mocked(fs.mkdirSync).mockReturnValue(undefined);
+      vi.mocked(fs.statSync).mockReturnValue({
+        isFile: () => false,
+      } as fs.Stats);
+
+      const params: EnterWorktreeParams = { name: 'my-worktree' };
+      const invocation = tool.build(params);
+
+      // Simulate user confirmation
+      const confirmResult = await invocation.shouldConfirmExecute(
+        new AbortController().signal,
+      );
+      if (confirmResult && 'onConfirm' in confirmResult) {
+        await confirmResult.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+      }
+
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(result.llmContent).toContain('Branch: worktree/my-worktree');
+      expect(result.data).toBeDefined();
+      expect((result.data as { branchName: string }).branchName).toBe('worktree/my-worktree');
     });
   });
 });

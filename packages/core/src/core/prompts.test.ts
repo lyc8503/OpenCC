@@ -232,17 +232,6 @@ describe('Core System Prompt (prompts.ts)', () => {
     expect(prompt).toMatchSnapshot();
   });
 
-  it('should include the TASK MANAGEMENT PROTOCOL when task tracker is enabled', () => {
-    vi.mocked(mockConfig.getActiveModel).mockReturnValue(PREVIEW_GEMINI_MODEL);
-    vi.mocked(mockConfig.isTrackerEnabled).mockReturnValue(true);
-    const prompt = getCoreSystemPrompt(mockConfig);
-    expect(prompt).toContain('# TASK MANAGEMENT PROTOCOL');
-    expect(prompt).toContain(
-      '**PLAN MODE INTEGRATION**: If an approved plan exists, you MUST use the `tracker_create_task` tool to decompose it into discrete tasks before writing any code',
-    );
-    expect(prompt).toMatchSnapshot();
-  });
-
   it('should use chatty system prompt for preview model', () => {
     vi.mocked(mockConfig.getActiveModel).mockReturnValue(PREVIEW_GEMINI_MODEL);
     const prompt = getCoreSystemPrompt(mockConfig);

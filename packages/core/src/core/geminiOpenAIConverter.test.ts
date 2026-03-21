@@ -249,7 +249,7 @@ describe('geminiOpenAIConverter', () => {
       const result = convertOpenAIToGemini(response);
 
       expect(result.candidates?.[0]?.content?.parts).toEqual([
-        { functionCall: { name: 'get_weather', args: { city: 'Tokyo' } } },
+        { functionCall: { name: 'get_weather', args: { city: 'Tokyo' }, id: 'call_123' } },
       ]);
     });
   });
@@ -370,13 +370,10 @@ describe('geminiOpenAIConverter', () => {
         arguments: '{"city":"Tokyo"}',
       });
 
-      // First chunk - should yield with empty args (partial)
+      // Mid-stream chunks should not yield tool calls until complete arguments are available
       const result1 = convertStreamChunkToGemini(chunk1);
-      expect(result1.candidates?.[0]?.content?.parts).toEqual([
-        { functionCall: { name: 'get_weather', args: {}, id: 'call_123' } },
-      ]);
+      expect(result1.candidates?.[0]?.content?.parts).toEqual([]);
 
-      // Second and third chunks - should not yield tool calls (no name in delta)
       const result2 = convertStreamChunkToGemini(chunk2);
       expect(result2.candidates?.[0]?.content?.parts).toEqual([]);
 
@@ -395,6 +392,86 @@ describe('geminiOpenAIConverter', () => {
         },
       ]);
       expect(result4.candidates?.[0]?.finishReason).toBe(FinishReason.STOP);
+    });
+
+    it('copies usage metadata from final chunk', () => {
+      const chunk: OpenAIStreamChunk = {
+        id: 'chatcmpl-123',
+        model: 'gpt-4',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: 'Final response',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 50,
+          total_tokens: 150,
+        },
+      };
+
+      const result = convertStreamChunkToGemini(chunk);
+
+      expect(result.usageMetadata).toEqual({
+        promptTokenCount: 100,
+        candidatesTokenCount: 50,
+        totalTokenCount: 150,
+      });
+    });
+
+    it('copies cached_tokens from usage metadata', () => {
+      const chunk: OpenAIStreamChunk = {
+        id: 'chatcmpl-123',
+        model: 'gpt-4',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: 'Final response',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 50,
+          total_tokens: 150,
+          cached_tokens: 75,
+        },
+      };
+
+      const result = convertStreamChunkToGemini(chunk);
+
+      expect(result.usageMetadata).toEqual({
+        promptTokenCount: 100,
+        candidatesTokenCount: 50,
+        totalTokenCount: 150,
+        cachedContentTokenCount: 75,
+      });
+    });
+
+    it('does not include usageMetadata when not present in chunk', () => {
+      const chunk: OpenAIStreamChunk = {
+        id: 'chatcmpl-123',
+        model: 'gpt-4',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: 'Partial response',
+            },
+            finish_reason: null,
+          },
+        ],
+      };
+
+      const result = convertStreamChunkToGemini(chunk);
+
+      expect(result.usageMetadata).toBeUndefined();
     });
   });
 });

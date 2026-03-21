@@ -382,6 +382,9 @@ describe('WebFetchTool', () => {
   describe('execute', () => {
     it('should return WEB_FETCH_PROCESSING_ERROR on rate limit exceeded', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
+      mockFetch('https://ratelimit.example.com/', {
+        text: () => Promise.resolve('content'),
+      });
       mockGenerateContent.mockResolvedValue({
         candidates: [{ content: { parts: [{ text: 'response' }] } }],
       });
@@ -405,14 +408,17 @@ describe('WebFetchTool', () => {
 
     it('should handle rate-limited URLs', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
+      mockFetch('https://ratelimit-multi.com/', {
+        text: () => Promise.resolve('content'),
+      });
+      mockGenerateContent.mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'response' }] } }],
+      });
 
       const tool = new WebFetchTool(mockConfig, bus);
 
       // Hit rate limit for one host
       for (let i = 0; i < 10; i++) {
-        mockGenerateContent.mockResolvedValueOnce({
-          candidates: [{ content: { parts: [{ text: 'response' }] } }],
-        });
         await tool
           .build({
             url: 'https://ratelimit-multi.com',
@@ -445,21 +451,16 @@ describe('WebFetchTool', () => {
       expect(result.llmContent).toContain('skipped');
     });
 
-    it('should fallback if primary fails', async () => {
+    it('should fetch locally then process content with the model', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
 
-      // Primary fetch fails
-      mockGenerateContent.mockRejectedValueOnce(new Error('primary fail'));
-
-      // Mock fallback fetch
       mockFetch('https://url1.com/', {
         text: () => Promise.resolve('content 1'),
       });
 
-      // Mock fallback LLM call
       mockGenerateContent.mockResolvedValueOnce({
         candidates: [
-          { content: { parts: [{ text: 'fallback processed response' }] } },
+          { content: { parts: [{ text: 'processed response' }], role: 'model' } },
         ],
       });
 
@@ -471,28 +472,23 @@ describe('WebFetchTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
-      expect(result.llmContent).toBe('fallback processed response');
+      expect(result.llmContent).toBe('processed response');
       expect(result.returnDisplay).toContain(
-        'URL(s) processed using fallback fetch',
+        'URL(s) fetched and processed',
       );
     });
 
-    it('should NOT include private URLs in fallback', async () => {
+    it('should process public URLs locally and never fetch blocked private URLs', async () => {
       vi.mocked(fetchUtils.isPrivateIp).mockImplementation(
         (url) => url === 'https://private.com/',
       );
 
-      // Primary fetch fails
-      mockGenerateContent.mockRejectedValueOnce(new Error('primary fail'));
-
-      // Mock fallback fetch only for public URL
       mockFetch('https://public.com/', {
         text: () => Promise.resolve('public content'),
       });
 
-      // Mock fallback LLM call
       mockGenerateContent.mockResolvedValueOnce({
-        candidates: [{ content: { parts: [{ text: 'fallback response' }] } }],
+        candidates: [{ content: { parts: [{ text: 'processed response' }], role: 'model' } }],
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
@@ -503,14 +499,13 @@ describe('WebFetchTool', () => {
       const invocation = tool.build(params);
       const result = await invocation.execute(new AbortController().signal);
 
-      expect(result.llmContent).toBe('fallback response');
+      expect(result.llmContent).toBe('processed response');
       // Verify private URL was NOT fetched (mockFetch would throw if it was called for private.com)
     });
 
-    it('should return WEB_FETCH_FALLBACK_FAILED on total failure', async () => {
+    it('should return WEB_FETCH_FALLBACK_FAILED on total local fetch failure', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
-      mockGenerateContent.mockRejectedValue(new Error('primary fail'));
-      mockFetch('https://public.ip/', new Error('fallback fetch failed'));
+      mockFetch('https://public.ip/', new Error('fetch failed'));
       const tool = new WebFetchTool(mockConfig, bus);
       const params = { url: 'https://public.ip', prompt: 'fetch content' };
       const invocation = tool.build(params);
@@ -518,19 +513,13 @@ describe('WebFetchTool', () => {
       expect(result.error?.type).toBe(ToolErrorType.WEB_FETCH_FALLBACK_FAILED);
     });
 
-    it('should log telemetry when falling back due to primary fetch failure', async () => {
+    it('should not log primary_failed telemetry during normal local fetch flow', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
-      // Mock primary fetch to return empty response, triggering fallback
-      mockGenerateContent.mockResolvedValueOnce({
-        candidates: [],
-      });
-      // Mock fetchWithTimeout to succeed so fallback proceeds
       mockFetch('https://public.ip/', {
         text: () => Promise.resolve('some content'),
       });
-      // Mock fallback LLM call
       mockGenerateContent.mockResolvedValueOnce({
-        candidates: [{ content: { parts: [{ text: 'fallback response' }] } }],
+        candidates: [{ content: { parts: [{ text: 'processed response' }], role: 'model' } }],
       });
 
       const tool = new WebFetchTool(mockConfig, bus);
@@ -538,23 +527,17 @@ describe('WebFetchTool', () => {
       const invocation = tool.build(params);
       await invocation.execute(new AbortController().signal);
 
-      expect(logWebFetchFallbackAttempt).toHaveBeenCalledWith(
+      expect(logWebFetchFallbackAttempt).not.toHaveBeenCalledWith(
         mockConfig,
         expect.objectContaining({ reason: 'primary_failed' }),
-      );
-      expect(WebFetchFallbackAttemptEvent).toHaveBeenCalledWith(
-        'primary_failed',
       );
     });
   });
 
-  describe('execute (fallback)', () => {
+  describe('execute (local fetch + model processing)', () => {
     beforeEach(() => {
-      // Force fallback by mocking primary fetch to fail
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
-      mockGenerateContent.mockResolvedValueOnce({
-        candidates: [],
-      });
+      mockGenerateContent.mockReset();
     });
 
     it.each([
@@ -594,12 +577,28 @@ describe('WebFetchTool', () => {
           text: () => Promise.resolve(content),
         });
 
-        // Mock fallback LLM call to return the content passed to it
-        mockGenerateContent.mockImplementationOnce(async (_, req) => ({
-          candidates: [
-            { content: { parts: [{ text: req[0].parts[0].text }] } },
-          ],
-        }));
+        // Mock model processing call to return the fetched source content
+        mockGenerateContent.mockImplementationOnce(async (_, req) => {
+          const text = req[0].parts[0].text as string;
+          const startMarker = '<content>';
+          const endMarker = '</content>';
+          const start = text.indexOf(startMarker);
+          const end = text.indexOf(endMarker);
+          const extracted =
+            start >= 0 && end > start
+              ? text.slice(start + startMarker.length, end).trim()
+              : text;
+          return {
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: extracted }],
+                  role: 'model',
+                },
+              },
+            ],
+          };
+        });
 
         const tool = new WebFetchTool(mockConfig, bus);
         const params = { url: 'https://example.com', prompt: 'fetch content' };
@@ -871,6 +870,9 @@ describe('WebFetchTool', () => {
 
     it('should execute normally after confirmation approval', async () => {
       vi.spyOn(fetchUtils, 'isPrivateIp').mockReturnValue(false);
+      mockFetch('https://example.com/', {
+        text: () => Promise.resolve('Fetched content from https://example.com'),
+      });
       mockGenerateContent.mockResolvedValue({
         candidates: [
           {

@@ -38,5 +38,6 @@ export interface CoreToolSet {
   TaskOutput: FunctionDeclaration;
   TaskStop: FunctionDeclaration;
   EnterWorktree: FunctionDeclaration;
+  ExitWorktree: FunctionDeclaration;
   NotebookEdit: FunctionDeclaration;
 }

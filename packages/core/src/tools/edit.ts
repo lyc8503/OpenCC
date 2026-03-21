@@ -677,6 +677,22 @@ class EditToolInvocation
       };
     }
 
+    // Enforce "must read before edit" for existing files
+    if (fileExists && !this.config.hasReadFile(this.resolvedPath)) {
+      return {
+        currentContent,
+        newContent: '',
+        occurrences: 0,
+        isNewFile: false,
+        error: {
+          display: `You must use the Read tool to read this file before you can edit it.`,
+          raw: `You must use your Read tool at least once in the conversation before editing. File '${this.resolvedPath}' was not read before attempting to edit.`,
+          type: ToolErrorType.FILE_NOT_READ_BEFORE_EDIT,
+        },
+        originalLineEnding,
+      };
+    }
+
     const replacementResult = await calculateReplacement(this.config, {
       params,
       currentContent,

@@ -53,7 +53,7 @@ const AGENT_TYPES: Record<string, AgentTypeInfo> = {
   'general-purpose': {
     name: 'general-purpose',
     displayName: 'General Purpose Agent',
-    description: 'A general-purpose agent for complex tasks',
+    description: 'General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)',
     systemPrompt: `You are a helpful AI assistant. Complete the task thoroughly and accurately.
 Use available tools as needed. When done, provide a clear summary of what was accomplished.`,
     tools: ['*'], // All tools
@@ -61,29 +61,20 @@ Use available tools as needed. When done, provide a clear summary of what was ac
   Explore: {
     name: 'Explore',
     displayName: 'Code Explorer',
-    description: 'Fast agent specialized for exploring codebases',
+    description: 'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions. (Tools: All tools except Agent, ExitPlanMode, Edit, Write, NotebookEdit)',
     systemPrompt: `You are an expert code explorer. Your job is to efficiently search and understand codebases.
 Focus on finding relevant files, understanding code structure, and answering questions about the code.
 Be thorough but concise in your findings.`,
-    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
+    tools: ['*'], // Will be filtered by executor
   },
   Plan: {
     name: 'Plan',
     displayName: 'Planning Agent',
-    description: 'Software architect agent for designing implementation plans',
+    description: 'Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs. (Tools: All tools except Agent, ExitPlanMode, Edit, Write, NotebookEdit)',
     systemPrompt: `You are a software architect. Design implementation plans step-by-step.
 Identify critical files and consider architectural trade-offs.
 Return a clear, actionable plan with specific file paths and code changes.`,
-    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
-  },
-  'claude-code-guide': {
-    name: 'claude-code-guide',
-    displayName: 'Claude Code Guide',
-    description: 'Agent for answering questions about Claude Code features',
-    systemPrompt: `You are a helpful guide for Claude Code CLI tool.
-Answer questions about features, hooks, slash commands, MCP servers, settings, IDE integrations, and keyboard shortcuts.
-Provide clear, actionable guidance.`,
-    tools: ['Glob', 'Grep', 'Read', 'WebFetch', 'WebSearch'],
+    tools: ['*'], // Will be filtered by executor
   },
 };
 
@@ -105,6 +96,8 @@ export class AgentTool extends BaseDeclarativeTool<AgentParams, ToolResult> {
       Kind.Agent,
       AGENT_DEFINITION.base.parametersJsonSchema,
       messageBus,
+      /* isOutputMarkdown */ true,
+      /* canUpdateOutput */ true,
     );
   }
 
@@ -174,17 +167,11 @@ export class AgentInvocation extends BaseToolInvocation<
   }
 
   private getAgentDefinition(): LocalAgentDefinition {
-    const { subagent_type, model, max_turns } = this.params;
+    const { subagent_type, max_turns } = this.params;
     const agentType = AGENT_TYPES[subagent_type] || AGENT_TYPES['general-purpose'];
 
-    // Map model parameter to model config
-    const modelId = model
-      ? model === 'haiku'
-        ? 'claude-haiku-4-5-20251001'
-        : model === 'opus'
-          ? 'claude-opus-4-6'
-          : 'claude-sonnet-4-6'
-      : this.config.getActiveModel();
+    // Always use active model for subagent
+    const modelId = this.config.getActiveModel();
 
     const definition: LocalAgentDefinition = {
       name: agentType.name,
@@ -211,6 +198,9 @@ export class AgentInvocation extends BaseToolInvocation<
         maxTurns: max_turns || 30,
         maxTimeMinutes: 10,
       },
+      toolConfig: {
+        tools: agentType.tools,
+      },
     };
 
     return definition;
@@ -224,7 +214,6 @@ export class AgentInvocation extends BaseToolInvocation<
       description,
       prompt,
       subagent_type,
-      model,
       resume,
       run_in_background,
       isolation,
@@ -298,7 +287,7 @@ export class AgentInvocation extends BaseToolInvocation<
         return {
           llmContent: `Agent "${description}" started in background (ID: ${executionId}).
 Subagent Type: ${subagent_type}
-Model: ${model || 'default'}
+Model: ${this.config.getActiveModel()}
 Isolation: ${isolation || 'None'}`,
           returnDisplay: `Agent started: ${description}`,
           data: {

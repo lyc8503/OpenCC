@@ -161,35 +161,6 @@ export function convertGithubUrlToRaw(urlStr: string): string {
   return urlStr;
 }
 
-// Interfaces for grounding metadata (similar to web-search.ts)
-interface GroundingChunkWeb {
-  uri?: string;
-  title?: string;
-}
-
-interface GroundingChunkItem {
-  web?: GroundingChunkWeb;
-}
-
-function isGroundingChunkItem(item: unknown): item is GroundingChunkItem {
-  return typeof item === 'object' && item !== null;
-}
-
-interface GroundingSupportSegment {
-  startIndex: number;
-  endIndex: number;
-  text?: string;
-}
-
-interface GroundingSupportItem {
-  segment?: GroundingSupportSegment;
-  groundingChunkIndices?: number[];
-}
-
-function isGroundingSupportItem(item: unknown): item is GroundingSupportItem {
-  return typeof item === 'object' && item !== null;
-}
-
 /**
  * Sanitizes text for safe embedding in XML tags.
  */
@@ -475,7 +446,7 @@ ${aggregatedContent}
 
       return {
         llmContent: resultText,
-        returnDisplay: `Content for ${urls.length} URL(s) processed using fallback fetch.`,
+        returnDisplay: `Content for ${urls.length} URL(s) fetched and processed.`,
       };
     } catch (e) {
       const errorMessage = `Error during fallback processing: ${getErrorMessage(e)}`;
@@ -744,14 +715,10 @@ Response: ${truncateString(rawResponseText, 10000, '\n\n... [Error response trun
       return this.executeExperimental(signal);
     }
 
-    // Use the url parameter directly per REF_PROMPT.md
+    // Default behavior per REF_PROMPT: fetch locally first, then process with the active model.
     const urlToFetch = this.params.url!;
-    const userPrompt = this.params.prompt!;
-
-    // Validate and normalize the URL
     const { toFetch, skipped } = this.filterAndValidateUrls([urlToFetch]);
 
-    // If URL was skipped, fail early
     if (toFetch.length === 0 && skipped.length > 0) {
       const errorMessage = `URL was skipped: ${skipped.join(', ')}`;
       debugLogger.error(`[WebFetchTool] ${errorMessage}`);
@@ -765,107 +732,7 @@ Response: ${truncateString(rawResponseText, 10000, '\n\n... [Error response trun
       };
     }
 
-    try {
-      const geminiClient = this.context.geminiClient;
-      const sanitizedPrompt = `Follow the user's instructions to process the content from the URL.
-
-<user_instructions>
-${sanitizeXml(userPrompt)}
-</user_instructions>
-
-<url>
-${sanitizeXml(urlToFetch)}
-</url>
-`;
-      // Use the user's currently active model
-      const activeModel = this.context.config.getActiveModel();
-      const response = await geminiClient.generateContent(
-        { model: activeModel },
-        [{ role: 'user', parts: [{ text: sanitizedPrompt }] }],
-        signal,
-        LlmRole.UTILITY_TOOL,
-      );
-
-      debugLogger.debug(
-        `[WebFetchTool] Full response for prompt "${userPrompt.substring(
-          0,
-          50,
-        )}...":`,
-        JSON.stringify(response, null, 2),
-      );
-
-      let responseText = getResponseText(response) || '';
-      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-
-      // Simple primary success check: we need some text or grounding data
-      if (!responseText.trim() && !groundingMetadata?.groundingChunks?.length) {
-        throw new Error('Primary fetch returned no content');
-      }
-
-      // 1. Apply Grounding Supports (Citations)
-      const groundingSupports = groundingMetadata?.groundingSupports?.filter(
-        isGroundingSupportItem,
-      );
-      if (groundingSupports && groundingSupports.length > 0) {
-        const insertions: Array<{ index: number; marker: string }> = [];
-        groundingSupports.forEach((support) => {
-          if (support.segment && support.groundingChunkIndices) {
-            const citationMarker = support.groundingChunkIndices
-              .map((chunkIndex: number) => `[${chunkIndex + 1}]`)
-              .join('');
-            insertions.push({
-              index: support.segment.endIndex,
-              marker: citationMarker,
-            });
-          }
-        });
-
-        insertions.sort((a, b) => b.index - a.index);
-        const responseChars = responseText.split('');
-        insertions.forEach((insertion) => {
-          responseChars.splice(insertion.index, 0, insertion.marker);
-        });
-        responseText = responseChars.join('');
-      }
-
-      // 2. Append Source List
-      const sources =
-        groundingMetadata?.groundingChunks?.filter(isGroundingChunkItem);
-      if (sources && sources.length > 0) {
-        const sourceListFormatted: string[] = [];
-        sources.forEach((source, index) => {
-          const title = source.web?.title || 'Untitled';
-          const uri = source.web?.uri || 'Unknown URI';
-          sourceListFormatted.push(`[${index + 1}] ${title} (${uri})`);
-        });
-        responseText += `\n\nSources:\n${sourceListFormatted.join('\n')}`;
-      }
-
-      // 3. Prepend Warnings for skipped URLs
-      if (skipped.length > 0) {
-        responseText = `[Warning] The following URLs were skipped:\n${skipped.join('\n')}\n\n${responseText}`;
-      }
-
-      debugLogger.debug(
-        `[WebFetchTool] Formatted tool response for prompt "${userPrompt}":\n\n`,
-        responseText,
-      );
-
-      return {
-        llmContent: responseText,
-        returnDisplay: `Content processed from prompt.`,
-      };
-    } catch (error: unknown) {
-      debugLogger.warn(
-        `[WebFetchTool] Primary fetch failed, falling back: ${getErrorMessage(error)}`,
-      );
-      logWebFetchFallbackAttempt(
-        this.context.config,
-        new WebFetchFallbackAttemptEvent('primary_failed'),
-      );
-      // Simple All-or-Nothing Fallback
-      return this.executeFallback(toFetch, signal);
-    }
+    return this.executeFallback(toFetch, signal);
   }
 }
 

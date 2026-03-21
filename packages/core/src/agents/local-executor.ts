@@ -143,12 +143,53 @@ export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
       context.config.getAgentRegistry().getAllAgentNames(),
     );
 
+    // Tools that should not be available to subagents.
+// Based on REF_PROMPT:
+// - general-purpose: All tools (*)
+// - Explore/Plan: All tools except Agent, ExitPlanMode, Edit, Write, NotebookEdit
+
+// Tools excluded from ALL subagent types (interactive/task management)
+const SUBAGENT_EXCLUDED_TOOLS_ALL = new Set([
+  'AskUserQuestion',  // Interactive - can't ask user in non-interactive mode
+  'EnterPlanMode',    // Interactive - plan mode is for main agent only
+  'ExitPlanMode',     // Interactive - plan mode is for main agent only
+  'TaskOutput',       // Task management - for main agent only
+  'TaskStop',         // Task management - for main agent only
+]);
+
+// Tools excluded from read-only agent types (Explore, Plan)
+const SUBAGENT_EXCLUDED_TOOLS_READONLY = new Set([
+  'Agent',          // Prevent recursion - subagents shouldn't spawn more subagents
+  'ExitPlanMode',   // Plan mode is for main agent only (also in ALL)
+  'Edit',           // Read-only for Explore/Plan agents
+  'Write',          // Read-only for Explore/Plan agents
+  'NotebookEdit',   // Read-only for Explore/Plan agents
+]);
+
+// Determine which tools to exclude based on agent type
+// - general-purpose: only exclude interactive tools (can Edit/Write)
+// - Explore/Plan: exclude read-only tools + interactive tools
+const isGeneralPurpose = definition.name === 'general-purpose';
+const subagentExcludedTools = isGeneralPurpose
+  ? SUBAGENT_EXCLUDED_TOOLS_ALL 
+  : new Set([...SUBAGENT_EXCLUDED_TOOLS_READONLY, ...SUBAGENT_EXCLUDED_TOOLS_ALL]);
+
     const registerToolInstance = (tool: AnyDeclarativeTool) => {
       // Check if the tool is a subagent to prevent recursion.
       // We do not allow agents to call other agents.
+      // Note: 'Agent' is also in SUBAGENT_EXCLUDED_TOOLS_READONLY, but we check
+      // allAgentNames too for any dynamically registered agent tools.
       if (allAgentNames.has(tool.name)) {
         debugLogger.warn(
           `[LocalAgentExecutor] Skipping subagent tool '${tool.name}' for agent '${definition.name}' to prevent recursion.`,
+        );
+        return;
+      }
+
+      // Exclude tools that should not be used in subagents
+      if (subagentExcludedTools.has(tool.name)) {
+        debugLogger.debug(
+          `[LocalAgentExecutor] Excluding tool '${tool.name}' from subagent '${definition.name}'.`,
         );
         return;
       }

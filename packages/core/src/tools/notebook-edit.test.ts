@@ -89,6 +89,7 @@ describe('NotebookEditTool', () => {
       const params: NotebookEditParams = {
         notebook_path: '/path/to/notebook.ipynb',
         cell_id: 'cell-1',
+        new_source: '', // Required by schema but ignored for delete mode
         edit_mode: 'delete',
       };
       const invocation = tool.build(params);
@@ -163,6 +164,32 @@ describe('NotebookEditTool', () => {
       expect(result.llmContent).toContain('Updated cell');
     });
 
+    it('should replace cell using numeric index', async () => {
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(
+        JSON.stringify(mockNotebook),
+      );
+      vi.mocked(fsPromises.writeFile).mockResolvedValueOnce();
+
+      const params: NotebookEditParams = {
+        notebook_path: '/path/to/notebook.ipynb',
+        cell_id: '0', // Numeric index for first cell
+        new_source: 'print("updated by index")',
+        edit_mode: 'replace',
+      };
+      const invocation = tool.build(params);
+
+      // Simulate user confirmation
+      const confirmResult = await invocation.shouldConfirmExecute(
+        new AbortController().signal,
+      );
+      if (confirmResult && 'onConfirm' in confirmResult) {
+        await confirmResult.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+      }
+
+      const result = await invocation.execute(new AbortController().signal);
+      expect(result.llmContent).toContain('Updated cell');
+    });
+
     it('should insert new cell in notebook', async () => {
       vi.mocked(fsPromises.readFile).mockResolvedValueOnce(
         JSON.stringify(mockNotebook),
@@ -199,6 +226,7 @@ describe('NotebookEditTool', () => {
       const params: NotebookEditParams = {
         notebook_path: '/path/to/notebook.ipynb',
         cell_id: 'cell-2',
+        new_source: '', // Required by schema but ignored for delete mode
         edit_mode: 'delete',
       };
       const invocation = tool.build(params);

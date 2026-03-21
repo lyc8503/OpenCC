@@ -138,6 +138,7 @@ export class ExecutionLifecycleService {
     number,
     { exitCode: number; signal?: number }
   >();
+  private static completedExecutionResults = new Map<number, ExecutionResult>();
   private static backgroundCompletionListeners =
     new Set<BackgroundCompletionListener>();
   private static injectionService: InjectionService | null = null;
@@ -176,6 +177,7 @@ export class ExecutionLifecycleService {
     });
     setTimeout(() => {
       this.exitedExecutionInfo.delete(executionId);
+      this.completedExecutionResults.delete(executionId);
     }, this.EXIT_INFO_TTL_MS).unref();
   }
 
@@ -220,6 +222,7 @@ export class ExecutionLifecycleService {
     this.activeResolvers.clear();
     this.activeListeners.clear();
     this.exitedExecutionInfo.clear();
+    this.completedExecutionResults.clear();
     this.backgroundCompletionListeners.clear();
     this.injectionService = null;
     this.nextExecutionId = NON_PROCESS_EXECUTION_ID_START;
@@ -361,6 +364,7 @@ export class ExecutionLifecycleService {
       signal: result.signal,
     });
 
+    this.completedExecutionResults.set(executionId, result);
     this.activeListeners.delete(executionId);
     this.activeExecutions.delete(executionId);
     this.storeExitInfo(
@@ -503,6 +507,18 @@ export class ExecutionLifecycleService {
     this.completeWithResult(
       executionId,
       this.createAbortedResult(executionId, execution),
+    );
+  }
+
+  static getCompletedResult(executionId: number): ExecutionResult | undefined {
+    return this.completedExecutionResults.get(executionId);
+  }
+
+  static isKnown(executionId: number): boolean {
+    return (
+      this.activeExecutions.has(executionId) ||
+      this.completedExecutionResults.has(executionId) ||
+      this.exitedExecutionInfo.has(executionId)
     );
   }
 

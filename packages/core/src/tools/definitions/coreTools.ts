@@ -36,6 +36,7 @@ export {
   TASK_OUTPUT_TOOL_NAME,
   TASK_STOP_TOOL_NAME,
   ENTER_WORKTREE_TOOL_NAME,
+  EXIT_WORKTREE_TOOL_NAME,
   NOTEBOOK_EDIT_TOOL_NAME,
   // Shared parameter names
   PARAM_FILE_PATH,
@@ -167,6 +168,10 @@ export const TASK_STOP_DEFINITION: ToolDefinition = {
 
 export const ENTER_WORKTREE_DEFINITION: ToolDefinition = {
   base: TOOL_SET.EnterWorktree,
+};
+
+export const EXIT_WORKTREE_DEFINITION: ToolDefinition = {
+  base: TOOL_SET.ExitWorktree,
 };
 
 export const NOTEBOOK_EDIT_DEFINITION: ToolDefinition = {

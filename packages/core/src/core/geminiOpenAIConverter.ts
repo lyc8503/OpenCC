@@ -310,6 +310,7 @@ export function convertOpenAIToGemini(
 
   // Extract function calls if present
   const functionCalls = choice.message.tool_calls?.map((tc) => ({
+    id: tc.id,
     name: tc.function.name,
     args: JSON.parse(tc.function.arguments),
   }));
@@ -337,6 +338,7 @@ export function convertOpenAIToGemini(
         promptTokenCount: response.usage.prompt_tokens,
         candidatesTokenCount: response.usage.completion_tokens,
         totalTokenCount: response.usage.total_tokens,
+        cachedContentTokenCount: response.usage.cached_tokens,
       }
     : undefined;
 
@@ -358,6 +360,22 @@ export function convertStreamChunkToGemini(
   >,
 ): GenerateContentResponse {
   const choice = chunk.choices[0];
+  // Handle case where choice or delta is undefined (e.g., usage-only chunks)
+  if (!choice || !choice.delta) {
+    const result = new GenerateContentResponse();
+    result.candidates = [{
+      content: { parts: [], role: 'model' },
+      finishReason: choice?.finish_reason ? mapFinishReason(choice.finish_reason) : undefined,
+    }];
+    if (chunk.usage) {
+      result.usageMetadata = {
+        promptTokenCount: chunk.usage.prompt_tokens,
+        candidatesTokenCount: chunk.usage.completion_tokens,
+        totalTokenCount: chunk.usage.total_tokens,
+      };
+    }
+    return result;
+  }
   const delta = choice.delta;
 
   const parts: Part[] = [];
@@ -401,6 +419,16 @@ export function convertStreamChunkToGemini(
       finishReason: mapFinishReason(choice.finish_reason),
     },
   ];
+
+  // Copy usage metadata from the OpenAI chunk (present in final chunk)
+  if (chunk.usage) {
+    result.usageMetadata = {
+      promptTokenCount: chunk.usage.prompt_tokens,
+      candidatesTokenCount: chunk.usage.completion_tokens,
+      totalTokenCount: chunk.usage.total_tokens,
+      cachedContentTokenCount: chunk.usage.cached_tokens,
+    };
+  }
 
   return result;
 }

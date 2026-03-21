@@ -200,6 +200,9 @@ ${result.llmContent}`;
       }
     }
 
+    // Mark this file as having been read in this session
+    this.config.markFileAsRead(this.resolvedPath);
+
     return {
       llmContent,
       returnDisplay: result.returnDisplay || '',

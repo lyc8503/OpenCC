@@ -224,21 +224,17 @@ class OpenAIWrapper implements ContentGenerator {
   async countTokens(
     request: import('@google/genai').CountTokensParameters,
   ): Promise<import('@google/genai').CountTokensResponse> {
-    // Convert contents to OpenAI format for token counting
-    const contents = Array.isArray(request.contents)
-      ? request.contents
-      : [request.contents];
-    const messages = contents.flatMap((content) => {
-      if (typeof content === 'string') return [];
-      if (!('parts' in content)) return [];
-      return (content.parts || []).map(
-        (part: import('@google/genai').Part) => ({
-          role: (content.role || 'user') as 'system' | 'user' | 'assistant',
-          content: part.text || '',
-        }),
-      );
-    });
-    const result = await this.generator.countTokens(messages, request.model);
+    const converted = convertGeminiToOpenAI({
+      model: request.model || '',
+      contents: request.contents,
+      config: undefined,
+    } as GenerateContentParameters);
+
+    const result = await this.generator.countTokens(
+      converted.params.messages,
+      request.model,
+      converted.params.tools,
+    );
     return {
       totalTokens: result.prompt_tokens,
     };

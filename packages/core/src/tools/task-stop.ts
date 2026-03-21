@@ -19,10 +19,8 @@ import { ExecutionLifecycleService } from '../services/executionLifecycleService
 import { ShellExecutionService } from '../services/shellExecutionService.js';
 
 export interface TaskStopParams {
-  task_id: string;
+  task_id?: string;
   shell_id?: string; // Deprecated, use task_id instead
-  block?: boolean;
-  timeout?: number;
 }
 
 /**
@@ -104,10 +102,10 @@ export class TaskStopInvocation extends BaseToolInvocation<
       };
     }
 
-    // Check if this is an active execution managed by ExecutionLifecycleService
+    const isKnown = ExecutionLifecycleService.isKnown(numericId);
     const isActive = ExecutionLifecycleService.isActive(numericId);
 
-    if (!isActive) {
+    if (!isKnown && !isActive) {
       return {
         llmContent: `Task ${taskId} is not running or has already completed.`,
         returnDisplay: `Task ${taskId} not found or already stopped`,
@@ -115,30 +113,27 @@ export class TaskStopInvocation extends BaseToolInvocation<
     }
 
     try {
-      // Try to kill via ExecutionLifecycleService first (for virtual/external executions)
-      ExecutionLifecycleService.kill(numericId);
-
-      return {
-        llmContent: `Successfully stopped task ${taskId}.`,
-        returnDisplay: `Task ${taskId} stopped`,
-      };
-    } catch (error) {
-      // Fallback: try to kill via ShellExecutionService
-      try {
-        ShellExecutionService.kill(numericId);
-
+      // Try lifecycle service first for tracked executions (virtual/external)
+      if (isKnown) {
+        ExecutionLifecycleService.kill(numericId);
         return {
-          llmContent: `Successfully stopped shell process ${taskId}.`,
-          returnDisplay: `Process ${taskId} stopped`,
-        };
-      } catch (shellError) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        return {
-          llmContent: `Failed to stop task ${taskId}: ${errorMessage}`,
-          returnDisplay: `Failed to stop task ${taskId}`,
+          llmContent: `Successfully stopped task ${taskId}.`,
+          returnDisplay: `Task ${taskId} stopped`,
         };
       }
+
+      // Fallback to shell execution service for OS-level processes
+      await ShellExecutionService.kill(numericId);
+      return {
+        llmContent: `Successfully stopped shell process ${taskId}.`,
+        returnDisplay: `Process ${taskId} stopped`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        llmContent: `Failed to stop task ${taskId}: ${errorMessage}`,
+        returnDisplay: `Failed to stop task ${taskId}`,
+      };
     }
   }
 }

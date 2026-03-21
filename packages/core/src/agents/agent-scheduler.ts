@@ -31,6 +31,8 @@ export interface AgentSchedulingOptions {
   getPreferredEditor?: () => EditorType | undefined;
   /** Optional function to be notified when the scheduler is waiting for user confirmation. */
   onWaitingForConfirmation?: (waiting: boolean) => void;
+  /** Optional callback for live output updates from tool execution. */
+  outputUpdateHandler?: (callId: string, output: unknown) => void;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function scheduleAgentTools(
     signal,
     getPreferredEditor,
     onWaitingForConfirmation,
+    outputUpdateHandler,
   } = options;
 
   // Create a proxy/override of the config to provide the agent-specific tool registry.
@@ -74,6 +77,7 @@ export async function scheduleAgentTools(
     subagent,
     parentCallId,
     onWaitingForConfirmation,
+    outputUpdateHandler,
   });
 
   return scheduler.schedule(requests, signal);

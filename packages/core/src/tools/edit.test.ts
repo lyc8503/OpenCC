@@ -131,6 +131,8 @@ describe('EditTool', () => {
       isInteractive: () => false,
       getDisableLLMCorrection: vi.fn(() => true),
       getExperiments: () => {},
+      hasReadFile: vi.fn(() => true), // Default: pretend file was read
+      markFileAsRead: vi.fn(),
       storage: {
         getProjectTempDir: vi.fn().mockReturnValue('/tmp/project'),
       },
@@ -1264,6 +1266,81 @@ function doIt() {
       expect(result.llmContent).not.toContain(
         'Newly Discovered Project Context',
       );
+    });
+  });
+
+  describe('must read before edit enforcement', () => {
+    const testFile = 'not_read_before_edit.txt';
+    let filePath: string;
+
+    beforeEach(() => {
+      filePath = path.join(rootDir, testFile);
+    });
+
+    it('should return error when editing existing file without reading first', async () => {
+      const initialContent = 'Original content.';
+      fs.writeFileSync(filePath, initialContent, 'utf8');
+
+      // Simulate file not being read
+      (mockConfig.hasReadFile as Mock).mockReturnValue(false);
+
+      const params: EditToolParams = {
+        file_path: filePath,
+        old_string: 'Original',
+        new_string: 'Modified',
+      };
+
+      const invocation = tool.build(params);
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(result.error?.type).toBe(ToolErrorType.FILE_NOT_READ_BEFORE_EDIT);
+      expect(result.llmContent).toContain('You must use your Read tool');
+      expect(result.returnDisplay).toContain(
+        'You must use the Read tool to read this file',
+      );
+
+      // File should NOT have been modified
+      expect(fs.readFileSync(filePath, 'utf8')).toBe(initialContent);
+    });
+
+    it('should allow creating new file without reading first', async () => {
+      // File doesn't exist - creating new
+      // Simulate file not being read (doesn't matter for new files)
+      (mockConfig.hasReadFile as Mock).mockReturnValue(false);
+
+      const params: EditToolParams = {
+        file_path: filePath,
+        old_string: '',
+        new_string: 'New file content.',
+      };
+
+      const invocation = tool.build(params);
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(result.error).toBeUndefined();
+      expect(result.llmContent).toMatch(/Created new file/);
+      expect(fs.existsSync(filePath)).toBe(true);
+    });
+
+    it('should allow editing existing file when it was read first', async () => {
+      const initialContent = 'Original content.';
+      fs.writeFileSync(filePath, initialContent, 'utf8');
+
+      // Simulate file was read
+      (mockConfig.hasReadFile as Mock).mockReturnValue(true);
+
+      const params: EditToolParams = {
+        file_path: filePath,
+        old_string: 'Original',
+        new_string: 'Modified',
+      };
+
+      const invocation = tool.build(params);
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(result.error).toBeUndefined();
+      expect(result.llmContent).toMatch(/Successfully modified file/);
+      expect(fs.readFileSync(filePath, 'utf8')).toBe('Modified content.');
     });
   });
 });

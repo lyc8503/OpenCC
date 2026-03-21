@@ -106,6 +106,8 @@ const mockConfigInternal = {
   isInteractive: () => false,
   getDisableLLMCorrection: vi.fn(() => true),
   getActiveModel: () => 'test-model',
+  hasReadFile: vi.fn(() => true), // Default: pretend file was read
+  markFileAsRead: vi.fn(),
   storage: {
     getProjectTempDir: vi.fn().mockReturnValue('/tmp/project'),
   },
@@ -1078,6 +1080,72 @@ describe('WriteFileTool', () => {
       expect(result.llmContent).not.toContain(
         'Newly Discovered Project Context',
       );
+    });
+  });
+
+  describe('must read before write enforcement', () => {
+    const abortSignal = new AbortController().signal;
+
+    it('should return error when writing to existing file without reading first', async () => {
+      const filePath = path.join(rootDir, 'not_read_before_write.txt');
+      const originalContent = 'Original content.';
+      const proposedContent = 'Proposed content.';
+      fs.writeFileSync(filePath, originalContent, 'utf8');
+
+      // Simulate file not being read
+      mockConfigInternal.hasReadFile.mockReturnValue(false);
+
+      mockEnsureCorrectFileContent.mockResolvedValue(proposedContent);
+
+      const params = { file_path: filePath, content: proposedContent };
+      const invocation = tool.build(params);
+      const result = await invocation.execute(abortSignal);
+
+      expect(result.error?.type).toBe(ToolErrorType.FILE_NOT_READ_BEFORE_WRITE);
+      expect(result.llmContent).toContain('You must use the Read tool');
+      expect(result.returnDisplay).toContain('Must read file before writing');
+
+      // File should NOT have been modified
+      expect(fs.readFileSync(filePath, 'utf8')).toBe(originalContent);
+    });
+
+    it('should allow writing to new file without reading first', async () => {
+      const filePath = path.join(rootDir, 'new_file_no_read_needed.txt');
+      const content = 'New file content.';
+
+      // Simulate file not being read (doesn't matter for new files)
+      mockConfigInternal.hasReadFile.mockReturnValue(false);
+
+      mockEnsureCorrectFileContent.mockResolvedValue(content);
+
+      const params = { file_path: filePath, content };
+      const invocation = tool.build(params);
+      const result = await invocation.execute(abortSignal);
+
+      expect(result.error).toBeUndefined();
+      expect(result.llmContent).toMatch(/Successfully created and wrote/);
+      expect(fs.existsSync(filePath)).toBe(true);
+    });
+
+    it('should allow writing to existing file when it was read first', async () => {
+      const filePath = path.join(rootDir, 'read_before_write.txt');
+      const originalContent = 'Original content.';
+      const proposedContent = 'Proposed content.';
+      fs.writeFileSync(filePath, originalContent, 'utf8');
+
+      // Simulate file was read
+      mockConfigInternal.hasReadFile.mockReturnValue(true);
+
+      mockEnsureCorrectFileContent.mockResolvedValue(proposedContent);
+
+      const params = { file_path: filePath, content: proposedContent };
+      const invocation = tool.build(params);
+      await invocation.shouldConfirmExecute(abortSignal);
+      const result = await invocation.execute(abortSignal);
+
+      expect(result.error).toBeUndefined();
+      expect(result.llmContent).toMatch(/Successfully overwrote file/);
+      expect(fs.readFileSync(filePath, 'utf8')).toBe(proposedContent);
     });
   });
 });

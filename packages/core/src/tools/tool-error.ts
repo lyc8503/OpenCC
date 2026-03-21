@@ -42,6 +42,8 @@ export enum ToolErrorType {
   EDIT_EXPECTED_OCCURRENCE_MISMATCH = 'edit_expected_occurrence_mismatch',
   EDIT_NO_CHANGE = 'edit_no_change',
   EDIT_NO_CHANGE_LLM_JUDGEMENT = 'edit_no_change_llm_judgement',
+  FILE_NOT_READ_BEFORE_WRITE = 'file_not_read_before_write',
+  FILE_NOT_READ_BEFORE_EDIT = 'file_not_read_before_edit',
 
   // Glob-specific Errors
   GLOB_EXECUTION_ERROR = 'glob_execution_error',

@@ -63,6 +63,7 @@ export interface SchedulerOptions {
   subagent?: string;
   parentCallId?: string;
   onWaitingForConfirmation?: (waiting: boolean) => void;
+  outputUpdateHandler?: (callId: string, output: unknown) => void;
 }
 
 const createErrorResponse = (
@@ -105,6 +106,7 @@ export class Scheduler {
   private readonly subagent?: string;
   private readonly parentCallId?: string;
   private readonly onWaitingForConfirmation?: (waiting: boolean) => void;
+  private readonly outputUpdateHandler?: (callId: string, output: unknown) => void;
 
   private isProcessing = false;
   private isCancelling = false;
@@ -119,6 +121,7 @@ export class Scheduler {
     this.subagent = options.subagent;
     this.parentCallId = options.parentCallId;
     this.onWaitingForConfirmation = options.onWaitingForConfirmation;
+    this.outputUpdateHandler = options.outputUpdateHandler;
     this.state = new SchedulerStateManager(
       this.messageBus,
       this.schedulerId,
@@ -675,10 +678,15 @@ export class Scheduler {
         this.executor.execute({
           call: activeCall,
           signal,
-          outputUpdateHandler: (id, out) =>
+          outputUpdateHandler: (id, out) => {
             this.state.updateStatus(id, CoreToolCallStatus.Executing, {
               liveOutput: out,
-            }),
+            });
+            // Forward to parent handler if available (for subagent tool output)
+            if (this.outputUpdateHandler) {
+              this.outputUpdateHandler(id, out);
+            }
+          },
           onUpdateToolCall: (updated) => {
             if (
               updated.status === CoreToolCallStatus.Executing &&

@@ -148,6 +148,8 @@ export interface ToolExecutionFailure<E = Error> {
 export interface QuestionOption {
   label: string;
   description: string;
+  /** Optional preview content shown in a monospace box when this option is focused. */
+  markdown?: string;
 }
 
 export enum QuestionType {

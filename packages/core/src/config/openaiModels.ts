@@ -226,9 +226,10 @@ export function getModelConfig(model: string): ModelTierConfig | undefined {
 
 /**
  * Checks if a model is valid.
+ * Always returns true to allow any model name.
  */
-export function isValidModel(model: string): boolean {
-  return VALID_MODELS.has(model) || model.startsWith('custom-');
+export function isValidModel(_model: string): boolean {
+  return true;
 }
 
 /**
@@ -278,17 +279,61 @@ export function supportsThinking(model: string): boolean {
 }
 
 /**
+ * Gets the context window override from environment variable.
+ * Environment variable format: CONTEXT_WINDOW_{MODEL_NAME}
+ * Example: CONTEXT_WINDOW_GPT_4O=200000
+ */
+function getContextWindowFromEnv(model: string): number | undefined {
+  const envKey = `CONTEXT_WINDOW_${model.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+  const val = process.env[envKey];
+  if (val) {
+    const parsed = parseInt(val, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Gets the context window for a model.
+ * Environment variable takes precedence over config (e.g., CONTEXT_WINDOW_GPT_4O=200000).
  */
 export function getContextWindow(model: string): number {
+  const envOverride = getContextWindowFromEnv(model);
+  if (envOverride !== undefined) {
+    return envOverride;
+  }
   const config = MODEL_CONFIGS[model];
   return config?.contextWindow ?? 128000;
 }
 
 /**
+ * Gets the max output tokens override from environment variable.
+ * Environment variable format: MAX_OUTPUT_TOKENS_{MODEL_NAME}
+ * Example: MAX_OUTPUT_TOKENS_GPT_4O=32000
+ */
+function getMaxOutputTokensFromEnv(model: string): number | undefined {
+  const envKey = `MAX_OUTPUT_TOKENS_${model.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+  const val = process.env[envKey];
+  if (val) {
+    const parsed = parseInt(val, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Gets the max output tokens for a model.
+ * Environment variable takes precedence over config.
  */
 export function getMaxOutputTokens(model: string): number {
+  const envOverride = getMaxOutputTokensFromEnv(model);
+  if (envOverride !== undefined) {
+    return envOverride;
+  }
   const config = MODEL_CONFIGS[model];
   return config?.maxOutputTokens ?? 8192;
 }

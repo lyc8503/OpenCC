@@ -130,6 +130,9 @@ export const TASK_STOP_PARAM_TASK_ID = 'task_id';
 export const ENTER_WORKTREE_TOOL_NAME = 'EnterWorktree';
 export const ENTER_WORKTREE_PARAM_NAME = 'name';
 
+// -- ExitWorktree --
+export const EXIT_WORKTREE_TOOL_NAME = 'ExitWorktree';
+
 // -- NotebookEdit --
 export const NOTEBOOK_EDIT_TOOL_NAME = 'NotebookEdit';
 export const NOTEBOOK_EDIT_PARAM_PATH = 'notebook_path';

@@ -21,7 +21,6 @@ import {
   PARAM_DESCRIPTION,
   PARAM_DIR_PATH,
   SHELL_PARAM_IS_BACKGROUND,
-  EXIT_PLAN_PARAM_PLAN_PATH,
   SKILL_PARAM_NAME,
 } from './base-declarations.js';
 
@@ -109,6 +108,13 @@ export function getShellDeclaration(
           description:
             'Set to true if this command should be run in the background (e.g. for long-running servers or watchers). The command will be started, allowed to run for a brief moment to check for immediate errors, and then moved to the background.',
         },
+        timeout: {
+          type: 'number',
+          description:
+            'Optional timeout in milliseconds. Maximum allowed is 600000 (10 minutes). Defaults to 120000 (2 minutes). The command will be automatically cancelled if it exceeds this timeout without producing output.',
+          minimum: 0,
+          maximum: 600000,
+        },
       },
       required: [SHELL_PARAM_COMMAND],
     },
@@ -119,21 +125,64 @@ export function getShellDeclaration(
  * Returns the FunctionDeclaration for exiting plan mode.
  */
 export function getExitPlanModeDeclaration(
-  plansDir: string,
+  _plansDir: string,
 ): FunctionDeclaration {
   return {
     name: EXIT_PLAN_MODE_TOOL_NAME,
-    description:
-      'Finalizes the planning phase and transitions to implementation by presenting the plan for user approval. This tool MUST be used to exit Plan Mode before any source code edits can be performed. Call this whenever a plan is ready or the user requests implementation.',
+    description: `Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
+
+#### How This Tool Works
+
+- You should have already written your plan to the plan file specified in the plan mode system message
+- This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote
+- This tool simply signals that you're done planning and ready for the user to review and approve
+- The user will see the contents of your plan file when they review it
+
+#### When to Use This Tool
+
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
+
+#### Before Using This Tool
+
+Ensure your plan is complete and unambiguous:
+
+- If you have unresolved questions about requirements or approach, use AskUserQuestion first (in earlier phases)
+- Once your plan is finalized, use THIS tool to request approval
+
+**Important:** Do NOT use AskUserQuestion to ask "Is this plan okay?" or "Should I proceed?" - that's exactly what THIS tool does. ExitPlanMode inherently requests user approval of your plan.
+
+#### Examples
+
+1. Initial task: "Search for and understand the implementation of vim mode in the codebase" - Do not use the exit plan mode tool because you are not planning the implementation steps of a task.
+2. Initial task: "Help me implement yank mode for vim" - Use the exit plan mode tool after you have finished planning the implementation steps of the task.
+3. Initial task: "Add a new feature to handle user authentication" - If unsure about auth method (OAuth, JWT, etc.), use AskUserQuestion first, then use exit plan mode tool after clarifying the approach.`,
     parametersJsonSchema: {
       type: 'object',
-      required: [EXIT_PLAN_PARAM_PLAN_PATH],
       properties: {
-        [EXIT_PLAN_PARAM_PLAN_PATH]: {
-          type: 'string',
-          description: `The file path to the finalized plan (e.g., "${plansDir}/feature-x.md"). This path MUST be within the designated plans directory: ${plansDir}/`,
+        allowedPrompts: {
+          description:
+            'Prompt-based permissions needed to implement the plan. These describe categories of actions rather than specific commands.',
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              tool: {
+                description: 'The tool this prompt applies to',
+                type: 'string',
+                enum: ['Bash'],
+              },
+              prompt: {
+                description:
+                  'Semantic description of the action, e.g. "run tests", "install dependencies"',
+                type: 'string',
+              },
+            },
+            required: ['tool', 'prompt'],
+            additionalProperties: false,
+          },
         },
       },
+      additionalProperties: true,
     },
   };
 }

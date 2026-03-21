@@ -91,9 +91,7 @@ export class TaskOutputInvocation extends BaseToolInvocation<
       };
     }
 
-    // Try to parse as numeric PID
     const numericId = parseInt(task_id, 10);
-
     if (isNaN(numericId)) {
       return {
         llmContent: `Error: Invalid task ID format. Expected a numeric process ID, got: ${task_id}`,
@@ -101,24 +99,29 @@ export class TaskOutputInvocation extends BaseToolInvocation<
       };
     }
 
-    // Check if this is an active execution
     const isActive = ExecutionLifecycleService.isActive(numericId);
+    const completedResult = ExecutionLifecycleService.getCompletedResult(numericId);
+    const isKnown = ExecutionLifecycleService.isKnown(numericId);
 
-    if (!isActive) {
-      // Task has already completed or doesn't exist
+    if (!isActive && completedResult) {
       return {
-        llmContent: `Task ${task_id} has completed or does not exist.`,
-        returnDisplay: `Task ${task_id} not found or completed`,
+        llmContent: completedResult.output || `Task ${task_id} completed.`,
+        returnDisplay: completedResult.output || `Task ${task_id} completed`,
+      };
+    }
+
+    if (!isActive && !isKnown) {
+      return {
+        llmContent: `Task ${task_id} does not exist.`,
+        returnDisplay: `Task ${task_id} not found`,
       };
     }
 
     if (block) {
-      // Wait for the task to complete with timeout
       return this.waitForCompletion(numericId, timeout, signal);
-    } else {
-      // Non-blocking: just get current output snapshot
-      return this.getCurrentOutput(numericId);
     }
+
+    return this.getCurrentOutput(numericId, completedResult);
   }
 
   private async waitForCompletion(
@@ -182,7 +185,17 @@ export class TaskOutputInvocation extends BaseToolInvocation<
     });
   }
 
-  private getCurrentOutput(executionId: number): Promise<ToolResult> {
+  private getCurrentOutput(
+    executionId: number,
+    completedResult?: { output: string },
+  ): Promise<ToolResult> {
+    if (completedResult) {
+      return Promise.resolve({
+        llmContent: completedResult.output || `Task ${executionId} completed.`,
+        returnDisplay: completedResult.output || `Task ${executionId} completed`,
+      });
+    }
+
     return new Promise((resolve) => {
       let output = '';
 

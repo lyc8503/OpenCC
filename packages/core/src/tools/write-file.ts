@@ -296,6 +296,18 @@ class WriteFileToolInvocation extends BaseToolInvocation<
       (correctedContentResult.error !== undefined &&
         !correctedContentResult.fileExists);
 
+    // Enforce "must read before write" for existing files
+    if (fileExists && !isNewFile && !this.config.hasReadFile(this.resolvedPath)) {
+      return {
+        llmContent: `You must use the Read tool to read '${this.resolvedPath}' before you can write to it. This tool will fail if you did not read the file first.`,
+        returnDisplay: 'Error: Must read file before writing.',
+        error: {
+          message: `File '${this.resolvedPath}' was not read before attempting to write. Use the Read tool first.`,
+          type: ToolErrorType.FILE_NOT_READ_BEFORE_WRITE,
+        },
+      };
+    }
+
     try {
       const dirName = path.dirname(this.resolvedPath);
       try {

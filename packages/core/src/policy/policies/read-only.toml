@@ -48,6 +48,6 @@ decision = "allow"
 priority = 50
 
 [[rule]]
-toolName = ["codebase_investigator", "cli_help"]
+toolName = "TodoWrite"
 decision = "allow"
 priority = 50

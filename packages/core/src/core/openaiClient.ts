@@ -11,6 +11,14 @@
 
 import OpenAI from 'openai';
 import type { LlmRole } from '../telemetry/llmRole.js';
+import { estimateTokenCountSync } from '../utils/tokenCalculation.js';
+
+/**
+ * Extended OpenAI usage type with cached_tokens support.
+ */
+type OpenAIUsageWithCached = OpenAI.CompletionUsage & {
+  cached_tokens?: number;
+};
 
 /**
  * OpenAI API response format compatible with our ContentGenerator interface.
@@ -34,11 +42,7 @@ export interface OpenAIChatResponse {
     };
     finish_reason: string | null;
   }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
+  usage?: OpenAIUsageWithCached;
 }
 
 /**
@@ -49,7 +53,7 @@ export interface OpenAIStreamChunk {
   model: string;
   choices: Array<{
     index: number;
-    delta: {
+    delta?: {
       role?: 'assistant' | 'user' | 'system';
       content?: string | null;
       tool_calls?: Array<{
@@ -64,6 +68,7 @@ export interface OpenAIStreamChunk {
     };
     finish_reason: string | null;
   }>;
+  usage?: OpenAIUsageWithCached;
 }
 
 /**
@@ -213,9 +218,8 @@ export class OpenAIContentGenerator {
       })),
       usage: completion.usage
         ? {
-            prompt_tokens: completion.usage.prompt_tokens,
-            completion_tokens: completion.usage.completion_tokens,
-            total_tokens: completion.usage.total_tokens,
+            ...completion.usage,
+            cached_tokens: (completion.usage as OpenAIUsageWithCached).cached_tokens,
           }
         : undefined,
     };
@@ -248,6 +252,7 @@ export class OpenAIContentGenerator {
         frequency_penalty: params.frequency_penalty,
         top_p: params.top_p,
         stream: true,
+        stream_options: { include_usage: true },
       },
       {
         signal: abortSignal,
@@ -260,7 +265,7 @@ export class OpenAIContentGenerator {
         model: chunk.model,
         choices: chunk.choices.map((choice) => ({
           index: choice.index,
-          delta: {
+          delta: choice.delta ? {
             role: choice.delta.role as
               | 'assistant'
               | 'user'
@@ -276,9 +281,15 @@ export class OpenAIContentGenerator {
                 arguments: tc.function?.arguments,
               },
             })),
-          },
+          } : undefined,
           finish_reason: choice.finish_reason,
         })),
+        usage: chunk.usage
+          ? {
+              ...chunk.usage,
+              cached_tokens: (chunk.usage as OpenAIUsageWithCached).cached_tokens,
+            }
+          : undefined,
       };
     }
   }
@@ -290,33 +301,86 @@ export class OpenAIContentGenerator {
   async countTokens(
     messages: OpenAIMessage[],
     model?: string,
+    tools?: OpenAITool[],
   ): Promise<{ prompt_tokens: number }> {
-    // Simple estimation: ~4 characters per token on average
-    const text = messages
-      .map((m) => {
-        if (m.content === null || m.content === undefined) return '';
-        if (typeof m.content === 'string') return m.content;
-        return m.content.map((c) => c.text || '').join('');
-      })
-      .join('');
-
-    const estimatedTokens = Math.ceil(text.length / 4);
-
-    return { prompt_tokens: estimatedTokens };
+    return countTokensForOpenAI(messages, model, tools);
   }
+}
+
+function estimateOpenAIMessageTokens(message: OpenAIMessage): number {
+  // Rough role/message framing overhead for chat APIs
+  let tokens = 4;
+
+  if (message.role) {
+    tokens += Math.ceil(message.role.length / 4);
+  }
+  if (message.name) {
+    tokens += Math.ceil(message.name.length / 4);
+  }
+  if (message.tool_call_id) {
+    tokens += Math.ceil(message.tool_call_id.length / 4);
+  }
+
+  if (typeof message.content === 'string') {
+    tokens += estimateTokenCountSync([{ text: message.content }]);
+  } else if (Array.isArray(message.content)) {
+    const parts = message.content.map((item) => {
+      if (item.type === 'text') {
+        return { text: item.text || '' };
+      }
+      if (item.type === 'image_url' && item.image_url?.url) {
+        const url = item.image_url.url;
+        if (url.startsWith('data:')) {
+          const mimeMatch = url.match(/^data:([^;]+);base64,/);
+          return {
+            inlineData: {
+              mimeType: mimeMatch?.[1] || 'image/*',
+              data: '',
+            },
+          };
+        }
+        return { text: url };
+      }
+      return { text: '' };
+    });
+    tokens += estimateTokenCountSync(parts);
+  }
+
+  if (message.tool_calls) {
+    for (const tc of message.tool_calls) {
+      tokens += Math.ceil(JSON.stringify(tc).length / 4);
+    }
+  }
+
+  return tokens;
+}
+
+function estimateOpenAIToolTokens(tools?: OpenAITool[]): number {
+  if (!tools || tools.length === 0) {
+    return 0;
+  }
+  return Math.ceil(JSON.stringify(tools).length / 4);
 }
 
 /**
  * Token counting utility for OpenAI models.
+ * Heuristic only: counts message framing, content, tool calls, and tool schemas.
  */
 export async function countTokensForOpenAI(
-  messages: Array<{ role: string; content: string }>,
+  messages: OpenAIMessage[],
   model?: string,
+  tools?: OpenAITool[],
 ): Promise<{ prompt_tokens: number }> {
-  // Simple estimation: ~4 characters per token on average
-  const totalChars = messages.reduce(
-    (sum, m) => sum + (m.content?.length || 0),
-    0,
-  );
-  return { prompt_tokens: Math.ceil(totalChars / 4) };
+  let promptTokens = 0;
+
+  for (const message of messages) {
+    promptTokens += estimateOpenAIMessageTokens(message);
+  }
+
+  promptTokens += estimateOpenAIToolTokens(tools);
+
+  // Assistant priming / reply prefix overhead
+  promptTokens += 2;
+
+  return { prompt_tokens: promptTokens };
 }

@@ -83,11 +83,54 @@ Usage notes:
 - Use multiSelect: true to allow multiple answers to be selected for a question
 - If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
 
-Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.",
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.
+IMPORTANT: Do not reference "the plan" in your questions (e.g., "Do you have feedback about the plan?", "Does the plan look good?") because the user cannot see the plan in the UI until you call ExitPlanMode. If you need plan approval, use ExitPlanMode instead.",
   "name": "AskUserQuestion",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
+      "annotations": {
+        "additionalProperties": {
+          "additionalProperties": false,
+          "properties": {
+            "markdown": {
+              "description": "The markdown preview content of the selected option, if the question used previews.",
+              "type": "string",
+            },
+            "notes": {
+              "description": "Free-text notes the user added to their selection.",
+              "type": "string",
+            },
+          },
+          "type": "object",
+        },
+        "description": "Optional per-question annotations from the user (e.g., notes on preview selections). Keyed by question text.",
+        "propertyNames": {
+          "type": "string",
+        },
+        "type": "object",
+      },
+      "answers": {
+        "additionalProperties": {
+          "type": "string",
+        },
+        "description": "User answers collected by the permission component",
+        "propertyNames": {
+          "type": "string",
+        },
+        "type": "object",
+      },
+      "metadata": {
+        "additionalProperties": false,
+        "description": "Optional metadata for tracking and analytics purposes. Not displayed to user.",
+        "properties": {
+          "source": {
+            "description": "Optional identifier for the source of this question (e.g. "remember" for /remember command). Used for analytics tracking.",
+            "type": "string",
+          },
+        },
+        "type": "object",
+      },
       "questions": {
         "description": "Questions to ask the user (1-4 questions)",
         "items": {
@@ -99,11 +142,11 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
             },
             "multiSelect": {
               "default": false,
-              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive. Only applies when type="choice".",
+              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
               "type": "boolean",
             },
             "options": {
-              "description": "The available choices for this question. Must have 2-4 options. REQUIRED when type='choice'. IGNORED for 'text' and 'yesno'.",
+              "description": "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically.",
               "items": {
                 "additionalProperties": false,
                 "properties": {
@@ -130,29 +173,16 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
               "minItems": 2,
               "type": "array",
             },
-            "placeholder": {
-              "description": "Placeholder hint text. For type='text', shown in the input field. For type='choice', shown in the 'Other' custom input.",
-              "type": "string",
-            },
             "question": {
               "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"",
-              "type": "string",
-            },
-            "type": {
-              "default": "choice",
-              "description": "Question type: 'choice' renders selectable options, 'text' renders free-form input, 'yesno' renders a binary Yes/No choice.",
-              "enum": [
-                "choice",
-                "text",
-                "yesno",
-              ],
               "type": "string",
             },
           },
           "required": [
             "question",
             "header",
-            "type",
+            "options",
+            "multiSelect",
           ],
           "type": "object",
         },
@@ -214,6 +244,17 @@ Only skip EnterPlanMode for simple tasks:
 - Tasks where the user has given very specific, detailed instructions
 - Pure research/exploration tasks (use the Agent tool with explore agent instead)
 
+#### What Happens in Plan Mode
+
+In plan mode, you'll:
+
+1. Thoroughly explore the codebase using Glob, Grep, and Read tools
+2. Understand existing patterns and architecture
+3. Design an implementation approach
+4. Present your plan to the user for approval
+5. Use AskUserQuestion if you need to clarify approaches
+6. Exit plan mode with ExitPlanMode when ready to implement
+
 #### Important Notes
 
 - This tool REQUIRES user approval - they must consent to entering plan mode
@@ -222,12 +263,7 @@ Only skip EnterPlanMode for simple tasks:
   "name": "EnterPlanMode",
   "parametersJsonSchema": {
     "additionalProperties": false,
-    "properties": {
-      "reason": {
-        "description": "Optional reason for entering plan mode. Shown to the user for context.",
-        "type": "string",
-      },
-    },
+    "properties": {},
     "type": "object",
   },
 }
@@ -235,18 +271,63 @@ Only skip EnterPlanMode for simple tasks:
 
 exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snapshot for tool: exit_plan_mode 1`] = `
 {
-  "description": "Finalizes the planning phase and transitions to implementation by presenting the plan for user approval. This tool MUST be used to exit Plan Mode before any source code edits can be performed. Call this whenever a plan is ready or the user requests implementation.",
+  "description": "Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
+
+#### How This Tool Works
+
+- You should have already written your plan to the plan file specified in the plan mode system message
+- This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote
+- This tool simply signals that you're done planning and ready for the user to review and approve
+- The user will see the contents of your plan file when they review it
+
+#### When to Use This Tool
+
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
+
+#### Before Using This Tool
+
+Ensure your plan is complete and unambiguous:
+
+- If you have unresolved questions about requirements or approach, use AskUserQuestion first (in earlier phases)
+- Once your plan is finalized, use THIS tool to request approval
+
+**Important:** Do NOT use AskUserQuestion to ask "Is this plan okay?" or "Should I proceed?" - that's exactly what THIS tool does. ExitPlanMode inherently requests user approval of your plan.
+
+#### Examples
+
+1. Initial task: "Search for and understand the implementation of vim mode in the codebase" - Do not use the exit plan mode tool because you are not planning the implementation steps of a task.
+2. Initial task: "Help me implement yank mode for vim" - Use the exit plan mode tool after you have finished planning the implementation steps of the task.
+3. Initial task: "Add a new feature to handle user authentication" - If unsure about auth method (OAuth, JWT, etc.), use AskUserQuestion first, then use exit plan mode tool after clarifying the approach.",
   "name": "ExitPlanMode",
   "parametersJsonSchema": {
+    "additionalProperties": true,
     "properties": {
-      "plan_path": {
-        "description": "The file path to the finalized plan (e.g., "/mock/plans/feature-x.md"). This path MUST be within the designated plans directory: /mock/plans/",
-        "type": "string",
+      "allowedPrompts": {
+        "description": "Prompt-based permissions needed to implement the plan. These describe categories of actions rather than specific commands.",
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "prompt": {
+              "description": "Semantic description of the action, e.g. "run tests", "install dependencies"",
+              "type": "string",
+            },
+            "tool": {
+              "description": "The tool this prompt applies to",
+              "enum": [
+                "Bash",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "tool",
+            "prompt",
+          ],
+          "type": "object",
+        },
+        "type": "array",
       },
     },
-    "required": [
-      "plan_path",
-    ],
     "type": "object",
   },
 }
@@ -290,13 +371,27 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
 - Searches are performed automatically within a single API call
 
 CRITICAL REQUIREMENT - You MUST follow this:
-- When answering the user's question, you MUST include a "Sources:" section at the end of your response
+
+- After answering the user's question, you MUST include a "Sources:" section at the end of your response
 - In the Sources section, list all relevant URLs from the search results as markdown hyperlinks: [Title](URL)
 - This is MANDATORY - never skip including sources in your response
+- Example format:
+
+  [Your answer here]
+
+  Sources:
+  - [Source Title 1](https://example.com/1)
+  - [Source Title 2](https://example.com/2)
 
 Usage notes:
+
 - Domain filtering is supported to include or block specific websites
-- Web search is only available in the US",
+- Web search is only available in the US
+
+IMPORTANT - Use the correct year in search queries:
+
+- The current month is March 2026. You MUST use this year when searching for recent information, documentation, or current events.
+- Example: If the user asks for "latest React docs", search for "React documentation" with the current year, NOT last year",
   "name": "WebSearch",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -625,6 +720,12 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
         "description": "Set to true if this command should be run in the background (e.g. for long-running servers or watchers). The command will be started, allowed to run for a brief moment to check for immediate errors, and then moved to the background.",
         "type": "boolean",
       },
+      "timeout": {
+        "description": "Optional timeout in milliseconds. Maximum allowed is 600000 (10 minutes). Defaults to 120000 (2 minutes). The command will be automatically cancelled if it exceeds this timeout without producing output.",
+        "maximum": 600000,
+        "minimum": 0,
+        "type": "number",
+      },
     },
     "required": [
       "command",
@@ -881,11 +982,54 @@ Usage notes:
 - Use multiSelect: true to allow multiple answers to be selected for a question
 - If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
 
-Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.",
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.
+IMPORTANT: Do not reference "the plan" in your questions (e.g., "Do you have feedback about the plan?", "Does the plan look good?") because the user cannot see the plan in the UI until you call ExitPlanMode. If you need plan approval, use ExitPlanMode instead.",
   "name": "AskUserQuestion",
   "parametersJsonSchema": {
     "additionalProperties": false,
     "properties": {
+      "annotations": {
+        "additionalProperties": {
+          "additionalProperties": false,
+          "properties": {
+            "markdown": {
+              "description": "The markdown preview content of the selected option, if the question used previews.",
+              "type": "string",
+            },
+            "notes": {
+              "description": "Free-text notes the user added to their selection.",
+              "type": "string",
+            },
+          },
+          "type": "object",
+        },
+        "description": "Optional per-question annotations from the user (e.g., notes on preview selections). Keyed by question text.",
+        "propertyNames": {
+          "type": "string",
+        },
+        "type": "object",
+      },
+      "answers": {
+        "additionalProperties": {
+          "type": "string",
+        },
+        "description": "User answers collected by the permission component",
+        "propertyNames": {
+          "type": "string",
+        },
+        "type": "object",
+      },
+      "metadata": {
+        "additionalProperties": false,
+        "description": "Optional metadata for tracking and analytics purposes. Not displayed to user.",
+        "properties": {
+          "source": {
+            "description": "Optional identifier for the source of this question (e.g. "remember" for /remember command). Used for analytics tracking.",
+            "type": "string",
+          },
+        },
+        "type": "object",
+      },
       "questions": {
         "description": "Questions to ask the user (1-4 questions)",
         "items": {
@@ -897,11 +1041,11 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
             },
             "multiSelect": {
               "default": false,
-              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive. Only applies when type="choice".",
+              "description": "Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.",
               "type": "boolean",
             },
             "options": {
-              "description": "The available choices for this question. Must have 2-4 options. REQUIRED when type='choice'. IGNORED for 'text' and 'yesno'.",
+              "description": "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically.",
               "items": {
                 "additionalProperties": false,
                 "properties": {
@@ -928,29 +1072,16 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
               "minItems": 2,
               "type": "array",
             },
-            "placeholder": {
-              "description": "Placeholder hint text. For type='text', shown in the input field. For type='choice', shown in the 'Other' custom input.",
-              "type": "string",
-            },
             "question": {
               "description": "The complete question to ask the user. Should be clear, specific, and end with a question mark. Example: "Which library should we use for date formatting?" If multiSelect is true, phrase it accordingly, e.g. "Which features do you want to enable?"",
-              "type": "string",
-            },
-            "type": {
-              "default": "choice",
-              "description": "Question type: 'choice' renders selectable options, 'text' renders free-form input, 'yesno' renders a binary Yes/No choice.",
-              "enum": [
-                "choice",
-                "text",
-                "yesno",
-              ],
               "type": "string",
             },
           },
           "required": [
             "question",
             "header",
-            "type",
+            "options",
+            "multiSelect",
           ],
           "type": "object",
         },
@@ -1012,6 +1143,17 @@ Only skip EnterPlanMode for simple tasks:
 - Tasks where the user has given very specific, detailed instructions
 - Pure research/exploration tasks (use the Agent tool with explore agent instead)
 
+#### What Happens in Plan Mode
+
+In plan mode, you'll:
+
+1. Thoroughly explore the codebase using Glob, Grep, and Read tools
+2. Understand existing patterns and architecture
+3. Design an implementation approach
+4. Present your plan to the user for approval
+5. Use AskUserQuestion if you need to clarify approaches
+6. Exit plan mode with ExitPlanMode when ready to implement
+
 #### Important Notes
 
 - This tool REQUIRES user approval - they must consent to entering plan mode
@@ -1020,12 +1162,7 @@ Only skip EnterPlanMode for simple tasks:
   "name": "EnterPlanMode",
   "parametersJsonSchema": {
     "additionalProperties": false,
-    "properties": {
-      "reason": {
-        "description": "Optional reason for entering plan mode. Shown to the user for context.",
-        "type": "string",
-      },
-    },
+    "properties": {},
     "type": "object",
   },
 }
@@ -1033,18 +1170,63 @@ Only skip EnterPlanMode for simple tasks:
 
 exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview > snapshot for tool: exit_plan_mode 1`] = `
 {
-  "description": "Finalizes the planning phase and transitions to implementation by presenting the plan for user approval. This tool MUST be used to exit Plan Mode before any source code edits can be performed. Call this whenever a plan is ready or the user requests implementation.",
+  "description": "Use this tool when you are in plan mode and have finished writing your plan to the plan file and are ready for user approval.
+
+#### How This Tool Works
+
+- You should have already written your plan to the plan file specified in the plan mode system message
+- This tool does NOT take the plan content as a parameter - it will read the plan from the file you wrote
+- This tool simply signals that you're done planning and ready for the user to review and approve
+- The user will see the contents of your plan file when they review it
+
+#### When to Use This Tool
+
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires writing code. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase - do NOT use this tool.
+
+#### Before Using This Tool
+
+Ensure your plan is complete and unambiguous:
+
+- If you have unresolved questions about requirements or approach, use AskUserQuestion first (in earlier phases)
+- Once your plan is finalized, use THIS tool to request approval
+
+**Important:** Do NOT use AskUserQuestion to ask "Is this plan okay?" or "Should I proceed?" - that's exactly what THIS tool does. ExitPlanMode inherently requests user approval of your plan.
+
+#### Examples
+
+1. Initial task: "Search for and understand the implementation of vim mode in the codebase" - Do not use the exit plan mode tool because you are not planning the implementation steps of a task.
+2. Initial task: "Help me implement yank mode for vim" - Use the exit plan mode tool after you have finished planning the implementation steps of the task.
+3. Initial task: "Add a new feature to handle user authentication" - If unsure about auth method (OAuth, JWT, etc.), use AskUserQuestion first, then use exit plan mode tool after clarifying the approach.",
   "name": "ExitPlanMode",
   "parametersJsonSchema": {
+    "additionalProperties": true,
     "properties": {
-      "plan_path": {
-        "description": "The file path to the finalized plan (e.g., "/mock/plans/feature-x.md"). This path MUST be within the designated plans directory: /mock/plans/",
-        "type": "string",
+      "allowedPrompts": {
+        "description": "Prompt-based permissions needed to implement the plan. These describe categories of actions rather than specific commands.",
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "prompt": {
+              "description": "Semantic description of the action, e.g. "run tests", "install dependencies"",
+              "type": "string",
+            },
+            "tool": {
+              "description": "The tool this prompt applies to",
+              "enum": [
+                "Bash",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "tool",
+            "prompt",
+          ],
+          "type": "object",
+        },
+        "type": "array",
       },
     },
-    "required": [
-      "plan_path",
-    ],
     "type": "object",
   },
 }
@@ -1088,13 +1270,27 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
 - Searches are performed automatically within a single API call
 
 CRITICAL REQUIREMENT - You MUST follow this:
-- When answering the user's question, you MUST include a "Sources:" section at the end of your response
+
+- After answering the user's question, you MUST include a "Sources:" section at the end of your response
 - In the Sources section, list all relevant URLs from the search results as markdown hyperlinks: [Title](URL)
 - This is MANDATORY - never skip including sources in your response
+- Example format:
+
+  [Your answer here]
+
+  Sources:
+  - [Source Title 1](https://example.com/1)
+  - [Source Title 2](https://example.com/2)
 
 Usage notes:
+
 - Domain filtering is supported to include or block specific websites
-- Web search is only available in the US",
+- Web search is only available in the US
+
+IMPORTANT - Use the correct year in search queries:
+
+- The current month is March 2026. You MUST use this year when searching for recent information, documentation, or current events.
+- Example: If the user asks for "latest React docs", search for "React documentation" with the current year, NOT last year",
   "name": "WebSearch",
   "parametersJsonSchema": {
     "additionalProperties": false,
@@ -1422,6 +1618,12 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
       "run_in_background": {
         "description": "Set to true if this command should be run in the background (e.g. for long-running servers or watchers). The command will be started, allowed to run for a brief moment to check for immediate errors, and then moved to the background.",
         "type": "boolean",
+      },
+      "timeout": {
+        "description": "Optional timeout in milliseconds. Maximum allowed is 600000 (10 minutes). Defaults to 120000 (2 minutes). The command will be automatically cancelled if it exceeds this timeout without producing output.",
+        "maximum": 600000,
+        "minimum": 0,
+        "type": "number",
       },
     },
     "required": [

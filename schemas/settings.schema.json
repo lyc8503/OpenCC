@@ -73,8 +73,8 @@
         "devtools": {
           "title": "DevTools",
           "description": "Enable DevTools inspector on launch.",
-          "markdownDescription": "Enable DevTools inspector on launch.\n\n- Category: `General`\n- Requires restart: `no`\n- Default: `false`",
-          "default": false,
+          "markdownDescription": "Enable DevTools inspector on launch.\n\n- Category: `General`\n- Requires restart: `no`\n- Default: `true`",
+          "default": true,
           "type": "boolean"
         },
         "enableAutoUpdate": {
@@ -2036,13 +2036,6 @@
           "description": "Enable Plan Mode.",
           "markdownDescription": "Enable Plan Mode.\n\n- Category: `Experimental`\n- Requires restart: `yes`\n- Default: `true`",
           "default": true,
-          "type": "boolean"
-        },
-        "taskTracker": {
-          "title": "Task Tracker",
-          "description": "Enable task tracker tools.",
-          "markdownDescription": "Enable task tracker tools.\n\n- Category: `Experimental`\n- Requires restart: `yes`\n- Default: `false`",
-          "default": false,
           "type": "boolean"
         },
         "modelSteering": {

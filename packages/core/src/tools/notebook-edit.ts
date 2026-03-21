@@ -86,10 +86,12 @@ export class NotebookEditTool extends BaseDeclarativeTool<
     if (!params.notebook_path) {
       return "The 'notebook_path' parameter is required.";
     }
+    // new_source is required per schema, but we allow delete mode to skip it
     if (!params.new_source && params.edit_mode !== 'delete') {
       return "The 'new_source' parameter is required for replace and insert modes.";
     }
-    if (params.edit_mode === 'replace' && !params.cell_id) {
+    // For replace mode, cell_id is required
+    if (params.edit_mode === 'replace' && params.cell_id === undefined) {
       return "The 'cell_id' parameter is required for replace mode.";
     }
     return null;
@@ -178,6 +180,16 @@ export class NotebookEditInvocation extends BaseToolInvocation<
     notebook: Notebook,
     cellId: string,
   ): number {
+    // If cellId is a numeric string, treat it as a 0-indexed cell number
+    const cellNumber = parseInt(cellId, 10);
+    if (!isNaN(cellNumber)) {
+      if (cellNumber < 0 || cellNumber >= notebook.cells.length) {
+        return -1;
+      }
+      return cellNumber;
+    }
+
+    // Otherwise, find by string ID (exact match or partial match)
     return notebook.cells.findIndex(
       (cell) => cell.id === cellId || cell.id?.includes(cellId),
     );
@@ -191,6 +203,13 @@ export class NotebookEditInvocation extends BaseToolInvocation<
       case 'replace': {
         const index = this.findCellIndex(notebook, cell_id!);
         if (index === -1) {
+          // Provide a helpful error message based on whether it was numeric or string
+          const cellNumber = parseInt(cell_id!, 10);
+          if (!isNaN(cellNumber)) {
+            throw new Error(
+              `Cell at index ${cellNumber} not found. Notebook has ${notebook.cells.length} cells (0-${notebook.cells.length - 1}).`,
+            );
+          }
           throw new Error(`Cell with ID "${cell_id}" not found`);
         }
         notebook.cells[index] = {
@@ -215,6 +234,13 @@ export class NotebookEditInvocation extends BaseToolInvocation<
           // Insert after the specified cell
           const index = this.findCellIndex(notebook, cell_id);
           if (index === -1) {
+            // Provide a helpful error message
+            const cellNumber = parseInt(cell_id, 10);
+            if (!isNaN(cellNumber)) {
+              throw new Error(
+                `Cell at index ${cellNumber} not found. Notebook has ${notebook.cells.length} cells (0-${notebook.cells.length - 1}).`,
+              );
+            }
             throw new Error(`Cell with ID "${cell_id}" not found`);
           }
           notebook.cells.splice(index + 1, 0, newCell);
@@ -231,6 +257,13 @@ export class NotebookEditInvocation extends BaseToolInvocation<
         }
         const index = this.findCellIndex(notebook, cell_id);
         if (index === -1) {
+          // Provide a helpful error message
+          const cellNumber = parseInt(cell_id, 10);
+          if (!isNaN(cellNumber)) {
+            throw new Error(
+              `Cell at index ${cellNumber} not found. Notebook has ${notebook.cells.length} cells (0-${notebook.cells.length - 1}).`,
+            );
+          }
           throw new Error(`Cell with ID "${cell_id}" not found`);
         }
         notebook.cells.splice(index, 1);

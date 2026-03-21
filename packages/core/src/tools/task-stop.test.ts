@@ -75,8 +75,9 @@ describe('TaskStopTool', () => {
       expect(result.llmContent).toContain('Invalid task ID');
     });
 
-    it('should return not found for inactive task', async () => {
+    it('should return not found for unknown inactive task', async () => {
       vi.mocked(ExecutionLifecycleService.isActive).mockReturnValue(false);
+      vi.mocked(ExecutionLifecycleService.isKnown).mockReturnValue(false);
 
       const params: TaskStopParams = { task_id: '12345' };
       const invocation = tool.build(params);
@@ -85,8 +86,9 @@ describe('TaskStopTool', () => {
       expect(result.llmContent).toContain('not running');
     });
 
-    it('should kill active task', async () => {
+    it('should kill known tracked task', async () => {
       vi.mocked(ExecutionLifecycleService.isActive).mockReturnValue(true);
+      vi.mocked(ExecutionLifecycleService.isKnown).mockReturnValue(true);
       vi.mocked(ExecutionLifecycleService.kill).mockReturnValue(undefined);
 
       const params: TaskStopParams = { task_id: '12345' };
@@ -95,6 +97,22 @@ describe('TaskStopTool', () => {
 
       expect(ExecutionLifecycleService.kill).toHaveBeenCalledWith(12345);
       expect(result.llmContent).toContain('Successfully stopped');
+    });
+
+    it('should fallback to shell process kill for active unknown OS process', async () => {
+      const { ShellExecutionService } = await import(
+        '../services/shellExecutionService.js'
+      );
+      vi.mocked(ExecutionLifecycleService.isActive).mockReturnValue(true);
+      vi.mocked(ExecutionLifecycleService.isKnown).mockReturnValue(false);
+      vi.mocked(ShellExecutionService.kill).mockResolvedValue(undefined);
+
+      const params: TaskStopParams = { task_id: '12345' };
+      const invocation = tool.build(params);
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(ShellExecutionService.kill).toHaveBeenCalledWith(12345);
+      expect(result.llmContent).toContain('Successfully stopped shell process');
     });
   });
 });

@@ -339,13 +339,27 @@ Usage:
 - Searches are performed automatically within a single API call
 
 CRITICAL REQUIREMENT - You MUST follow this:
-- When answering the user's question, you MUST include a "Sources:" section at the end of your response
+
+- After answering the user's question, you MUST include a "Sources:" section at the end of your response
 - In the Sources section, list all relevant URLs from the search results as markdown hyperlinks: [Title](URL)
 - This is MANDATORY - never skip including sources in your response
+- Example format:
+
+  [Your answer here]
+
+  Sources:
+  - [Source Title 1](https://example.com/1)
+  - [Source Title 2](https://example.com/2)
 
 Usage notes:
+
 - Domain filtering is supported to include or block specific websites
-- Web search is only available in the US`,
+- Web search is only available in the US
+
+IMPORTANT - Use the correct year in search queries:
+
+- The current month is March 2026. You MUST use this year when searching for recent information, documentation, or current events.
+- Example: If the user asks for "latest React docs", search for "React documentation" with the current year, NOT last year`,
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -498,7 +512,8 @@ Usage notes:
 - Use multiSelect: true to allow multiple answers to be selected for a question
 - If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
 
-Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.`,
+Plan mode note: In plan mode, use this tool to clarify requirements or choose between approaches BEFORE finalizing your plan. Do NOT use this tool to ask "Is my plan ready?" or "Should I proceed?" - use ExitPlanMode for plan approval.
+IMPORTANT: Do not reference "the plan" in your questions (e.g., "Do you have feedback about the plan?", "Does the plan look good?") because the user cannot see the plan in the UI until you call ExitPlanMode. If you need plan approval, use ExitPlanMode instead.`,
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -520,16 +535,9 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
                   'Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach".',
                 type: 'string',
               },
-              type: {
-                description:
-                  "Question type: 'choice' renders selectable options, 'text' renders free-form input, 'yesno' renders a binary Yes/No choice.",
-                type: 'string',
-                enum: ['choice', 'text', 'yesno'],
-                default: 'choice',
-              },
               options: {
                 description:
-                  "The available choices for this question. Must have 2-4 options. REQUIRED when type='choice'. IGNORED for 'text' and 'yesno'.",
+                  "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically.",
                 minItems: 2,
                 maxItems: 4,
                 type: 'array',
@@ -558,19 +566,54 @@ Plan mode note: In plan mode, use this tool to clarify requirements or choose be
               },
               multiSelect: {
                 description:
-                  'Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive. Only applies when type="choice".',
+                  'Set to true to allow the user to select multiple options instead of just one. Use when choices are not mutually exclusive.',
                 default: false,
                 type: 'boolean',
               },
-              placeholder: {
+            },
+            required: ['question', 'header', 'options', 'multiSelect'],
+            additionalProperties: false,
+          },
+        },
+        answers: {
+          description: 'User answers collected by the permission component',
+          type: 'object',
+          propertyNames: { type: 'string' },
+          additionalProperties: { type: 'string' },
+        },
+        annotations: {
+          description:
+            'Optional per-question annotations from the user (e.g., notes on preview selections). Keyed by question text.',
+          type: 'object',
+          propertyNames: { type: 'string' },
+          additionalProperties: {
+            type: 'object',
+            properties: {
+              markdown: {
                 description:
-                  "Placeholder hint text. For type='text', shown in the input field. For type='choice', shown in the 'Other' custom input.",
+                  'The markdown preview content of the selected option, if the question used previews.',
+                type: 'string',
+              },
+              notes: {
+                description: 'Free-text notes the user added to their selection.',
                 type: 'string',
               },
             },
-            required: ['question', 'header', 'type'],
             additionalProperties: false,
           },
+        },
+        metadata: {
+          description:
+            'Optional metadata for tracking and analytics purposes. Not displayed to user.',
+          type: 'object',
+          properties: {
+            source: {
+              description:
+                'Optional identifier for the source of this question (e.g. "remember" for /remember command). Used for analytics tracking.',
+              type: 'string',
+            },
+          },
+          additionalProperties: false,
         },
       },
       required: ['questions'],
@@ -623,6 +666,17 @@ Only skip EnterPlanMode for simple tasks:
 - Tasks where the user has given very specific, detailed instructions
 - Pure research/exploration tasks (use the Agent tool with explore agent instead)
 
+#### What Happens in Plan Mode
+
+In plan mode, you'll:
+
+1. Thoroughly explore the codebase using Glob, Grep, and Read tools
+2. Understand existing patterns and architecture
+3. Design an implementation approach
+4. Present your plan to the user for approval
+5. Use AskUserQuestion if you need to clarify approaches
+6. Exit plan mode with ExitPlanMode when ready to implement
+
 #### Important Notes
 
 - This tool REQUIRES user approval - they must consent to entering plan mode
@@ -630,13 +684,7 @@ Only skip EnterPlanMode for simple tasks:
 - Users appreciate being consulted before significant changes are made to their codebase`,
     parametersJsonSchema: {
       type: 'object',
-      properties: {
-        reason: {
-          description:
-            'Optional reason for entering plan mode. Shown to the user for context.',
-          type: 'string',
-        },
-      },
+      properties: {},
       additionalProperties: false,
     },
   },
@@ -742,6 +790,37 @@ Only skip EnterPlanMode for simple tasks:
     },
   },
 
+  ExitWorktree: {
+    name: 'ExitWorktree',
+    description: `Use this tool when you want to exit a git worktree and return to the original working directory.
+
+#### When to Use
+
+- After completing work in a worktree and wanting to return to the main repository
+- When switching back from a worktree created with EnterWorktree
+
+#### When NOT to Use
+
+- If you're not currently in a worktree
+- If you want to continue working in the current directory
+
+#### Behavior
+
+- Returns to the original working directory (main repository)
+- Automatically removes the worktree if it contains no uncommitted changes
+- Keeps the worktree if it contains uncommitted changes
+- Updates the session's target directory to the original path
+
+#### Parameters
+
+This tool takes no parameters.`,
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+
   NotebookEdit: {
     name: 'NotebookEdit',
     description: `Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source. Jupyter notebooks are interactive documents that combine code, text, and visualizations, commonly used for data analysis and scientific computing. The notebook_path parameter must be an absolute path, not a relative path. The cell_number is 0-indexed. Use edit_mode=insert to add a new cell at the index specified by cell_number. Use edit_mode=delete to delete the cell at the index specified by cell_number.`,
@@ -775,7 +854,7 @@ Only skip EnterPlanMode for simple tasks:
           enum: ['replace', 'insert', 'delete'],
         },
       },
-      required: ['notebook_path'],
+      required: ['notebook_path', 'new_source'],
       additionalProperties: false,
     },
   },

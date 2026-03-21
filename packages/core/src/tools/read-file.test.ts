@@ -63,6 +63,8 @@ describe('ReadFileTool', () => {
       storage: {
         getProjectTempDir: () => path.join(tempRootDir, '.temp'),
       },
+      markFileAsRead: vi.fn(),
+      hasReadFile: vi.fn(() => false),
       isInteractive: () => false,
       isPathAllowed(this: Config, absolutePath: string): boolean {
         const workspaceContext = this.getWorkspaceContext();
@@ -230,6 +232,22 @@ describe('ReadFileTool', () => {
         llmContent: fileContent,
         returnDisplay: '',
       });
+    });
+
+    it('should treat offset 0 the same as starting from the beginning', async () => {
+      const filePath = path.join(tempRootDir, 'offset-zero.txt');
+      const fileContent = 'line1\nline2';
+      await fsp.writeFile(filePath, fileContent, 'utf-8');
+      const params: ReadFileToolParams = {
+        file_path: filePath,
+        offset: 0,
+        limit: 2,
+      };
+      const invocation = tool.build(params);
+
+      const result = await invocation.execute(abortSignal);
+      expect(result.llmContent).toContain('line1');
+      expect(result.llmContent).toContain('line2');
     });
 
     it('should return error if file does not exist', async () => {

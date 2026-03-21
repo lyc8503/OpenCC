@@ -232,6 +232,9 @@ export class EnterWorktreeInvocation extends BaseToolInvocation<
         currentBranch,
       );
 
+      // Switch to the new worktree
+      this.config.setTargetDir(this.worktreeResult.worktreePath);
+
       return {
         llmContent: `Successfully created worktree "${name}" at ${this.worktreeResult.worktreePath}.
 Branch: ${this.worktreeResult.branchName}

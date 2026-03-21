@@ -27,13 +27,13 @@ import { EditTool } from '../tools/edit.js';
 import { ShellTool } from '../tools/shell.js';
 import { WriteFileTool } from '../tools/write-file.js';
 import { WebFetchTool } from '../tools/web-fetch.js';
-import { WebSearchTool } from '../tools/web-search.js';
 import { AskUserTool } from '../tools/ask-user.js';
 import { ExitPlanModeTool } from '../tools/exit-plan-mode.js';
 import { EnterPlanModeTool } from '../tools/enter-plan-mode.js';
 import { TaskOutputTool } from '../tools/task-output.js';
 import { TaskStopTool } from '../tools/task-stop.js';
 import { EnterWorktreeTool } from '../tools/enter-worktree.js';
+import { ExitWorktreeTool } from '../tools/exit-worktree.js';
 import { NotebookEditTool } from '../tools/notebook-edit.js';
 import { AgentTool } from '../tools/agent-tool.js';
 import { GeminiClient } from '../core/client.js';
@@ -484,6 +484,8 @@ export interface ConfigParameters {
   sandbox?: SandboxConfig;
   toolSandboxing?: boolean;
   targetDir: string;
+  /** Callback to update the target directory (used by worktree tools) */
+  setTargetDir?: (dir: string) => void;
   debugMode: boolean;
   question?: string;
 
@@ -630,7 +632,7 @@ export class Config implements McpContext, AgentLoopContext {
   readonly modelConfigService: ModelConfigService;
   private readonly embeddingModel: string;
   private readonly sandbox: SandboxConfig | undefined;
-  private readonly targetDir: string;
+  private targetDir: string;
   private workspaceContext: WorkspaceContext;
   private readonly debugMode: boolean;
   private readonly question: string | undefined;
@@ -770,6 +772,12 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly skillsSupport: boolean;
   private disabledSkills: string[];
   private readonly adminSkillsEnabled: boolean;
+
+  /**
+   * Tracks files that have been read in this session.
+   * Used to enforce "must read before edit/write" policy.
+   */
+  private readonly readFiles: Set<string> = new Set();
 
   private readonly experimentalJitContext: boolean;
   private readonly topicUpdateNarration: boolean;
@@ -1293,6 +1301,23 @@ export class Config implements McpContext, AgentLoopContext {
     return this.promptId;
   }
 
+  /**
+   * Marks a file as having been read in this session.
+   * @param filePath The absolute path to the file that was read.
+   */
+  markFileAsRead(filePath: string): void {
+    this.readFiles.add(filePath);
+  }
+
+  /**
+   * Checks if a file has been read in this session.
+   * @param filePath The absolute path to check.
+   * @returns true if the file has been read, false otherwise.
+   */
+  hasReadFile(filePath: string): boolean {
+    return this.readFiles.has(filePath);
+  }
+
   getClientName(): string | undefined {
     return this.clientName;
   }
@@ -1421,6 +1446,12 @@ export class Config implements McpContext, AgentLoopContext {
 
   getTargetDir(): string {
     return this.targetDir;
+  }
+
+  setTargetDir(dir: string): void {
+    this.targetDir = path.resolve(dir);
+    // Update workspace context when target dir changes
+    this.workspaceContext = new WorkspaceContext(this.targetDir, []);
   }
 
   getProjectRoot(): string {
@@ -2512,9 +2543,12 @@ export class Config implements McpContext, AgentLoopContext {
     maybeRegister(ShellTool, () =>
       registry.registerTool(new ShellTool(this, this.messageBus)),
     );
-    maybeRegister(WebSearchTool, () =>
-      registry.registerTool(new WebSearchTool(this, this.messageBus)),
-    );
+    // WebSearchTool is disabled because it requires Google Gemini grounding support,
+    // which is not available when using OpenAI models.
+    // TODO(zzn): Re-enable once we have a fallback search implementation (e.g., SerpAPI).
+    // maybeRegister(WebSearchTool, () =>
+    //   registry.registerTool(new WebSearchTool(this, this.messageBus)),
+    // );
     maybeRegister(AskUserTool, () =>
       registry.registerTool(new AskUserTool(this.messageBus)),
     );
@@ -2541,6 +2575,9 @@ export class Config implements McpContext, AgentLoopContext {
     );
     maybeRegister(EnterWorktreeTool, () =>
       registry.registerTool(new EnterWorktreeTool(this, this.messageBus)),
+    );
+    maybeRegister(ExitWorktreeTool, () =>
+      registry.registerTool(new ExitWorktreeTool(this, this.messageBus)),
     );
     maybeRegister(NotebookEditTool, () =>
       registry.registerTool(new NotebookEditTool(this, this.messageBus)),

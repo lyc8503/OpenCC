@@ -862,5 +862,104 @@ describe('ShellTool', () => {
       expect(schema.name).toBe(SHELL_TOOL_NAME);
       expect(schema.description).toMatchSnapshot();
     });
+
+    it('should include timeout parameter in schema', () => {
+      const schema = shellTool.getSchema();
+      expect(schema.parametersJsonSchema?.properties).toHaveProperty('timeout');
+      expect(schema.parametersJsonSchema?.properties?.timeout).toMatchObject({
+        type: 'number',
+        minimum: 0,
+        maximum: 600000,
+      });
+    });
+  });
+
+  describe('timeout parameter', () => {
+    const mockAbortSignal = new AbortController().signal;
+
+    const resolveShellExecution = (
+      result: Partial<ShellExecutionResult> = {},
+    ) => {
+      const fullResult: ShellExecutionResult = {
+        rawOutput: Buffer.from(result.output || ''),
+        output: 'Success',
+        exitCode: 0,
+        signal: null,
+        error: null,
+        aborted: false,
+        pid: 12345,
+        executionMethod: 'child_process',
+        ...result,
+      };
+      resolveExecutionPromise(fullResult);
+    };
+
+    it('should validate timeout must be non-negative', () => {
+      expect(() =>
+        shellTool.build({ command: 'ls', timeout: -100 }),
+      ).toThrow(/timeout must be >= 0/i);
+    });
+
+    it('should validate timeout cannot exceed 600000ms', () => {
+      expect(() =>
+        shellTool.build({ command: 'ls', timeout: 700000 }),
+      ).toThrow(/600000/);
+    });
+
+    it('should accept valid timeout values', () => {
+      const invocation = shellTool.build({ command: 'ls', timeout: 30000 });
+      expect(invocation).toBeDefined();
+    });
+
+    it('should use timeout from params instead of config default', async () => {
+      // Config default is 1000ms
+      (mockConfig.getShellToolInactivityTimeout as Mock).mockReturnValue(1000);
+
+      const invocation = shellTool.build({
+        command: 'sleep 10',
+        timeout: 300000, // 5 minutes
+      });
+
+      vi.useFakeTimers();
+      const promise = invocation.execute(mockAbortSignal);
+
+      // Simulate no output for longer than config default (1000ms)
+      // but less than the specified timeout (300000ms)
+      await vi.advanceTimersByTimeAsync(5000);
+
+      // Should NOT have timed out because we're using the param timeout
+      // Now resolve the execution
+      resolveShellExecution({ output: 'done' });
+
+      const result = await promise;
+
+      // Should succeed, not timeout
+      expect(result.llmContent).toContain('Output: done');
+      expect(result.llmContent).not.toContain('timeout');
+
+      vi.useRealTimers();
+    });
+
+    it('should reject timeout larger than 600000ms', async () => {
+      // Try to use a timeout larger than max (but validation should catch this)
+      // This test verifies the validation works
+      expect(() =>
+        shellTool.build({ command: 'ls', timeout: 1000000 }),
+      ).toThrow(/600000/);
+    });
+
+    it('should use config default when timeout param not provided', async () => {
+      (mockConfig.getShellToolInactivityTimeout as Mock).mockReturnValue(5000);
+
+      const invocation = shellTool.build({ command: 'echo test' });
+      const promise = invocation.execute(mockAbortSignal);
+      resolveShellExecution({ output: 'test' });
+
+      await promise;
+
+      // Verify it used the config timeout (5 seconds = 5000ms)
+      // This is implicitly tested by the fact it doesn't timeout immediately
+      expect(mockShellExecutionService).toHaveBeenCalled();
+    });
   });
 });

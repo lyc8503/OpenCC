@@ -56,6 +56,7 @@ export interface ShellToolParams {
   description?: string;
   path?: string;
   run_in_background?: boolean;
+  timeout?: number;
 }
 
 export class ShellToolInvocation extends BaseToolInvocation<
@@ -168,7 +169,20 @@ export class ShellToolInvocation extends BaseToolInvocation<
       .toString('hex')}.tmp`;
     const tempFilePath = path.join(os.tmpdir(), tempFileName);
 
-    const timeoutMs = this.context.config.getShellToolInactivityTimeout();
+    // Use timeout from params if provided, otherwise fall back to config default
+    // Max timeout is 600000ms (10 minutes) per REF_PROMPT
+    const MAX_TIMEOUT_MS = 600000;
+    const DEFAULT_TIMEOUT_MS = 120000;
+    const configTimeout = this.context.config.getShellToolInactivityTimeout();
+    let timeoutMs: number;
+    if (this.params.timeout !== undefined) {
+      // Clamp user-provided timeout to max
+      timeoutMs = Math.min(this.params.timeout, MAX_TIMEOUT_MS);
+    } else {
+      // Use config timeout, but respect the max
+      timeoutMs = configTimeout > 0 ? Math.min(configTimeout, MAX_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS;
+    }
+
     const timeoutController = new AbortController();
     let timeoutTimer: NodeJS.Timeout | undefined;
 
@@ -490,6 +504,15 @@ export class ShellTool extends BaseDeclarativeTool<
   ): string | null {
     if (!params.command.trim()) {
       return 'Command cannot be empty.';
+    }
+
+    if (params.timeout !== undefined) {
+      if (params.timeout < 0) {
+        return 'Timeout must be a non-negative number.';
+      }
+      if (params.timeout > 600000) {
+        return 'Timeout cannot exceed 600000ms (10 minutes).';
+      }
     }
 
     if (params.path) {
