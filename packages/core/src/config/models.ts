@@ -5,6 +5,26 @@
  */
 
 /**
+ * Default model for OpenCLI
+ */
+export const DEFAULT_MODEL = 'gpt-4o';
+
+// OpenAI model constants
+export const GPT_4O_MODEL = 'gpt-4o';
+export const GPT_4O_MINI_MODEL = 'gpt-4o-mini';
+
+// Claude model constants
+export const CLAUDE_OPUS_4_MODEL = 'claude-opus-4-6';
+export const CLAUDE_SONNET_4_MODEL = 'claude-sonnet-4-6';
+
+/**
+ * Gets a display-friendly name for a model.
+ */
+export function getModelDisplayName(model: string): string {
+  return model;
+}
+
+/**
  * Interface for the ModelConfigService to break circular dependencies.
  */
 export interface IModelConfigService {

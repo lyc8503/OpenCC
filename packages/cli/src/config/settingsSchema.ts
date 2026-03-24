@@ -926,6 +926,46 @@ const SETTINGS_SCHEMA = {
         description: 'The Gemini model to use for conversations.',
         showInDialog: true,
       },
+      contextWindow: {
+        type: 'number',
+        label: 'Context Window',
+        category: 'Model',
+        requiresRestart: false,
+        default: undefined as number | undefined,
+        description:
+          'Maximum context window size in tokens. If not set, uses model default.',
+        showInDialog: true,
+      },
+      maxOutputTokens: {
+        type: 'number',
+        label: 'Max Output Tokens',
+        category: 'Model',
+        requiresRestart: false,
+        default: undefined as number | undefined,
+        description:
+          'Maximum output tokens per response. If not set, uses model default.',
+        showInDialog: true,
+      },
+      openaiApiKey: {
+        type: 'string',
+        label: 'OpenAI API Key',
+        category: 'Model',
+        requiresRestart: false,
+        default: undefined as string | undefined,
+        description:
+          'OpenAI API key for authentication. Can also be set via OPENAI_API_KEY environment variable.',
+        showInDialog: true,
+      },
+      openaiBaseUrl: {
+        type: 'string',
+        label: 'OpenAI Base URL',
+        category: 'Model',
+        requiresRestart: false,
+        default: undefined as string | undefined,
+        description:
+          'Custom OpenAI API endpoint URL. Can also be set via OPENAI_BASE_URL environment variable.',
+        showInDialog: true,
+      },
       maxSessionTurns: {
         type: 'number',
         label: 'Max Session Turns',

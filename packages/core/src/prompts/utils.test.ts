@@ -23,10 +23,6 @@ vi.mock('../utils/debugLogger.js', () => ({
   },
 }));
 
-vi.mock('./snippets.js', () => ({
-  renderSubAgents: vi.fn().mockReturnValue('mocked-sub-agents'),
-}));
-
 describe('resolvePathFromEnv', () => {
   it('should return default values for undefined input', () => {
     const result = resolvePathFromEnv(undefined);
@@ -221,27 +217,25 @@ describe('applySubstitutions', () => {
     } as unknown as Config;
   });
 
-  it('should replace ${AgentSkills} with the skills prompt', () => {
-    const result = applySubstitutions(
-      'Skills: ${AgentSkills}',
-      mockConfig,
-      'my-skills-content',
-    );
-    expect(result).toBe('Skills: my-skills-content');
-  });
-
-  it('should replace multiple ${AgentSkills} occurrences', () => {
-    const result = applySubstitutions(
-      '${AgentSkills} and ${AgentSkills}',
-      mockConfig,
-      'skills',
-    );
-    expect(result).toBe('skills and skills');
-  });
-
   it('should replace ${SubAgents} with rendered sub-agents content', () => {
     const result = applySubstitutions('Agents: ${SubAgents}', mockConfig, '');
-    expect(result).toContain('mocked-sub-agents');
+    // Since no sub-agents are defined, the placeholder should be removed
+    expect(result).toBe('Agents: ');
+  });
+
+  it('should render sub-agents when available', () => {
+    (
+      mockConfig as unknown as { getAgentRegistry: ReturnType<typeof vi.fn> }
+    ).getAgentRegistry = vi.fn().mockReturnValue({
+      getAllDefinitions: vi.fn().mockReturnValue([
+        { name: 'test-agent', description: 'A test agent' },
+      ]),
+    });
+
+    const result = applySubstitutions('Agents: ${SubAgents}', mockConfig, '');
+    expect(result).toContain('# Available Sub-Agents');
+    expect(result).toContain('test-agent');
+    expect(result).toContain('A test agent');
   });
 
   it('should replace ${AvailableTools} with tool names list', () => {

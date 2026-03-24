@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Config } from '../config/config.js';
 import type { HierarchicalMemory } from '../config/memory.js';
+import type { AgentLoopContext } from '../config/agent-loop-context.js';
 import { PromptProvider } from '../prompts/promptProvider.js';
 import { resolvePathFromEnv as resolvePathFromEnvImpl } from '../prompts/utils.js';
 
@@ -21,12 +21,12 @@ export function resolvePathFromEnv(envVar?: string) {
  * Returns the core system prompt for the agent.
  */
 export function getCoreSystemPrompt(
-  config: Config,
+  context: AgentLoopContext,
   userMemory?: string | HierarchicalMemory,
   interactiveOverride?: boolean,
 ): string {
   return new PromptProvider().getCoreSystemPrompt(
-    config,
+    context,
     userMemory,
     interactiveOverride,
   );
@@ -35,6 +35,6 @@ export function getCoreSystemPrompt(
 /**
  * Provides the system prompt for the history compression process.
  */
-export function getCompressionPrompt(config: Config): string {
-  return new PromptProvider().getCompressionPrompt(config);
+export function getCompressionPrompt(context: AgentLoopContext): string {
+  return new PromptProvider().getCompressionPrompt(context);
 }

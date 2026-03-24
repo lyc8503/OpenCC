@@ -4,8 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Export OpenAI models
-export * from './config/openaiModels.js';
+// Export models constants
+export {
+  DEFAULT_MODEL,
+  getModelDisplayName,
+  resolveModel,
+  CLAUDE_OPUS_4_MODEL,
+  CLAUDE_SONNET_4_MODEL,
+  GPT_4O_MODEL,
+  GPT_4O_MINI_MODEL,
+  DEFAULT_GEMINI_FLASH_MODEL as DEFAULT_FAST_MODEL,
+  VALID_GEMINI_MODELS as VALID_MODELS,
+} from './config/models.js';
 
 // Export config
 export * from './config/config.js';

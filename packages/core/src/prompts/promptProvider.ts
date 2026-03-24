@@ -5,11 +5,11 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import type { HierarchicalMemory } from '../config/memory.js';
 import { GEMINI_DIR } from '../utils/paths.js';
-import { ApprovalMode } from '../policy/types.js';
 import * as snippets from './snippets.js';
 import {
   resolvePathFromEnv,
@@ -20,13 +20,9 @@ import {
 import { isGitRepository } from '../utils/gitUtils.js';
 import {
   WRITE_TODOS_TOOL_NAME,
-  READ_FILE_TOOL_NAME,
-  ENTER_PLAN_MODE_TOOL_NAME,
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
 } from '../tools/tool-names.js';
-import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
-import { getAllGeminiMdFilenames } from '../config/memory.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 /**
@@ -47,29 +43,8 @@ export class PromptProvider {
 
     const interactiveMode =
       interactiveOverride ?? context.config.isInteractive();
-    const approvalMode =
-      context.config.getApprovalMode?.() ?? ApprovalMode.DEFAULT;
-    const isPlanMode = approvalMode === ApprovalMode.PLAN;
-    const isYoloMode = approvalMode === ApprovalMode.YOLO;
-    const skills = context.config.getSkillManager().getSkills();
     const toolNames = context.toolRegistry.getAllToolNames();
     const enabledToolNames = new Set(toolNames);
-    const approvedPlanPath = context.config.getApprovedPlanPath();
-    const contextFilenames = getAllGeminiMdFilenames();
-
-    // --- Context Gathering ---
-    let planModeToolsList = '';
-    if (isPlanMode) {
-      const allTools = context.toolRegistry.getAllTools();
-      planModeToolsList = allTools
-        .map((t) => {
-          if (t instanceof DiscoveredMCPTool) {
-            return `  <tool>\`${t.name}\` (${t.serverName})</tool>`;
-          }
-          return `  <tool>\`${t.name}\`</tool>`;
-        })
-        .join('\n');
-    }
 
     let basePrompt: string;
 
@@ -83,120 +58,50 @@ export class PromptProvider {
         throw new Error(`missing system prompt file '${systemMdPath}'`);
       }
       basePrompt = fs.readFileSync(systemMdPath, 'utf8');
-      const skillsPrompt = snippets.renderAgentSkills(
-        skills.map((s) => ({
-          name: s.name,
-          description: s.description,
-          location: s.location,
-        })),
-      );
-      basePrompt = applySubstitutions(basePrompt, context.config, skillsPrompt);
+      basePrompt = applySubstitutions(basePrompt, context, '');
     } else {
       // --- Standard Composition ---
-      const hasHierarchicalMemory =
-        typeof userMemory === 'object' &&
-        userMemory !== null &&
-        (!!userMemory.global?.trim() ||
-          !!userMemory.extension?.trim() ||
-          !!userMemory.project?.trim());
+      const memoryDir = path.join(
+        os.homedir() || os.tmpdir(),
+        GEMINI_DIR,
+        'projects',
+        'memory',
+      );
 
       const options: snippets.SystemPromptOptions = {
         preamble: this.withSection('preamble', () => ({
           interactive: interactiveMode,
         })),
-        coreMandates: this.withSection('coreMandates', () => ({
-          interactive: interactiveMode,
-          hasSkills: skills.length > 0,
-          hasHierarchicalMemory,
-          contextFilenames,
-          topicUpdateNarration: context.config.isTopicUpdateNarrationEnabled(),
+        systemSection: isSectionEnabled('systemSection'),
+        doingTasks: isSectionEnabled('doingTasks'),
+        executingActionsWithCare: isSectionEnabled('executingActionsWithCare'),
+        usingYourTools: this.withSection('usingYourTools', () => ({
+          enableTodoWrite: enabledToolNames.has(WRITE_TODOS_TOOL_NAME),
+          enableAgent: true,
+          enableGrep: enabledToolNames.has(GREP_TOOL_NAME),
+          enableGlob: enabledToolNames.has(GLOB_TOOL_NAME),
         })),
-        subAgents: this.withSection('agentContexts', () =>
-          context.config
-            .getAgentRegistry()
-            .getAllDefinitions()
-            .map((d) => ({
-              name: d.name,
-              description: d.description,
-            })),
-        ),
-        agentSkills: this.withSection(
-          'agentSkills',
-          () =>
-            skills.map((s) => ({
-              name: s.name,
-              description: s.description,
-              location: s.location,
-            })),
-          skills.length > 0,
-        ),
-        hookContext: isSectionEnabled('hookContext') || undefined,
-        primaryWorkflows: this.withSection(
-          'primaryWorkflows',
-          () => ({
-            interactive: interactiveMode,
-            enableWriteTodosTool: enabledToolNames.has(WRITE_TODOS_TOOL_NAME),
-            enableEnterPlanModeTool: enabledToolNames.has(
-              ENTER_PLAN_MODE_TOOL_NAME,
-            ),
-            enableGrep: enabledToolNames.has(GREP_TOOL_NAME),
-            enableGlob: enabledToolNames.has(GLOB_TOOL_NAME),
-            approvedPlan: approvedPlanPath
-              ? { path: approvedPlanPath }
-              : undefined,
-            topicUpdateNarration:
-              context.config.isTopicUpdateNarrationEnabled(),
-          }),
-          !isPlanMode,
-        ),
-        planningWorkflow: this.withSection(
-          'planningWorkflow',
-          () => ({
-            planModeToolsList,
-            plansDir: context.config.storage.getPlansDir(),
-            approvedPlanPath: context.config.getApprovedPlanPath(),
-          }),
-          isPlanMode,
-        ),
-        operationalGuidelines: this.withSection(
-          'operationalGuidelines',
-          () => ({
-            interactive: interactiveMode,
-            enableShellEfficiency:
-              context.config.getEnableShellOutputEfficiency(),
-            interactiveShellEnabled: context.config.isInteractiveShellEnabled(),
-            topicUpdateNarration:
-              context.config.isTopicUpdateNarrationEnabled(),
-          }),
-        ),
-        sandbox: this.withSection('sandbox', () => getSandboxMode()),
-        interactiveYoloMode: this.withSection(
-          'interactiveYoloMode',
-          () => true,
-          isYoloMode && interactiveMode,
-        ),
-        gitRepo: this.withSection(
-          'git',
-          () => ({ interactive: interactiveMode }),
-          isGitRepository(process.cwd()) ? true : false,
-        ),
-        finalReminder: this.withSection('finalReminder', () => ({
-          readFileToolName: READ_FILE_TOOL_NAME,
+        toneAndStyle: isSectionEnabled('toneAndStyle'),
+        outputEfficiency: isSectionEnabled('outputEfficiency'),
+        autoMemory: this.withSection('autoMemory', () => ({
+          memoryDir,
         })),
-      } as snippets.SystemPromptOptions;
+        environment: this.withSection('environment', () => ({
+          workingDir: process.cwd(),
+          isGitRepo: isGitRepository(process.cwd()),
+          platform: process.platform,
+          shell: process.env['SHELL'] ?? 'unknown',
+          osVersion: `${os.type()} ${os.release()}`,
+          modelName: 'Sonnet 4.6',
+          modelId: 'claude-sonnet-4-6',
+        })),
+      };
 
-      const getCoreSystemPrompt = snippets.getCoreSystemPrompt as (
-        options: snippets.SystemPromptOptions,
-      ) => string;
-      basePrompt = getCoreSystemPrompt(options);
+      basePrompt = snippets.getCoreSystemPrompt(options);
     }
 
     // --- Finalization (Shell) ---
-    const finalPrompt = snippets.renderFinalShell(
-      basePrompt,
-      userMemory,
-      contextFilenames,
-    );
+    const finalPrompt = snippets.renderFinalShell(basePrompt, userMemory);
 
     // Sanitize erratic newlines from composition
     const sanitizedPrompt = finalPrompt.replace(/\n{3,}/g, '\n\n');
@@ -211,8 +116,8 @@ export class PromptProvider {
     return sanitizedPrompt;
   }
 
-  getCompressionPrompt(context: AgentLoopContext): string {
-    return snippets.getCompressionPrompt(context.config.getApprovedPlanPath());
+  getCompressionPrompt(_context: AgentLoopContext): string {
+    return snippets.getCompressionPrompt();
   }
 
   private withSection<T>(
@@ -239,12 +144,4 @@ export class PromptProvider {
       fs.writeFileSync(writePath, basePrompt);
     }
   }
-}
-
-// --- Internal Context Helpers ---
-
-function getSandboxMode(): snippets.SandboxMode {
-  if (process.env['SANDBOX'] === 'sandbox-exec') return 'macos-seatbelt';
-  if (process.env['SANDBOX']) return 'generic';
-  return 'outside';
 }

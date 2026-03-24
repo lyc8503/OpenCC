@@ -8,7 +8,6 @@ import path from 'node:path';
 import process from 'node:process';
 import { homedir } from '../utils/paths.js';
 import { debugLogger } from '../utils/debugLogger.js';
-import * as snippets from './snippets.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 export type ResolvedPath = {
@@ -63,23 +62,37 @@ export function resolvePathFromEnv(envVar?: string): ResolvedPath {
 export function applySubstitutions(
   prompt: string,
   context: AgentLoopContext,
-  skillsPrompt: string,
+  _skillsPrompt: string,
 ): string {
   let result = prompt;
 
-  result = result.replace(/\${AgentSkills}/g, skillsPrompt);
+  const subAgents = context.config
+    .getAgentRegistry()
+    .getAllDefinitions()
+    .map((d) => ({
+      name: d.name,
+      description: d.description,
+    }));
 
-  const subAgentsContent = snippets.renderSubAgents(
-    context.config
-      .getAgentRegistry()
-      .getAllDefinitions()
-      .map((d) => ({
-        name: d.name,
-        description: d.description,
-      })),
-  );
+  // Render sub-agents section
+  if (subAgents.length > 0) {
+    const subAgentsXml = subAgents
+      .map(
+        (agent) => `  <subagent>
+    <name>${agent.name}</name>
+    <description>${agent.description}</description>
+  </subagent>`,
+      )
+      .join('\n');
+    const subAgentsContent = `# Available Sub-Agents
 
-  result = result.replace(/\${SubAgents}/g, subAgentsContent);
+Sub-agents are specialized expert agents. Each sub-agent is available as a tool of the same name.
+
+<available_subagents>
+${subAgentsXml}
+</available_subagents>`;
+    result = result.replace(/\${SubAgents}/g, subAgentsContent);
+  }
 
   const toolRegistry = context.toolRegistry;
   const allToolNames = toolRegistry.getAllToolNames();

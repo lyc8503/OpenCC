@@ -586,6 +586,30 @@
           "markdownDescription": "The Gemini model to use for conversations.\n\n- Category: `Model`\n- Requires restart: `no`",
           "type": "string"
         },
+        "contextWindow": {
+          "title": "Context Window",
+          "description": "Maximum context window size in tokens. If not set, uses model default.",
+          "markdownDescription": "Maximum context window size in tokens. If not set, uses model default.\n\n- Category: `Model`\n- Requires restart: `no`",
+          "type": "number"
+        },
+        "maxOutputTokens": {
+          "title": "Max Output Tokens",
+          "description": "Maximum output tokens per response. If not set, uses model default.",
+          "markdownDescription": "Maximum output tokens per response. If not set, uses model default.\n\n- Category: `Model`\n- Requires restart: `no`",
+          "type": "number"
+        },
+        "openaiApiKey": {
+          "title": "OpenAI API Key",
+          "description": "OpenAI API key for authentication. Can also be set via OPENAI_API_KEY environment variable.",
+          "markdownDescription": "OpenAI API key for authentication. Can also be set via OPENAI_API_KEY environment variable.\n\n- Category: `Model`\n- Requires restart: `no`",
+          "type": "string"
+        },
+        "openaiBaseUrl": {
+          "title": "OpenAI Base URL",
+          "description": "Custom OpenAI API endpoint URL. Can also be set via OPENAI_BASE_URL environment variable.",
+          "markdownDescription": "Custom OpenAI API endpoint URL. Can also be set via OPENAI_BASE_URL environment variable.\n\n- Category: `Model`\n- Requires restart: `no`",
+          "type": "string"
+        },
         "maxSessionTurns": {
           "title": "Max Session Turns",
           "description": "Maximum number of user/model/tool turns to keep in a session. -1 means unlimited.",

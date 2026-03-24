@@ -22,16 +22,14 @@ export const UserIdentity: React.FC<UserIdentityProps> = ({ config }) => {
 
   return (
     <Box flexDirection="column">
-      {/* User Email /auth */}
       <Box>
         <Text color={theme.text.primary} wrap="truncate-end">
           {authType === AuthType.USE_API_KEY ? (
-            <Text bold>API Key Auth</Text>
+            <Text bold>✓ Authenticated with API Key</Text>
           ) : (
-            `Authenticated with ${authType}`
+            <Text bold>✓ Authenticated with {authType}</Text>
           )}
         </Text>
-        <Text color={theme.text.secondary}> /auth</Text>
       </Box>
     </Box>
   );

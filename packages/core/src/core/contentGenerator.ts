@@ -27,7 +27,6 @@ import {
   convertOpenAIToGemini,
   convertStreamChunkToGemini,
 } from './geminiOpenAIConverter.js';
-import { resolveModel, DEFAULT_MODEL } from '../config/openaiModels.js';
 import type {
   GenerateContentParameters,
   GenerateContentResponse,
@@ -258,7 +257,7 @@ export async function createContentGenerator(
   }
 
   const version = await getVersion();
-  const model = resolveModel(gcConfig.getModel() || DEFAULT_MODEL);
+  const model = gcConfig.getModel() || 'gpt-4o'; // Default to gpt-4o if no model set
   const customHeadersEnv =
     process.env['CLI_CUSTOM_HEADERS'] ||
     process.env['GEMINI_CLI_CUSTOM_HEADERS'] ||

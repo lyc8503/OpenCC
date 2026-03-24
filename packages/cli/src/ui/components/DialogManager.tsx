@@ -29,6 +29,9 @@ import { IdeTrustChangeDialog } from './IdeTrustChangeDialog.js';
 import { NewAgentsNotification } from './NewAgentsNotification.js';
 import { AgentConfigDialog } from './AgentConfigDialog.js';
 import { PolicyUpdateDialog } from './PolicyUpdateDialog.js';
+import { loadSettings } from '../../config/settings.js';
+import { debugLogger } from '@google/gemini-cli-core';
+import { setRuntimeContextWindow } from '@google/gemini-cli-core';
 
 interface DialogManagerProps {
   addItem: UseHistoryManagerReturn['addItem'];
@@ -205,7 +208,83 @@ export const DialogManager = ({
     );
   }
   if (uiState.isModelDialogOpen) {
-    return <ModelDialog onClose={uiActions.closeModelDialog} />;
+    return (
+      <ModelDialog
+        settings={settings}
+        onClose={uiActions.closeModelDialog}
+        onSave={async () => {
+          // Settings are already saved by ModelDialog
+          // Reload settings to get the latest values
+          const freshSettings = loadSettings(config.getTargetDir());
+          const mergedSettings = freshSettings.merged;
+
+          // Get effective values with priority: env var > settings > default
+          const modelName =
+            process.env['OPENAI_MODEL'] || mergedSettings.model?.name;
+          const apiKey =
+            process.env['OPENAI_API_KEY'] ||
+            mergedSettings.model?.openaiApiKey;
+          const baseUrl =
+            process.env['OPENAI_BASE_URL'] ||
+            mergedSettings.model?.openaiBaseUrl;
+          const contextWindow = mergedSettings.model?.contextWindow;
+          const maxOutputTokens = mergedSettings.model?.maxOutputTokens;
+
+          // Update model if changed
+          if (modelName && modelName !== config.getModel()) {
+            config.setModel(modelName, false);
+          }
+
+          // Register runtime model config overrides for context window and max output tokens
+          if (contextWindow || maxOutputTokens) {
+            const modelConfigOverride: {
+              match: { model: string };
+              modelConfig: {
+                generateContentConfig: {
+                  maxOutputTokens?: number;
+                };
+              };
+            } = {
+              match: { model: modelName || config.getModel() },
+              modelConfig: {
+                generateContentConfig: {},
+              },
+            };
+
+            if (maxOutputTokens) {
+              modelConfigOverride.modelConfig.generateContentConfig.maxOutputTokens =
+                maxOutputTokens;
+            }
+
+            // Set context window using the dedicated function
+            if (contextWindow) {
+              setRuntimeContextWindow(modelName || config.getModel(), contextWindow);
+              debugLogger.log('Context window set to:', contextWindow);
+            }
+
+            if (maxOutputTokens) {
+              config.modelConfigService.registerRuntimeModelOverride(
+                modelConfigOverride,
+              );
+            }
+          }
+
+          // Refresh auth with new configuration
+          const authType = config.getContentGeneratorConfig()?.authType;
+          if (authType) {
+            await config.refreshAuth(authType, apiKey, baseUrl);
+            debugLogger.log('Model configuration updated:', {
+              modelName,
+              hasApiKey: !!apiKey,
+              hasBaseUrl: !!baseUrl,
+              contextWindow,
+              maxOutputTokens,
+            });
+          }
+        }}
+        availableTerminalHeight={terminalHeight - staticExtraHeight}
+      />
+    );
   }
   if (
     uiState.isAgentConfigDialogOpen &&

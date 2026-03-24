@@ -32,7 +32,7 @@ export class SdkAgentShell implements AgentShell {
     try {
       const invocation = shellTool.build({
         command,
-        dir_path: cwd,
+        path: cwd,
       });
 
       const confirmation = await invocation.shouldConfirmExecute(

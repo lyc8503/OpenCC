@@ -87,6 +87,7 @@ import {
   type ModelConfigServiceConfig,
 } from '../services/modelConfigService.js';
 import { DEFAULT_MODEL_CONFIGS } from './defaultModelConfigs.js';
+import { DEFAULT_MODEL } from './models.js';
 import { ContextManager } from '../services/contextManager.js';
 
 // Re-export OAuth config type
@@ -523,7 +524,7 @@ export interface ConfigParameters {
   fileDiscoveryService?: FileDiscoveryService;
   includeDirectories?: string[];
   bugCommand?: BugCommandSettings;
-  model: string;
+  model?: string; // Make model optional with default fallback
   disableLoopDetection?: boolean;
   maxSessionTurns?: number;
   acpMode?: boolean;
@@ -876,9 +877,9 @@ export class Config implements McpContext, AgentLoopContext {
     this.cwd = params.cwd ?? process.cwd();
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
-    this.model = params.model;
+    this.model = params.model ?? DEFAULT_MODEL;
     this.disableLoopDetection = params.disableLoopDetection ?? false;
-    this._activeModel = params.model;
+    this._activeModel = this.model;
     this.enableAgents = params.enableAgents ?? true;
     this.agents = params.agents ?? {};
     this.disableLLMCorrection = params.disableLLMCorrection ?? true;

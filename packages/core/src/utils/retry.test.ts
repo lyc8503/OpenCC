@@ -16,7 +16,6 @@ import {
   TerminalQuotaError,
   RetryableQuotaError,
 } from './googleQuotaErrors.js';
-import { DEFAULT_MODEL } from '../config/openaiModels.js';
 
 // Helper to create a mock function that fails a certain number of times
 const createFailingFunction = (
@@ -668,7 +667,7 @@ describe('retryWithBackoff', () => {
   });
 
   it('should trigger fallback for OAuth personal users on ModelNotFoundError', async () => {
-    const fallbackCallback = vi.fn().mockResolvedValue(DEFAULT_MODEL);
+    const fallbackCallback = vi.fn().mockResolvedValue("gpt-4o");
 
     let fallbackOccurred = false;
     const mockFn = vi.fn().mockImplementation(async () => {
