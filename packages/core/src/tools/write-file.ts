@@ -30,7 +30,7 @@ import { buildFilePathArgsPattern } from '../policy/utils.js';
 import { ToolErrorType } from './tool-error.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
-import { ensureCorrectFileContent } from '../utils/editCorrector.js';
+
 import { detectLineEnding } from '../utils/textUtils.js';
 import { DEFAULT_DIFF_OPTIONS, getDiffStat } from './diffOptions.js';
 import { getDiffContextSnippet } from './diff-utils.js';
@@ -49,7 +49,7 @@ import { debugLogger } from '../utils/debugLogger.js';
 import { WRITE_FILE_DEFINITION } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
 import { detectOmissionPlaceholders } from './omissionPlaceholderDetector.js';
-import { isGemini3Model } from '../config/models.js';
+
 import { discoverJitContext, appendJitContext } from './jit-context.js';
 
 /**
@@ -91,57 +91,7 @@ export function isWriteFileToolParams(
   );
 }
 
-interface GetCorrectedFileContentResult {
-  originalContent: string;
-  correctedContent: string;
-  fileExists: boolean;
-  error?: { message: string; code?: string };
-}
 
-export async function getCorrectedFileContent(
-  config: Config,
-  filePath: string,
-  proposedContent: string,
-  abortSignal: AbortSignal,
-): Promise<GetCorrectedFileContentResult> {
-  let originalContent = '';
-  let fileExists = false;
-  let correctedContent = proposedContent;
-
-  try {
-    originalContent = await config
-      .getFileSystemService()
-      .readTextFile(filePath);
-    fileExists = true; // File exists and was read
-  } catch (err) {
-    if (isNodeError(err) && err.code === 'ENOENT') {
-      fileExists = false;
-      originalContent = '';
-    } else {
-      // File exists but could not be read (permissions, etc.)
-      fileExists = true; // Mark as existing but problematic
-      originalContent = ''; // Can't use its content
-      const error = {
-        message: getErrorMessage(err),
-        code: isNodeError(err) ? err.code : undefined,
-      };
-      // Return early as we can't proceed with content correction meaningfully
-      return { originalContent, correctedContent, fileExists, error };
-    }
-  }
-
-  const aggressiveUnescape = !isGemini3Model(config.getActiveModel());
-
-  correctedContent = await ensureCorrectFileContent(
-    proposedContent,
-    config.getBaseLlmClient(),
-    abortSignal,
-    config.getDisableLLMCorrection(),
-    aggressiveUnescape,
-  );
-
-  return { originalContent, correctedContent, fileExists };
-}
 
 class WriteFileToolInvocation extends BaseToolInvocation<
   WriteFileToolParams,
@@ -190,19 +140,20 @@ class WriteFileToolInvocation extends BaseToolInvocation<
       return false;
     }
 
-    const correctedContentResult = await getCorrectedFileContent(
-      this.config,
-      this.resolvedPath,
-      this.params.content,
-      abortSignal,
-    );
-
-    if (correctedContentResult.error) {
-      // If file exists but couldn't be read, we can't show a diff for confirmation.
-      return false;
+    // Read existing file content
+    let originalContent = '';
+    try {
+      originalContent = await this.config
+        .getFileSystemService()
+        .readTextFile(this.resolvedPath);
+    } catch (err) {
+      if (!(isNodeError(err) && err.code === 'ENOENT')) {
+        // File exists but couldn't be read - can't show diff
+        return false;
+      }
     }
 
-    const { originalContent, correctedContent } = correctedContentResult;
+    const correctedContent = this.params.content;
     const relativePath = makeRelative(
       this.resolvedPath,
       this.config.getTargetDir(),
@@ -262,42 +213,39 @@ class WriteFileToolInvocation extends BaseToolInvocation<
     }
 
     const { content, ai_proposed_content, modified_by_user } = this.params;
-    const correctedContentResult = await getCorrectedFileContent(
-      this.config,
-      this.resolvedPath,
-      content,
-      abortSignal,
-    );
 
-    if (correctedContentResult.error) {
-      const errDetails = correctedContentResult.error;
-      const errorMsg = errDetails.code
-        ? `Error checking existing file '${this.resolvedPath}': ${errDetails.message} (${errDetails.code})`
-        : `Error checking existing file: ${errDetails.message}`;
-      return {
-        llmContent: errorMsg,
-        returnDisplay: errorMsg,
-        error: {
-          message: errorMsg,
-          type: ToolErrorType.FILE_WRITE_FAILURE,
-        },
-      };
+    // Read existing file content
+    let originalContent = '';
+    let fileExists = false;
+    try {
+      originalContent = await this.config
+        .getFileSystemService()
+        .readTextFile(this.resolvedPath);
+      fileExists = true;
+    } catch (err) {
+      if (isNodeError(err) && err.code === 'ENOENT') {
+        fileExists = false;
+        originalContent = '';
+      } else {
+        // File exists but could not be read
+        const errorMsg = isNodeError(err)
+          ? `Error reading existing file '${this.resolvedPath}': ${err.message} (${err.code})`
+          : `Error reading existing file: ${getErrorMessage(err)}`;
+        return {
+          llmContent: errorMsg,
+          returnDisplay: errorMsg,
+          error: {
+            message: errorMsg,
+            type: ToolErrorType.FILE_WRITE_FAILURE,
+          },
+        };
+      }
     }
 
-    const {
-      originalContent,
-      correctedContent: fileContent,
-      fileExists,
-    } = correctedContentResult;
-    // fileExists is true if the file existed (and was readable or unreadable but caught by readError).
-    // fileExists is false if the file did not exist (ENOENT).
-    const isNewFile =
-      !fileExists ||
-      (correctedContentResult.error !== undefined &&
-        !correctedContentResult.fileExists);
+    const isNewFile = !fileExists;
 
     // Enforce "must read before write" for existing files
-    if (fileExists && !isNewFile && !this.config.hasReadFile(this.resolvedPath)) {
+    if (fileExists && !this.config.hasReadFile(this.resolvedPath)) {
       return {
         llmContent: `You must use the Read tool to read '${this.resolvedPath}' before you can write to it. This tool will fail if you did not read the file first.`,
         returnDisplay: 'Error: Must read file before writing.',
@@ -316,7 +264,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         await fsPromises.mkdir(dirName, { recursive: true });
       }
 
-      let finalContent = fileContent;
+      let finalContent = content;
       const useCRLF =
         !isNewFile && originalContent
           ? detectLineEnding(originalContent) === '\r\n'
@@ -332,17 +280,10 @@ class WriteFileToolInvocation extends BaseToolInvocation<
 
       // Generate diff for display result
       const fileName = path.basename(this.resolvedPath);
-      // If there was a readError, originalContent in correctedContentResult is '',
-      // but for the diff, we want to show the original content as it was before the write if possible.
-      // However, if it was unreadable, currentContentForDiff will be empty.
-      const currentContentForDiff = correctedContentResult.error
-        ? '' // Or some indicator of unreadable content
-        : originalContent;
-
       const fileDiff = Diff.createPatch(
         fileName,
-        currentContentForDiff,
-        fileContent,
+        originalContent,
+        finalContent,
         'Original',
         'Written',
         DEFAULT_DIFF_OPTIONS,
@@ -351,7 +292,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
       const originallyProposedContent = ai_proposed_content || content;
       const diffStat = getDiffStat(
         fileName,
-        currentContentForDiff,
+        originalContent,
         originallyProposedContent,
         content,
       );
@@ -387,7 +328,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         new FileOperationEvent(
           WRITE_FILE_TOOL_NAME,
           operation,
-          fileContent.split('\n').length,
+          finalContent.split('\n').length,
           mimetype,
           extension,
           programmingLanguage,
@@ -398,8 +339,8 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         fileDiff,
         fileName,
         filePath: this.resolvedPath,
-        originalContent: correctedContentResult.originalContent,
-        newContent: correctedContentResult.correctedContent,
+        originalContent,
+        newContent: finalContent,
         diffStat,
         isNewFile,
       };
@@ -546,22 +487,19 @@ export class WriteFileTool
     return {
       getFilePath: (params: WriteFileToolParams) => params.file_path,
       getCurrentContent: async (params: WriteFileToolParams) => {
-        const correctedContentResult = await getCorrectedFileContent(
-          this.config,
-          params.file_path,
-          params.content,
-          abortSignal,
-        );
-        return correctedContentResult.originalContent;
+        try {
+          return await this.config
+            .getFileSystemService()
+            .readTextFile(params.file_path);
+        } catch (err) {
+          if (isNodeError(err) && err.code === 'ENOENT') {
+            return '';
+          }
+          throw err;
+        }
       },
       getProposedContent: async (params: WriteFileToolParams) => {
-        const correctedContentResult = await getCorrectedFileContent(
-          this.config,
-          params.file_path,
-          params.content,
-          abortSignal,
-        );
-        return correctedContentResult.correctedContent;
+        return params.content;
       },
       createUpdatedParams: (
         _oldContent: string,

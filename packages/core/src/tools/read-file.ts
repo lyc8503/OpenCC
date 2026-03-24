@@ -51,7 +51,8 @@ export interface ReadFileToolParams {
   file_path: string;
 
   /**
-   * The line number to start reading from (optional, 1-based)
+   * The line number to start reading from (optional, 1-based).
+   * Use 0 or 1 to start from the beginning of the file.
    */
   offset?: number;
 
@@ -128,8 +129,10 @@ class ReadFileToolInvocation extends BaseToolInvocation<
 
     // Convert offset/limit to start_line/end_line for processSingleFileContent
     // offset is 1-based line number to start reading from
+    // offset 0 is treated as "start from beginning" (same as undefined or 1)
     // limit is number of lines to read
-    const startLine = this.params.offset;
+    const startLine =
+      this.params.offset === 0 ? undefined : this.params.offset;
     const endLine =
       this.params.limit !== undefined && startLine !== undefined
         ? startLine + this.params.limit - 1
@@ -260,8 +263,8 @@ export class ReadFileTool extends BaseDeclarativeTool<
       return validationError;
     }
 
-    if (params.offset !== undefined && params.offset < 1) {
-      return 'offset must be at least 1';
+    if (params.offset !== undefined && params.offset < 0) {
+      return 'offset must be at least 0';
     }
     if (params.limit !== undefined && params.limit < 1) {
       return 'limit must be at least 1';

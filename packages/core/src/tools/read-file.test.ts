@@ -148,12 +148,12 @@ describe('ReadFileTool', () => {
       );
     });
 
-    it('should throw error if offset is less than 1', () => {
+    it('should throw error if offset is less than 0', () => {
       const params: ReadFileToolParams = {
         file_path: path.join(tempRootDir, 'test.txt'),
-        offset: 0,
+        offset: -1,
       };
-      expect(() => tool.build(params)).toThrow('offset must be at least 1');
+      expect(() => tool.build(params)).toThrow('offset must be at least 0');
     });
 
     it('should throw error if limit is less than 1', () => {
