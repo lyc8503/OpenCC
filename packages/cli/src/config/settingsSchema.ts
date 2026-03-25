@@ -931,9 +931,9 @@ const SETTINGS_SCHEMA = {
         label: 'Context Window',
         category: 'Model',
         requiresRestart: false,
-        default: undefined as number | undefined,
+        default: 192000,
         description:
-          'Maximum context window size in tokens. If not set, uses model default.',
+          'Maximum context window size in tokens. Defaults to 192k if not set.',
         showInDialog: true,
       },
       maxOutputTokens: {
@@ -941,9 +941,9 @@ const SETTINGS_SCHEMA = {
         label: 'Max Output Tokens',
         category: 'Model',
         requiresRestart: false,
-        default: undefined as number | undefined,
+        default: 32768,
         description:
-          'Maximum output tokens per response. If not set, uses model default.',
+          'Maximum output tokens per response. Defaults to 32k if not set.',
         showInDialog: true,
       },
       openaiApiKey: {
@@ -1002,7 +1002,7 @@ const SETTINGS_SCHEMA = {
         label: 'Context Compression Threshold',
         category: 'Model',
         requiresRestart: true,
-        default: 0.5 as number,
+        default: 0.85 as number,
         description:
           'The fraction of context usage at which to trigger context compression (e.g. 0.2, 0.3).',
         showInDialog: true,

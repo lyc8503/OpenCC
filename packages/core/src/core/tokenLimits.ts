@@ -8,6 +8,7 @@ type Model = string;
 type TokenCount = number;
 
 export const DEFAULT_TOKEN_LIMIT = 192_000;
+export const DEFAULT_MAX_OUTPUT_TOKENS = 32_768; // 32k
 
 /**
  * Runtime context window overrides (set from settings).

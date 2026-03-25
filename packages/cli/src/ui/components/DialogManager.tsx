@@ -30,8 +30,12 @@ import { NewAgentsNotification } from './NewAgentsNotification.js';
 import { AgentConfigDialog } from './AgentConfigDialog.js';
 import { PolicyUpdateDialog } from './PolicyUpdateDialog.js';
 import { loadSettings } from '../../config/settings.js';
-import { debugLogger } from '@google/gemini-cli-core';
-import { setRuntimeContextWindow } from '@google/gemini-cli-core';
+import {
+  debugLogger,
+  setRuntimeContextWindow,
+  DEFAULT_TOKEN_LIMIT,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+} from '@google/gemini-cli-core';
 
 interface DialogManagerProps {
   addItem: UseHistoryManagerReturn['addItem'];
@@ -227,52 +231,38 @@ export const DialogManager = ({
           const baseUrl =
             process.env['OPENAI_BASE_URL'] ||
             mergedSettings.model?.openaiBaseUrl;
-          const contextWindow = mergedSettings.model?.contextWindow;
-          const maxOutputTokens = mergedSettings.model?.maxOutputTokens;
+          const contextWindow = mergedSettings.model?.contextWindow ?? DEFAULT_TOKEN_LIMIT;
+          const maxOutputTokens = mergedSettings.model?.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
 
           // Update model if changed
           if (modelName && modelName !== config.getModel()) {
             config.setModel(modelName, false);
           }
 
-          // Register runtime model config overrides for context window and max output tokens
-          if (contextWindow || maxOutputTokens) {
-            const modelConfigOverride: {
-              match: { model: string };
-              modelConfig: {
-                generateContentConfig: {
-                  maxOutputTokens?: number;
-                };
-              };
-            } = {
-              match: { model: modelName || config.getModel() },
-              modelConfig: {
-                generateContentConfig: {},
+          // Always update runtime model config overrides for context window and max output tokens
+          // This handles both setting new values and clearing old ones
+          const currentModelName = modelName || config.getModel();
+
+          // Set context window
+          setRuntimeContextWindow(currentModelName, contextWindow);
+          debugLogger.log('Context window set to:', contextWindow);
+
+          // Set max output tokens
+          config.modelConfigService.registerRuntimeModelOverride({
+            match: { model: currentModelName },
+            modelConfig: {
+              generateContentConfig: {
+                maxOutputTokens,
               },
-            };
-
-            if (maxOutputTokens) {
-              modelConfigOverride.modelConfig.generateContentConfig.maxOutputTokens =
-                maxOutputTokens;
-            }
-
-            // Set context window using the dedicated function
-            if (contextWindow) {
-              setRuntimeContextWindow(modelName || config.getModel(), contextWindow);
-              debugLogger.log('Context window set to:', contextWindow);
-            }
-
-            if (maxOutputTokens) {
-              config.modelConfigService.registerRuntimeModelOverride(
-                modelConfigOverride,
-              );
-            }
-          }
+            },
+          });
+          debugLogger.log('Max output tokens set to:', maxOutputTokens);
 
           // Refresh auth with new configuration
-          const authType = config.getContentGeneratorConfig()?.authType;
-          if (authType) {
-            await config.refreshAuth(authType, apiKey, baseUrl);
+          // Always call refreshAuth if apiKey or baseUrl is set, even if authType was not previously set
+          if (apiKey || baseUrl) {
+            const { AuthType } = await import('@google/gemini-cli-core');
+            await config.refreshAuth(AuthType.USE_API_KEY, apiKey, baseUrl);
             debugLogger.log('Model configuration updated:', {
               modelName,
               hasApiKey: !!apiKey,
@@ -280,6 +270,19 @@ export const DialogManager = ({
               contextWindow,
               maxOutputTokens,
             });
+          } else {
+            // If no apiKey or baseUrl, still try to refresh with existing config if available
+            const authType = config.getContentGeneratorConfig()?.authType;
+            if (authType) {
+              await config.refreshAuth(authType, apiKey, baseUrl);
+              debugLogger.log('Model configuration updated:', {
+                modelName,
+                hasApiKey: !!apiKey,
+                hasBaseUrl: !!baseUrl,
+                contextWindow,
+                maxOutputTokens,
+              });
+            }
           }
         }}
         availableTerminalHeight={terminalHeight - staticExtraHeight}

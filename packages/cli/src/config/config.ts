@@ -712,7 +712,7 @@ export async function loadCliConfig(
     }
   }
 
-  return new Config({
+  const config = new Config({
     acpMode: isAcpMode,
     clientName,
     sessionId,
@@ -855,6 +855,11 @@ export async function loadCliConfig(
     },
     enableConseca: settings.security?.enableConseca,
   });
+
+  // Pass settings to Config for API key/base URL resolution in refreshAuth
+  config.updateSettings(loadedSettings);
+
+  return config;
 }
 
 function mergeExcludeTools(

@@ -37,7 +37,7 @@ import { PreCompressTrigger } from '../hooks/types.js';
  * Default threshold for compression token count as a fraction of the model's
  * token limit. If the chat history exceeds this threshold, it will be compressed.
  */
-const DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 0.5;
+const DEFAULT_COMPRESSION_TOKEN_THRESHOLD = 0.85;
 
 /**
  * The fraction of the latest chat history to keep. A value of 0.3

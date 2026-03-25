@@ -22,7 +22,8 @@ export type EditBufferAction =
   | { type: 'END' }
   | { type: 'DELETE_LEFT' }
   | { type: 'DELETE_RIGHT' }
-  | { type: 'INSERT_CHAR'; char: string; isNumberType: boolean };
+  | { type: 'INSERT_CHAR'; char: string; isNumberType: boolean }
+  | { type: 'PASTE'; text: string };
 
 const initialState: EditBufferState = {
   editingKey: null,
@@ -103,6 +104,19 @@ function editBufferReducer(
         ...state,
         buffer: before + ch + after,
         cursorPos: state.cursorPos + 1,
+      };
+    }
+
+    case 'PASTE': {
+      const text = stripUnsafeCharacters(action.text);
+      if (text.length === 0) return state;
+
+      const before = cpSlice(state.buffer, 0, state.cursorPos);
+      const after = cpSlice(state.buffer, state.cursorPos);
+      return {
+        ...state,
+        buffer: before + text + after,
+        cursorPos: state.cursorPos + cpLen(text),
       };
     }
 

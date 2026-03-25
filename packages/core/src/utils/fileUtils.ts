@@ -472,6 +472,18 @@ export async function processSingleFileContent(
       case 'text': {
         // Use BOM-aware reader to avoid leaving a BOM character in content and to support UTF-16/32 transparently
         const content = await readFileWithEncoding(filePath);
+
+        // Handle empty file case
+        if (content === '') {
+          return {
+            llmContent: '',
+            returnDisplay: '',
+            isTruncated: false,
+            originalLineCount: 0,
+            linesShown: [0, 0],
+          };
+        }
+
         const lines = content.split(/\r?\n/);
         const originalLineCount = lines.length;
 
@@ -509,7 +521,17 @@ export async function processSingleFileContent(
           actualStart > 0 ||
           sliceEnd < originalLineCount ||
           linesWereTruncatedInLength;
-        const llmContent = formattedLines.join('\n');
+        // Add line numbers in cat -n format: spaces + line number + tab + content
+        const startLineNumber = actualStart + 1;
+        const maxLineNumWidth = String(sliceEnd).length;
+        const llmContent = formattedLines
+          .map((line, index) => {
+            const lineNum = startLineNumber + index;
+            // Pad line number with spaces to align columns (right-aligned like cat -n)
+            const paddedNum = String(lineNum).padStart(maxLineNumWidth, ' ');
+            return `${paddedNum}\t${line}`;
+          })
+          .join('\n');
 
         // By default, return nothing to streamline the common case of a successful read_file.
         let returnDisplay = '';

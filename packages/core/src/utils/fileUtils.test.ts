@@ -760,14 +760,15 @@ describe('fileUtils', () => {
     });
 
     it('should read a text file successfully', async () => {
-      const content = 'Line 1\\nLine 2\\nLine 3';
+      const content = 'Line 1\nLine 2\nLine 3';
       actualNodeFs.writeFileSync(testTextFilePath, content);
       const result = await processSingleFileContent(
         testTextFilePath,
         tempRootDir,
         new StandardFileSystemService(),
       );
-      expect(result.llmContent).toBe(content);
+      // Expected format with line numbers (cat -n format)
+      expect(result.llmContent).toBe('1\tLine 1\n2\tLine 2\n3\tLine 3');
       expect(result.returnDisplay).toBe('');
       expect(result.error).toBeUndefined();
     });
@@ -941,7 +942,13 @@ describe('fileUtils', () => {
         6,
         10,
       ); // Read lines 6-10 (1-based)
-      const expectedContent = lines.slice(5, 10).join('\n');
+      // Expected format with line numbers (cat -n format, right-aligned)
+      // Line numbers are padded to width of max line number (10 = 2 chars)
+      const expectedLines = lines.slice(5, 10).map((line, idx) => {
+        const lineNum = 6 + idx;
+        return `${String(lineNum).padStart(2, ' ')}\t${line}`;
+      });
+      const expectedContent = expectedLines.join('\n');
 
       expect(result.llmContent).toBe(expectedContent);
       expect(result.returnDisplay).toBe('Read lines 6-10 of 20 from test.txt');
@@ -962,9 +969,11 @@ describe('fileUtils', () => {
         11,
         20,
       );
-      const expectedContent = lines.slice(10, 20).join('\n');
+      // Expected format with line numbers: "11\tLine 11\n12\tLine 12\n..."
+      const expectedLines = lines.slice(10, 20).map((line, idx) => `${11 + idx}\t${line}`);
+      const expectedContent = expectedLines.join('\n');
 
-      expect(result.llmContent).toContain(expectedContent);
+      expect(result.llmContent).toBe(expectedContent);
       expect(result.returnDisplay).toBe('Read lines 11-20 of 20 from test.txt');
       expect(result.isTruncated).toBe(true); // This is the key check for the bug
       expect(result.originalLineCount).toBe(20);
@@ -982,7 +991,8 @@ describe('fileUtils', () => {
         1,
         10,
       );
-      const expectedContent = lines.join('\n');
+      // Expected format with line numbers
+      const expectedContent = '1\tLine 1\n2\tLine 2';
 
       expect(result.llmContent).toBe(expectedContent);
       expect(result.returnDisplay).toBe('');
@@ -1004,11 +1014,11 @@ describe('fileUtils', () => {
         new StandardFileSystemService(),
       );
 
-      expect(result.llmContent).toContain('Short line');
+      expect(result.llmContent).toContain('1\tShort line');
       expect(result.llmContent).toContain(
-        longLine.substring(0, 2000) + '... [truncated]',
+        '2\t' + longLine.substring(0, 2000) + '... [truncated]',
       );
-      expect(result.llmContent).toContain('Another short line');
+      expect(result.llmContent).toContain('3\tAnother short line');
       expect(result.returnDisplay).toBe(
         'Read all 3 lines from test.txt (some lines were shortened)',
       );

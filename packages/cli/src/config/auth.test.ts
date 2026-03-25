@@ -11,14 +11,15 @@ import { validateAuthMethod } from './auth.js';
 vi.mock('./settings.js', () => ({
   loadEnvironment: vi.fn(),
   loadSettings: vi.fn().mockReturnValue({
-    merged: vi.fn().mockReturnValue({}),
+    merged: {
+      model: {},
+    },
   }),
 }));
 
 describe('validateAuthMethod', () => {
   beforeEach(() => {
     vi.stubEnv('OPENAI_API_KEY', undefined);
-    vi.stubEnv('GEMINI_API_KEY', undefined);
   });
 
   afterEach(() => {
@@ -35,19 +36,13 @@ describe('validateAuthMethod', () => {
     },
     {
       description:
-        'should return null for USE_API_KEY if GEMINI_API_KEY is set',
-      authType: AuthType.USE_API_KEY,
-      envs: { GEMINI_API_KEY: 'test-key' },
-      expected: null,
-    },
-    {
-      description:
         'should return an error message for USE_API_KEY if no API key is set',
       authType: AuthType.USE_API_KEY,
       envs: {},
       expected:
-        'When using API key, you must specify the OPENAI_API_KEY or GEMINI_API_KEY environment variable.\n' +
-        'Update your environment and try again (no reload needed if using .env)!',
+        'When using API key, you must specify the OPENAI_API_KEY environment variable, ' +
+        'or configure the API key in the model settings (via /model command).\n' +
+        'Update your environment or settings and try again!',
     },
     {
       description: 'should return an error message for an invalid auth method',

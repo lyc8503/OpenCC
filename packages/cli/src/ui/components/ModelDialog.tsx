@@ -94,17 +94,13 @@ interface ModelDialogProps {
 }
 
 /**
- * Get the effective default value for a field
+ * Get the effective default value for a field.
+ * Context window and max output tokens have no defaults - they must be configured via settings.
  */
 function getFieldDefault(
   field: ModelConfigField,
-  currentModel: string,
+  _currentModel: string,
 ): string | number | boolean | undefined {
-  // For now, context window and max output tokens don't have defaults
-  // They should be configured via settings
-  if (field.key === 'contextWindow' || field.key === 'maxOutputTokens') {
-    return undefined;
-  }
   return field.defaultValue;
 }
 

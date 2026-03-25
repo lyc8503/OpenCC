@@ -229,7 +229,7 @@ describe('ReadFileTool', () => {
       const invocation = tool.build(params);
 
       expect(await invocation.execute(abortSignal)).toEqual({
-        llmContent: fileContent,
+        llmContent: `1\t${fileContent}`,
         returnDisplay: '',
       });
     });
@@ -246,8 +246,8 @@ describe('ReadFileTool', () => {
       const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
-      expect(result.llmContent).toContain('line1');
-      expect(result.llmContent).toContain('line2');
+      expect(result.llmContent).toContain('1\tline1');
+      expect(result.llmContent).toContain('2\tline2');
     });
 
     it('should return error if file does not exist', async () => {
@@ -275,7 +275,7 @@ describe('ReadFileTool', () => {
       const invocation = tool.build(params);
 
       expect(await invocation.execute(abortSignal)).toEqual({
-        llmContent: fileContent,
+        llmContent: `1\t${fileContent}`,
         returnDisplay: '',
       });
     });
@@ -443,9 +443,9 @@ describe('ReadFileTool', () => {
       expect(result.llmContent).toContain(
         'Status: Showing lines 6-8 of 20 total lines',
       );
-      expect(result.llmContent).toContain('Line 6');
-      expect(result.llmContent).toContain('Line 7');
-      expect(result.llmContent).toContain('Line 8');
+      expect(result.llmContent).toContain('6\tLine 6');
+      expect(result.llmContent).toContain('7\tLine 7');
+      expect(result.llmContent).toContain('8\tLine 8');
       expect(result.returnDisplay).toBe(
         'Read lines 6-8 of 20 from paginated.txt',
       );
@@ -462,7 +462,7 @@ describe('ReadFileTool', () => {
       const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
-      expect(result.llmContent).toBe(tempFileContent);
+      expect(result.llmContent).toBe(`1\t${tempFileContent}`);
       expect(result.returnDisplay).toBe('');
     });
 

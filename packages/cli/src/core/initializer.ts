@@ -13,6 +13,10 @@ import {
   StartSessionEvent,
   logCliConfiguration,
   startupProfiler,
+  setRuntimeContextWindow,
+  DEFAULT_TOKEN_LIMIT,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+  debugLogger,
 } from '@google/gemini-cli-core';
 import { type LoadedSettings } from '../config/settings.js';
 import { performInitialAuth } from './auth.js';
@@ -43,6 +47,27 @@ export async function initializeApp(
   );
   authHandle?.end();
   const themeError = validateTheme(settings);
+
+  // Apply runtime model configuration from settings
+  const modelName = settings.merged.model?.name;
+  const contextWindow = settings.merged.model?.contextWindow ?? DEFAULT_TOKEN_LIMIT;
+  const maxOutputTokens = settings.merged.model?.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
+
+  // Set context window
+  const model = modelName || config.getModel();
+  setRuntimeContextWindow(model, contextWindow);
+  debugLogger.log('Context window set:', contextWindow, 'for model:', model);
+
+  // Register max output tokens override
+  config.modelConfigService.registerRuntimeModelOverride({
+    match: { model },
+    modelConfig: {
+      generateContentConfig: {
+        maxOutputTokens,
+      },
+    },
+  });
+  debugLogger.log('Max output tokens set:', maxOutputTokens, 'for model:', model);
 
   const shouldOpenAuthDialog =
     settings.merged.security.auth.selectedType === undefined || !!authError;

@@ -41,6 +41,8 @@ export interface SettingsDialogItem {
   displayValue: string;
   /** Grey out value (at default) */
   isGreyedOut?: boolean;
+  /** Whether the item can be edited */
+  isEditable?: boolean;
   /** Scope message e.g., "(Modified in Workspace)" */
   scopeMessage?: string;
   /** Raw value for edit mode initialization */
@@ -283,6 +285,12 @@ export function BaseSettingsDialog({
         const item = items.find((i) => i.key === editingKey);
         const type = item?.type ?? 'string';
 
+        // Handle paste
+        if (key.name === 'paste' && key.sequence) {
+          editDispatch({ type: 'PASTE', text: key.sequence });
+          return;
+        }
+
         // Navigation within edit buffer
         if (keyMatchers[Command.MOVE_LEFT](key)) {
           editDispatch({ type: 'MOVE_LEFT' });
@@ -367,6 +375,11 @@ export function BaseSettingsDialog({
 
         // Enter - toggle or start edit
         if (keyMatchers[Command.RETURN](key) && currentItem) {
+          // Check if item is editable
+          if (currentItem.isEditable === false) {
+            return true; // Consume the keypress but do nothing
+          }
+
           if (currentItem.type === 'boolean' || currentItem.type === 'enum') {
             onItemToggle(currentItem.key, currentItem);
           } else {

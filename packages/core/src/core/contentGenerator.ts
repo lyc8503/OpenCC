@@ -77,10 +77,6 @@ export function getAuthTypeFromEnv(): AuthType | undefined {
   if (process.env['OPENAI_API_KEY']) {
     return AuthType.USE_API_KEY;
   }
-  // Also support legacy GEMINI_API_KEY for backward compatibility
-  if (process.env['GEMINI_API_KEY']) {
-    return AuthType.USE_API_KEY;
-  }
   return undefined;
 }
 
@@ -105,17 +101,16 @@ export async function createContentGeneratorConfig(
   baseUrl?: string,
   customHeaders?: Record<string, string>,
 ): Promise<ContentGeneratorConfig> {
+  // Priority: explicit params > env vars > stored key
   const resolvedApiKey =
     apiKey ||
     process.env['OPENAI_API_KEY'] ||
-    process.env['GEMINI_API_KEY'] ||
     (await loadApiKey()) ||
     undefined;
 
   const resolvedBaseUrl =
     baseUrl ||
     process.env['OPENAI_BASE_URL'] ||
-    process.env['GEMINI_BASE_URL'] ||
     undefined;
 
   return {

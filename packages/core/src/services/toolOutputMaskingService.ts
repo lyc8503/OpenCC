@@ -274,14 +274,19 @@ export class ToolOutputMaskingService {
     const response = part.functionResponse.response as Record<string, unknown>;
     if (!response) return null;
 
-    // Stringify the entire response for saving.
-    // This handles any tool output schema automatically.
-    const content = JSON.stringify(response, null, 2);
-
-    // Multimodal safety check: Sibling parts (inlineData, etc.) are handled by mask()
-    // by keeping the original part structure and only replacing the functionResponse content.
-
-    return content;
+    // Extract the raw output string from the response.
+    // Common output field names: 'output', 'stdout', 'result'
+    // This avoids double JSON serialization - the file should contain the raw output,
+    // not a JSON representation of the response object.
+    const output = response['output'] ?? response['stdout'] ?? response['result'];
+    
+    if (typeof output === 'string') {
+      return output;
+    }
+    
+    // Fallback for non-standard response structures: stringify the entire response
+    // This handles edge cases where the response doesn't have standard output fields
+    return JSON.stringify(response, null, 2);
   }
 
   private isAlreadyMasked(content: string): boolean {

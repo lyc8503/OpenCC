@@ -639,6 +639,9 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly question: string | undefined;
   readonly enableConseca: boolean;
 
+  // Store settings for API key/base URL access
+  private settings?: any;
+
   private readonly coreTools: string[] | undefined;
   /** @deprecated Use Policy Engine instead */
   private readonly allowedTools: string[] | undefined;
@@ -1214,17 +1217,46 @@ export class Config implements McpContext, AgentLoopContext {
     return this.contentGenerator;
   }
 
+  /**
+   * Updates the settings reference for API key/base URL resolution.
+   * Called after Config construction with the loaded settings.
+   */
+  updateSettings(settings: any) {
+    this.settings = settings;
+  }
+
   async refreshAuth(
     authMethod: AuthType,
     apiKey?: string,
     baseUrl?: string,
     customHeaders?: Record<string, string>,
   ) {
+    // Load API key and base URL from settings if not provided as parameters
+    let resolvedApiKey = apiKey;
+    let resolvedBaseUrl = baseUrl;
+    
+    if (!resolvedApiKey || !resolvedBaseUrl) {
+      // Use stored settings if available
+      if (this.settings?.merged?.model) {
+        if (!resolvedApiKey) {
+          resolvedApiKey =
+            process.env['OPENAI_API_KEY'] ||
+            this.settings.merged.model.openaiApiKey;
+        }
+        
+        if (!resolvedBaseUrl) {
+          resolvedBaseUrl =
+            process.env['OPENAI_BASE_URL'] ||
+            this.settings.merged.model.openaiBaseUrl;
+        }
+      }
+    }
+    
     const newContentGeneratorConfig = await createContentGeneratorConfig(
       this,
       authMethod,
-      apiKey,
-      baseUrl,
+      resolvedApiKey,
+      resolvedBaseUrl,
       customHeaders,
     );
     this.contentGenerator = await createContentGenerator(
