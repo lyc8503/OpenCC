@@ -15,7 +15,6 @@ import fs from 'node:fs';
 vi.mock('node:fs');
 vi.mock('../telemetry/loggers.js', () => ({
   logFlashFallback: vi.fn(),
-  logRipgrepFallback: vi.fn(),
 }));
 
 describe('Flash Model Fallback Configuration', () => {

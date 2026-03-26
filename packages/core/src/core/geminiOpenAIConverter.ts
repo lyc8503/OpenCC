@@ -157,10 +157,32 @@ export function convertGeminiToOpenAI(
     if (functionResponses.length > 0) {
       for (const fr of functionResponses) {
         if (fr.functionResponse) {
+          // Extract the actual output content from the response object.
+          // Gemini format uses { output: string } or { error: string },
+          // but OpenAI expects the content to be just the string value.
+          const response = fr.functionResponse.response;
+          let contentStr: string;
+
+          if (typeof response === 'string') {
+            contentStr = response;
+          } else if (response && typeof response === 'object') {
+            // Extract the 'output' field if present (most common case)
+            if ('output' in response && typeof response['output'] === 'string') {
+              contentStr = response['output'];
+            } else if ('error' in response && typeof response['error'] === 'string') {
+              contentStr = `Error: ${response['error']}`;
+            } else {
+              // Fallback: stringify the whole response for non-standard formats
+              contentStr = JSON.stringify(response);
+            }
+          } else {
+            contentStr = String(response);
+          }
+
           // tool_call_id must match the id from the corresponding tool_calls
           messages.push({
             role: 'tool',
-            content: JSON.stringify(fr.functionResponse.response),
+            content: contentStr,
             tool_call_id:
               fr.functionResponse.id || fr.functionResponse.name || '',
           });

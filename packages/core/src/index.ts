@@ -183,7 +183,6 @@ export * from './agents/agent-scheduler.js';
 
 // Export specific tool logic
 export * from './tools/read-file.js';
-export * from './tools/grep.js';
 export * from './tools/ripGrep.js';
 export * from './tools/glob.js';
 export * from './tools/edit.js';

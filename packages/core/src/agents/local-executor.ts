@@ -9,12 +9,10 @@ import { type AgentLoopContext } from '../config/agent-loop-context.js';
 import { reportError } from '../utils/errorReporting.js';
 import { GeminiChat, StreamEventType } from '../core/geminiChat.js';
 import {
-  Type,
   type Content,
   type Part,
   type FunctionCall,
   type FunctionDeclaration,
-  type Schema,
 } from '@google/genai';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { type AnyDeclarativeTool } from '../tools/tools.js';
@@ -56,7 +54,6 @@ import { DEFAULT_GEMINI_MODEL, isAutoModel } from '../config/models.js';
 import type { RoutingContext } from '../routing/routingStrategy.js';
 import { parseThought } from '../utils/thoughtUtils.js';
 import { type z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { debugLogger } from '../utils/debugLogger.js';
 import { getModelConfigAlias } from './registry.js';
 import { getVersion } from '../utils/version.js';
@@ -72,7 +69,6 @@ import type { InjectionSource } from '../config/injectionService.js';
 /** A callback function to report on agent activity. */
 export type ActivityCallback = (activity: SubagentActivityEvent) => void;
 
-const TASK_COMPLETE_TOOL_NAME = 'complete_task';
 const GRACE_PERIOD_MS = 60 * 1000; // 1 min
 
 /** The possible outcomes of a single agent turn. */
@@ -94,8 +90,8 @@ export function createUnauthorizedToolError(toolName: string): string {
 /**
  * Executes an agent loop based on an {@link AgentDefinition}.
  *
- * This executor runs the agent in a loop, calling tools until it calls the
- * mandatory `complete_task` tool to signal completion.
+ * This executor runs the agent in a loop, calling tools until the model
+ * responds with text (no tool calls), signaling completion.
  */
 export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
   readonly definition: LocalAgentDefinition<TOutput>;
@@ -323,7 +319,7 @@ const subagentExcludedTools = isGeneralPurpose
 
     await this.tryCompressChat(chat, promptId);
 
-    const { functionCalls } = await promptIdContext.run(promptId, async () =>
+    const { functionCalls, textResponse } = await promptIdContext.run(promptId, async () =>
       this.callModel(chat, currentMessage, combinedSignal, promptId),
     );
 
@@ -338,20 +334,25 @@ const subagentExcludedTools = isGeneralPurpose
       };
     }
 
-    // If the model stops calling tools without calling complete_task, it's an error.
+    // If the model responds with text and no tool calls, the task is complete.
+    // This is the normal completion path - the agent provides a text summary.
     if (functionCalls.length === 0) {
-      this.emitActivity('ERROR', {
-        error: `Agent stopped calling tools but did not call '${TASK_COMPLETE_TOOL_NAME}' to finalize the session.`,
-        context: 'protocol_violation',
-      });
+      if (textResponse) {
+        return {
+          status: 'stop',
+          terminateReason: AgentTerminateMode.GOAL,
+          finalResult: textResponse,
+        };
+      }
+      // No text and no tool calls - unusual but treat as completion
       return {
         status: 'stop',
-        terminateReason: AgentTerminateMode.ERROR_NO_COMPLETE_TASK_CALL,
-        finalResult: null,
+        terminateReason: AgentTerminateMode.GOAL,
+        finalResult: 'Task completed.',
       };
     }
 
-    const { nextMessage, submittedOutput, taskCompleted, aborted } =
+    const { nextMessage, aborted } =
       await this.processFunctionCalls(
         functionCalls,
         combinedSignal,
@@ -364,15 +365,6 @@ const subagentExcludedTools = isGeneralPurpose
         status: 'stop',
         terminateReason: AgentTerminateMode.ABORTED,
         finalResult: null,
-      };
-    }
-
-    if (taskCompleted) {
-      const finalResult = submittedOutput ?? 'Task completed successfully.';
-      return {
-        status: 'stop',
-        terminateReason: AgentTerminateMode.GOAL,
-        finalResult,
       };
     }
 
@@ -389,8 +381,7 @@ const subagentExcludedTools = isGeneralPurpose
   private getFinalWarningMessage(
     reason:
       | AgentTerminateMode.TIMEOUT
-      | AgentTerminateMode.MAX_TURNS
-      | AgentTerminateMode.ERROR_NO_COMPLETE_TASK_CALL,
+      | AgentTerminateMode.MAX_TURNS,
   ): string {
     let explanation = '';
     switch (reason) {
@@ -400,18 +391,15 @@ const subagentExcludedTools = isGeneralPurpose
       case AgentTerminateMode.MAX_TURNS:
         explanation = 'You have exceeded the maximum number of turns.';
         break;
-      case AgentTerminateMode.ERROR_NO_COMPLETE_TASK_CALL:
-        explanation = 'You have stopped calling tools without finishing.';
-        break;
       default:
         throw new Error(`Unknown terminate reason: ${reason}`);
     }
-    return `${explanation} You have one final chance to complete the task with a short grace period. You MUST call \`${TASK_COMPLETE_TOOL_NAME}\` immediately with your best answer and explain that your investigation was interrupted. Do not call any other tools.`;
+    return `${explanation} You have one final chance to complete the task with a short grace period. Provide your best answer and explain that your investigation was interrupted. Do not call any tools.`;
   }
 
   /**
    * Attempts a single, final recovery turn if the agent stops for a recoverable reason.
-   * Gives the agent a grace period to call `complete_task`.
+   * Gives the agent a grace period to provide a text response.
    *
    * @returns The final result string if recovery was successful, or `null` if it failed.
    */
@@ -420,8 +408,7 @@ const subagentExcludedTools = isGeneralPurpose
     turnCounter: number,
     reason:
       | AgentTerminateMode.TIMEOUT
-      | AgentTerminateMode.MAX_TURNS
-      | AgentTerminateMode.ERROR_NO_COMPLETE_TASK_CALL,
+      | AgentTerminateMode.MAX_TURNS,
     externalSignal: AbortSignal, // The original signal passed to run()
     onWaitingForConfirmation?: (waiting: boolean) => void,
   ): Promise<string | null> {
@@ -684,17 +671,6 @@ const subagentExcludedTools = isGeneralPurpose
               error: finalResult,
               context: 'max_turns',
             });
-          } else if (
-            terminateReason === AgentTerminateMode.ERROR_NO_COMPLETE_TASK_CALL
-          ) {
-            // The finalResult was already set by executeTurn, but we re-emit just in case.
-            finalResult =
-              finalResult ||
-              `Agent stopped calling tools but did not call '${TASK_COMPLETE_TOOL_NAME}'.`;
-            this.emitActivity('ERROR', {
-              error: finalResult,
-              context: 'protocol_violation',
-            });
           }
         }
       }
@@ -952,7 +928,7 @@ const subagentExcludedTools = isGeneralPurpose
   /**
    * Executes function calls requested by the model and returns the results.
    *
-   * @returns A new `Content` object for history, any submitted output, and completion status.
+   * @returns A new `Content` object for history and abort status.
    */
   private async processFunctionCalls(
     functionCalls: FunctionCall[],
@@ -961,23 +937,16 @@ const subagentExcludedTools = isGeneralPurpose
     onWaitingForConfirmation?: (waiting: boolean) => void,
   ): Promise<{
     nextMessage: Content;
-    submittedOutput: string | null;
-    taskCompleted: boolean;
     aborted: boolean;
   }> {
     const allowedToolNames = new Set(this.toolRegistry.getAllToolNames());
-    // Always allow the completion tool
-    allowedToolNames.add(TASK_COMPLETE_TOOL_NAME);
 
-    let submittedOutput: string | null = null;
-    let taskCompleted = false;
     let aborted = false;
 
-    // We'll separate complete_task from other tools
     const toolRequests: ToolCallRequestInfo[] = [];
     // Map to keep track of tool name by callId for activity emission
     const toolNameMap = new Map<string, string>();
-    // Synchronous results (like complete_task or unauthorized calls)
+    // Synchronous results (like unauthorized calls)
     const syncResults = new Map<string, Part>();
 
     for (const [index, functionCall] of functionCalls.entries()) {
@@ -1007,139 +976,6 @@ const subagentExcludedTools = isGeneralPurpose
         args,
         callId,
       });
-
-      if (toolName === TASK_COMPLETE_TOOL_NAME) {
-        if (taskCompleted) {
-          const error =
-            'Task already marked complete in this turn. Ignoring duplicate call.';
-          syncResults.set(callId, {
-            functionResponse: {
-              name: TASK_COMPLETE_TOOL_NAME,
-              response: { error },
-              id: callId,
-            },
-          });
-          this.emitActivity('ERROR', {
-            context: 'tool_call',
-            name: toolName,
-            error,
-          });
-          continue;
-        }
-
-        const { outputConfig } = this.definition;
-        taskCompleted = true; // Signal completion regardless of output presence
-
-        if (outputConfig) {
-          const outputName = outputConfig.outputName;
-          if (args[outputName] !== undefined) {
-            const outputValue = args[outputName];
-            const validationResult = outputConfig.schema.safeParse(outputValue);
-
-            if (!validationResult.success) {
-              taskCompleted = false; // Validation failed, revoke completion
-              const error = `Output validation failed: ${JSON.stringify(validationResult.error.flatten())}`;
-              syncResults.set(callId, {
-                functionResponse: {
-                  name: TASK_COMPLETE_TOOL_NAME,
-                  response: { error },
-                  id: callId,
-                },
-              });
-              this.emitActivity('ERROR', {
-                context: 'tool_call',
-                name: toolName,
-                error,
-              });
-              continue;
-            }
-
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            const validatedOutput = validationResult.data;
-            if (this.definition.processOutput) {
-              submittedOutput = this.definition.processOutput(validatedOutput);
-            } else {
-              submittedOutput =
-                typeof outputValue === 'string'
-                  ? outputValue
-                  : JSON.stringify(outputValue, null, 2);
-            }
-            syncResults.set(callId, {
-              functionResponse: {
-                name: TASK_COMPLETE_TOOL_NAME,
-                response: { result: 'Output submitted and task completed.' },
-                id: callId,
-              },
-            });
-            this.emitActivity('TOOL_CALL_END', {
-              name: toolName,
-              id: callId,
-              output: 'Output submitted and task completed.',
-            });
-          } else {
-            // Failed to provide required output.
-            taskCompleted = false; // Revoke completion status
-            const error = `Missing required argument '${outputName}' for completion.`;
-            syncResults.set(callId, {
-              functionResponse: {
-                name: TASK_COMPLETE_TOOL_NAME,
-                response: { error },
-                id: callId,
-              },
-            });
-            this.emitActivity('ERROR', {
-              context: 'tool_call',
-              name: toolName,
-              callId,
-              error,
-            });
-          }
-        } else {
-          // No outputConfig - use default 'result' parameter
-          const resultArg = args['result'];
-          if (
-            resultArg !== undefined &&
-            resultArg !== null &&
-            resultArg !== ''
-          ) {
-            submittedOutput =
-              typeof resultArg === 'string'
-                ? resultArg
-                : JSON.stringify(resultArg, null, 2);
-            syncResults.set(callId, {
-              functionResponse: {
-                name: TASK_COMPLETE_TOOL_NAME,
-                response: { status: 'Result submitted and task completed.' },
-                id: callId,
-              },
-            });
-            this.emitActivity('TOOL_CALL_END', {
-              name: toolName,
-              id: callId,
-              output: 'Result submitted and task completed.',
-            });
-          } else {
-            // No result provided - this is an error for agents expected to return results
-            taskCompleted = false; // Revoke completion
-            const error =
-              'Missing required "result" argument. You must provide your findings when calling complete_task.';
-            syncResults.set(callId, {
-              functionResponse: {
-                name: TASK_COMPLETE_TOOL_NAME,
-                response: { error },
-                id: callId,
-              },
-            });
-            this.emitActivity('ERROR', {
-              context: 'tool_call',
-              name: toolName,
-              callId,
-              error,
-            });
-          }
-        }
-        continue;
-      }
 
       // Handle standard tools
       if (!allowedToolNames.has(toolName)) {
@@ -1230,12 +1066,8 @@ const subagentExcludedTools = isGeneralPurpose
       }
     }
 
-    // If all authorized tool calls failed (and task isn't complete), provide a generic error.
-    if (
-      functionCalls.length > 0 &&
-      toolResponseParts.length === 0 &&
-      !taskCompleted
-    ) {
+    // If all tool calls failed, provide a generic error.
+    if (functionCalls.length > 0 && toolResponseParts.length === 0) {
       toolResponseParts.push({
         text: 'All tool calls failed or were unauthorized. Please analyze the errors and try an alternative approach.',
       });
@@ -1243,8 +1075,6 @@ const subagentExcludedTools = isGeneralPurpose
 
     return {
       nextMessage: { role: 'user', parts: toolResponseParts },
-      submittedOutput,
-      taskCompleted,
       aborted,
     };
   }
@@ -1254,7 +1084,7 @@ const subagentExcludedTools = isGeneralPurpose
    */
   private prepareToolsList(): FunctionDeclaration[] {
     const toolsList: FunctionDeclaration[] = [];
-    const { toolConfig, outputConfig } = this.definition;
+    const { toolConfig } = this.definition;
 
     if (toolConfig) {
       for (const toolRef of toolConfig.tools) {
@@ -1266,43 +1096,6 @@ const subagentExcludedTools = isGeneralPurpose
       // Add schemas from tools that were explicitly registered by name, wildcard, or instance.
       toolsList.push(...this.toolRegistry.getFunctionDeclarations());
     }
-
-    // Always inject complete_task.
-    // Configure its schema based on whether output is expected.
-    const completeTool: FunctionDeclaration = {
-      name: TASK_COMPLETE_TOOL_NAME,
-      description: outputConfig
-        ? 'Call this tool to submit your final answer and complete the task. This is the ONLY way to finish.'
-        : 'Call this tool to submit your final findings and complete the task. This is the ONLY way to finish.',
-      parameters: {
-        type: Type.OBJECT,
-        properties: {},
-        required: [],
-      },
-    };
-
-    if (outputConfig) {
-      const jsonSchema = zodToJsonSchema(outputConfig.schema);
-      const {
-        $schema: _$schema,
-        definitions: _definitions,
-        ...schema
-      } = jsonSchema;
-      completeTool.parameters!.properties![outputConfig.outputName] =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        schema as Schema;
-      completeTool.parameters!.required!.push(outputConfig.outputName);
-    } else {
-      completeTool.parameters!.properties!['result'] = {
-        type: Type.STRING,
-        description:
-          'Your final results or findings to return to the orchestrator. ' +
-          'Ensure this is comprehensive and follows any formatting requested in your instructions.',
-      };
-      completeTool.parameters!.required!.push('result');
-    }
-
-    toolsList.push(completeTool);
 
     return toolsList;
   }
@@ -1326,21 +1119,8 @@ const subagentExcludedTools = isGeneralPurpose
 Important Rules:
 * You are running in a non-interactive mode. You CANNOT ask the user for input or clarification.
 * Work systematically using available tools to complete your task.
-* Always use absolute paths for file operations. Construct them using the provided "Environment Context".`;
-
-    if (this.definition.outputConfig) {
-      finalPrompt += `
-* When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME}\` tool with your structured output.
-* Do not call any other tools in the same turn as \`${TASK_COMPLETE_TOOL_NAME}\`.
-* This is the ONLY way to complete your mission. If you stop calling tools without calling this, you have failed.`;
-    } else {
-      finalPrompt += `
-* When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME}\` tool.
-* You MUST include your final findings in the "result" parameter. This is how you return the necessary results for the task to be marked complete.
-* Ensure your findings are comprehensive and follow any specific formatting requirements provided in your instructions.
-* Do not call any other tools in the same turn as \`${TASK_COMPLETE_TOOL_NAME}\`.
-* This is the ONLY way to complete your mission. If you stop calling tools without calling this, you have failed.`;
-    }
+* Always use absolute paths for file operations. Construct them using the provided "Environment Context".
+* When you have completed your task, provide a clear summary of your findings and results as your final response.`;
 
     return finalPrompt;
   }

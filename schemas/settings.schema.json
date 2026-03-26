@@ -1692,13 +1692,6 @@
           "markdownDescription": "Defines a custom shell command for invoking discovered tools. The command must take the tool name as the first argument, read JSON arguments from stdin, and emit JSON results on stdout.\n\n- Category: `Tools`\n- Requires restart: `yes`",
           "type": "string"
         },
-        "useRipgrep": {
-          "title": "Use Ripgrep",
-          "description": "Use ripgrep for file content search instead of the fallback implementation. Provides faster search performance.",
-          "markdownDescription": "Use ripgrep for file content search instead of the fallback implementation. Provides faster search performance.\n\n- Category: `Tools`\n- Requires restart: `no`\n- Default: `true`",
-          "default": true,
-          "type": "boolean"
-        },
         "truncateToolOutputThreshold": {
           "title": "Tool Output Truncation Threshold",
           "description": "Maximum characters to show when truncating large tool outputs. Set to 0 or negative to disable truncation.",

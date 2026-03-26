@@ -60,8 +60,8 @@ describe('readPathFromWorkspace', () => {
     } as unknown as FileDiscoveryService;
     const config = createMockConfig(CWD, [], mockFileService);
     const result = await readPathFromWorkspace('file.txt', config);
-    // Expect [string] for text content
-    expect(result).toEqual(['hello from cwd']);
+    // Expect [string] for text content with line number (cat -n format)
+    expect(result).toEqual(['1\thello from cwd']);
     expect(mockFileService.filterFiles).toHaveBeenCalled();
   });
 
@@ -77,7 +77,7 @@ describe('readPathFromWorkspace', () => {
     } as unknown as FileDiscoveryService;
     const config = createMockConfig(CWD, [OTHER_DIR], mockFileService);
     const result = await readPathFromWorkspace('file.txt', config);
-    expect(result).toEqual(['hello from other dir']);
+    expect(result).toEqual(['1\thello from other dir']);
   });
 
   it('should prioritize CWD when file exists in both CWD and secondary dir', async () => {
@@ -94,7 +94,7 @@ describe('readPathFromWorkspace', () => {
     } as unknown as FileDiscoveryService;
     const config = createMockConfig(CWD, [OTHER_DIR], mockFileService);
     const result = await readPathFromWorkspace('file.txt', config);
-    expect(result).toEqual(['hello from cwd']);
+    expect(result).toEqual(['1\thello from cwd']);
   });
 
   it('should read an image file and return it as inlineData (Part object)', async () => {
@@ -153,7 +153,7 @@ describe('readPathFromWorkspace', () => {
     } as unknown as FileDiscoveryService;
     const config = createMockConfig(CWD, [OTHER_DIR], mockFileService);
     const result = await readPathFromWorkspace(absPath, config);
-    expect(result).toEqual(['absolute content']);
+    expect(result).toEqual(['1\tabsolute content']);
   });
 
   describe('Directory Expansion', () => {

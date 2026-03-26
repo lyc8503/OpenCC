@@ -85,6 +85,8 @@ describe('AcknowledgedAgentsService', () => {
   it('should handle load errors gracefully', async () => {
     // Create a directory where the file should be to cause a read error (EISDIR)
     const ackPath = Storage.getAcknowledgedAgentsPath();
+    // Remove any existing file/directory first
+    await fs.rm(ackPath, { recursive: true, force: true });
     await fs.mkdir(ackPath, { recursive: true });
 
     const service = new AcknowledgedAgentsService();

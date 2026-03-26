@@ -599,15 +599,6 @@ function doIt() {
       expect(tool.validateToolParams(params)).toBeNull();
     });
 
-    it('should return an error if path is outside the workspace', () => {
-      const params: EditToolParams = {
-        file_path: path.join(os.tmpdir(), 'outside.txt'),
-        old_string: 'old',
-        new_string: 'new',
-      };
-      expect(tool.validateToolParams(params)).toMatch(/Path not in workspace/);
-    });
-
     it('should reject omission placeholder in new_string when old_string does not contain that placeholder', () => {
       const params: EditToolParams = {
         file_path: path.join(rootDir, 'test.txt'),

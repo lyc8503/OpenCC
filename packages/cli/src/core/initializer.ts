@@ -17,6 +17,7 @@ import {
   DEFAULT_TOKEN_LIMIT,
   DEFAULT_MAX_OUTPUT_TOKENS,
   debugLogger,
+  AuthType,
 } from '@google/gemini-cli-core';
 import { type LoadedSettings } from '../config/settings.js';
 import { performInitialAuth } from './auth.js';
@@ -40,11 +41,22 @@ export async function initializeApp(
   config: Config,
   settings: LoadedSettings,
 ): Promise<InitializationResult> {
+  let authType = settings.merged.security.auth.selectedType;
+  
+  // Auto-detect: if API key is configured but authType is not set, use API key auth
+  if (!authType) {
+    const hasApiKey =
+      process.env['OPENAI_API_KEY'] ||
+      settings.merged.model?.openaiApiKey;
+    
+    if (hasApiKey) {
+      authType = AuthType.USE_API_KEY;
+      debugLogger.log('Auto-detected API key, using USE_API_KEY auth');
+    }
+  }
+  
   const authHandle = startupProfiler.start('authenticate');
-  const { authError } = await performInitialAuth(
-    config,
-    settings.merged.security.auth.selectedType,
-  );
+  const { authError } = await performInitialAuth(config, authType);
   authHandle?.end();
   const themeError = validateTheme(settings);
 
@@ -70,7 +82,7 @@ export async function initializeApp(
   debugLogger.log('Max output tokens set:', maxOutputTokens, 'for model:', model);
 
   const shouldOpenAuthDialog =
-    settings.merged.security.auth.selectedType === undefined || !!authError;
+    (authType === undefined) || !!authError;
 
   logCliConfiguration(
     config,

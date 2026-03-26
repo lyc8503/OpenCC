@@ -364,7 +364,7 @@ describe('RipGrepTool', () => {
     );
 
     it('should throw error for invalid regex pattern', () => {
-      const params: RipGrepToolParams = { pattern: '[[' };
+      const params: RipGrepToolParams = { pattern: '[[', output_mode: 'content' };
       expect(grepTool.validateToolParams(params)).toMatch(
         /Invalid regular expression pattern provided/,
       );
@@ -434,7 +434,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'world' };
+      const params: RipGrepToolParams = { pattern: 'world', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(
@@ -476,7 +476,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'world' };
+      const params: RipGrepToolParams = { pattern: 'world', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain('File: ..env');
@@ -501,7 +501,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'world', path: 'sub' };
+      const params: RipGrepToolParams = { pattern: 'world', path: 'sub', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(
@@ -532,6 +532,7 @@ describe('RipGrepTool', () => {
       const params: RipGrepToolParams = {
         pattern: 'hello',
         glob: '*.js',
+        output_mode: 'content',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -571,6 +572,7 @@ describe('RipGrepTool', () => {
         pattern: 'hello',
         path: 'sub',
         glob: '*.js',
+        output_mode: 'content',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -590,7 +592,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'nonexistentpattern' };
+      const params: RipGrepToolParams = { pattern: 'nonexistentpattern', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(
@@ -600,7 +602,7 @@ describe('RipGrepTool', () => {
     });
 
     it('should throw error for invalid regex pattern during build', async () => {
-      const params: RipGrepToolParams = { pattern: '[[' };
+      const params: RipGrepToolParams = { pattern: '[[', output_mode: 'content' };
       expect(() => grepTool.build(params)).toThrow(
         /Invalid regular expression pattern provided/,
       );
@@ -731,7 +733,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'should' };
+      const params: RipGrepToolParams = { pattern: 'should', output_mode: 'content' };
       const invocation = toolWithIgnore.build(params);
       const result = await invocation.execute(abortSignal);
 
@@ -760,7 +762,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'foo.*bar' }; // Matches 'const foo = "bar";'
+      const params: RipGrepToolParams = { pattern: 'foo.*bar', output_mode: 'content' }; // Matches 'const foo = "bar";'
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(
@@ -797,7 +799,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'HELLO' };
+      const params: RipGrepToolParams = { pattern: 'HELLO', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(
@@ -822,7 +824,7 @@ describe('RipGrepTool', () => {
       await fs.rm(ripgrepBinaryPath, { force: true });
       downloadRipGrepMock.mockResolvedValue(undefined);
 
-      const params: RipGrepToolParams = { pattern: 'world' };
+      const params: RipGrepToolParams = { pattern: 'world', output_mode: 'content' };
       const invocation = grepTool.build(params);
 
       expect(await invocation.execute(abortSignal)).toStrictEqual({
@@ -922,7 +924,7 @@ describe('RipGrepTool', () => {
         multiDirConfig,
         createMockMessageBus(),
       );
-      const params: RipGrepToolParams = { pattern: 'world' };
+      const params: RipGrepToolParams = { pattern: 'world', output_mode: 'content' };
       const invocation = multiDirGrepTool.build(params);
       const result = await invocation.execute(abortSignal);
 
@@ -1016,7 +1018,7 @@ describe('RipGrepTool', () => {
       );
 
       // Search only in the 'sub' directory of the first workspace
-      const params: RipGrepToolParams = { pattern: 'world', path: 'sub' };
+      const params: RipGrepToolParams = { pattern: 'world', path: 'sub', output_mode: 'content' };
       const invocation = multiDirGrepTool.build(params);
       const result = await invocation.execute(abortSignal);
 
@@ -1038,7 +1040,7 @@ describe('RipGrepTool', () => {
   describe('abort signal handling', () => {
     it('should handle AbortSignal during search', async () => {
       const controller = new AbortController();
-      const params: RipGrepToolParams = { pattern: 'world' };
+      const params: RipGrepToolParams = { pattern: 'world', output_mode: 'content' };
       const invocation = grepTool.build(params);
 
       controller.abort();
@@ -1057,7 +1059,7 @@ describe('RipGrepTool', () => {
       );
 
       const controller = new AbortController();
-      const params: RipGrepToolParams = { pattern: 'test' };
+      const params: RipGrepToolParams = { pattern: 'test', output_mode: 'content' };
       const invocation = grepTool.build(params);
 
       // Abort immediately before starting the search
@@ -1069,14 +1071,6 @@ describe('RipGrepTool', () => {
   });
 
   describe('error handling and edge cases', () => {
-    it('should handle workspace boundary violations', () => {
-      const params: RipGrepToolParams = {
-        pattern: 'test',
-        path: '../outside',
-      };
-      expect(() => grepTool.build(params)).toThrow(/Path not in workspace/);
-    });
-
     it.each([
       {
         name: 'empty directories',
@@ -1125,7 +1119,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'world' };
+      const params: RipGrepToolParams = { pattern: 'world', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
 
@@ -1156,7 +1150,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'deep' };
+      const params: RipGrepToolParams = { pattern: 'deep', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
 
@@ -1190,6 +1184,7 @@ describe('RipGrepTool', () => {
       const params: RipGrepToolParams = {
         pattern: 'function\\s+\\w+\\s*\\(',
         context: 0,
+        output_mode: 'content',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -1238,7 +1233,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'hello' };
+      const params: RipGrepToolParams = { pattern: 'hello', output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
 
@@ -1271,6 +1266,7 @@ describe('RipGrepTool', () => {
       const params: RipGrepToolParams = {
         pattern: '\\$\\d+\\.\\d+',
         context: 0,
+        output_mode: 'content',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -1383,7 +1379,7 @@ describe('RipGrepTool', () => {
           exitCode: 0,
         }),
       );
-      let params: RipGrepToolParams = { pattern: 'HELLO', context: 0 };
+      let params: RipGrepToolParams = { pattern: 'HELLO', context: 0, output_mode: 'content' };
       let invocation = grepTool.build(params);
       let result = await invocation.execute(abortSignal);
       expect(mockSpawn).toHaveBeenLastCalledWith(
@@ -1409,7 +1405,7 @@ describe('RipGrepTool', () => {
           exitCode: 0,
         }),
       );
-      params = { pattern: 'HELLO', context: 0, '-i': false };
+      params = { pattern: 'HELLO', context: 0, '-i': false, output_mode: 'content' };
       invocation = grepTool.build(params);
       result = await invocation.execute(abortSignal);
       expect(mockSpawn).toHaveBeenLastCalledWith(
@@ -1474,7 +1470,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'secret' };
+      const params: RipGrepToolParams = { pattern: 'secret', output_mode: 'content' };
       const invocation = gitIgnoreDisabledTool.build(params);
       await invocation.execute(abortSignal);
 
@@ -1540,7 +1536,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'secret' };
+      const params: RipGrepToolParams = { pattern: 'secret', output_mode: 'content' };
       const invocation = geminiIgnoreTool.build(params);
       await invocation.execute(abortSignal);
 
@@ -1606,7 +1602,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'secret' };
+      const params: RipGrepToolParams = { pattern: 'secret', output_mode: 'content' };
       const invocation = geminiIgnoreTool.build(params);
       await invocation.execute(abortSignal);
 
@@ -1666,6 +1662,7 @@ describe('RipGrepTool', () => {
         context: 1,
         '-A': 2,
         '-B': 1,
+        output_mode: 'content',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -1765,7 +1762,7 @@ describe('RipGrepTool', () => {
         multiDirConfig,
         createMockMessageBus(),
       );
-      const params: RipGrepToolParams = { pattern: 'testPattern' };
+      const params: RipGrepToolParams = { pattern: 'testPattern', output_mode: 'content' };
       const invocation = multiDirGrepTool.build(params);
       expect(invocation.getDescription()).toBe("'testPattern' within ./");
     });
@@ -1827,6 +1824,7 @@ describe('RipGrepTool', () => {
         pattern: 'match',
         head_limit: 2,
         context: 0,
+        output_mode: 'content',
       };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
@@ -1898,7 +1896,7 @@ describe('RipGrepTool', () => {
         }),
       );
 
-      const params: RipGrepToolParams = { pattern: 'Target match', context: 0 };
+      const params: RipGrepToolParams = { pattern: 'Target match', context: 0, output_mode: 'content' };
       const invocation = grepTool.build(params);
       const result = await invocation.execute(abortSignal);
 

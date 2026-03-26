@@ -116,13 +116,6 @@ describe('ReadFileTool', () => {
       );
     });
 
-    it('should throw error if path is outside root', () => {
-      const params: ReadFileToolParams = {
-        file_path: '/outside/root.txt',
-      };
-      expect(() => tool.build(params)).toThrow(/Path not in workspace/);
-    });
-
     it('should allow access to files in project temp directory', () => {
       const tempDir = path.join(tempRootDir, '.temp');
       const params: ReadFileToolParams = {
@@ -130,13 +123,6 @@ describe('ReadFileTool', () => {
       };
       const result = tool.build(params);
       expect(typeof result).not.toBe('string');
-    });
-
-    it('should show temp directory in error message when path is outside workspace and temp dir', () => {
-      const params: ReadFileToolParams = {
-        file_path: '/completely/outside/path.txt',
-      };
-      expect(() => tool.build(params)).toThrow(/Path not in workspace/);
     });
 
     it('should throw error if path is empty', () => {

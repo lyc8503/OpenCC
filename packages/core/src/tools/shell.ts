@@ -4,11 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fsPromises from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import crypto from 'node:crypto';
-import { debugLogger } from '../index.js';
 import { ToolErrorType } from './tool-error.js';
 import {
   BaseDeclarativeTool,
@@ -163,12 +159,6 @@ export class ShellToolInvocation extends BaseToolInvocation<
       };
     }
 
-    const isWindows = os.platform() === 'win32';
-    const tempFileName = `shell_pgrep_${crypto
-      .randomBytes(6)
-      .toString('hex')}.tmp`;
-    const tempFilePath = path.join(os.tmpdir(), tempFileName);
-
     // Use timeout from params if provided, otherwise fall back to config default
     // Max timeout is 600000ms (10 minutes) per REF_PROMPT
     const MAX_TIMEOUT_MS = 600000;
@@ -192,15 +182,14 @@ export class ShellToolInvocation extends BaseToolInvocation<
     const onAbort = () => combinedController.abort();
 
     try {
-      // pgrep is not available on Windows, so we can't get background PIDs
-      const commandToExecute = isWindows
-        ? strippedCommand
-        : (() => {
-            // wrap command to append subprocess pids (via pgrep) to temporary file
-            let command = strippedCommand.trim();
-            if (!command.endsWith('&')) command += ';';
-            return `{ ${command} }; __code=$?; pgrep -g 0 >${tempFilePath} 2>&1; exit $__code;`;
-          })();
+      // Note: We used to wrap commands with pgrep to track background PIDs, but this:
+      // 1. Breaks heredoc and complex shell syntax
+      // 2. Is platform-inconsistent (Windows doesn't support pgrep)
+      // 3. Adds unnecessary complexity for a minor feature
+      // 
+      // Users can still manage background processes using the Process Group PGID.
+      // The Background PIDs feature is not essential (Windows already works without it).
+      const commandToExecute = strippedCommand;
 
       const cwd = this.params.path
         ? path.resolve(this.context.config.getTargetDir(), this.params.path)
@@ -311,35 +300,6 @@ export class ShellToolInvocation extends BaseToolInvocation<
 
       const result = await resultPromise;
 
-      const backgroundPIDs: number[] = [];
-      if (os.platform() !== 'win32') {
-        let tempFileExists = false;
-        try {
-          await fsPromises.access(tempFilePath);
-          tempFileExists = true;
-        } catch {
-          tempFileExists = false;
-        }
-
-        if (tempFileExists) {
-          const pgrepContent = await fsPromises.readFile(tempFilePath, 'utf8');
-          const pgrepLines = pgrepContent.split(os.EOL).filter(Boolean);
-          for (const line of pgrepLines) {
-            if (!/^\d+$/.test(line)) {
-              debugLogger.error(`pgrep: ${line}`);
-            }
-            const pid = Number(line);
-            if (pid !== result.pid) {
-              backgroundPIDs.push(pid);
-            }
-          }
-        } else {
-          if (!signal.aborted && !result.backgrounded) {
-            debugLogger.error('missing pgrep output');
-          }
-        }
-      }
-
       let data: BackgroundExecutionData | undefined;
 
       let llmContent = '';
@@ -369,7 +329,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
       } else {
         // Create a formatted error string for display, replacing the wrapper command
         // with the user-facing command.
-        const llmContentParts = [`Output: ${result.output || '(empty)'}`];
+        const llmContentParts = [result.output || '(empty)'];
 
         if (result.error) {
           const finalError = result.error.message.replaceAll(
@@ -385,9 +345,6 @@ export class ShellToolInvocation extends BaseToolInvocation<
 
         if (result.signal) {
           llmContentParts.push(`Signal: ${result.signal}`);
-        }
-        if (backgroundPIDs.length) {
-          llmContentParts.push(`Background PIDs: ${backgroundPIDs.join(', ')}`);
         }
         if (result.pid) {
           llmContentParts.push(`Process Group PGID: ${result.pid}`);
@@ -461,11 +418,6 @@ export class ShellToolInvocation extends BaseToolInvocation<
       if (timeoutTimer) clearTimeout(timeoutTimer);
       signal.removeEventListener('abort', onAbort);
       timeoutController.signal.removeEventListener('abort', onAbort);
-      try {
-        await fsPromises.unlink(tempFilePath);
-      } catch {
-        // Ignore errors during unlink
-      }
     }
   }
 }

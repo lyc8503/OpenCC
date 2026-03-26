@@ -17,7 +17,11 @@ import { UserAccountManager } from './userAccountManager.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import path from 'node:path';
-import { GEMINI_DIR, homedir as pathsHomedir } from './paths.js';
+import {
+  GEMINI_DIR,
+  GOOGLE_ACCOUNTS_FILENAME,
+  homedir as pathsHomedir,
+} from './paths.js';
 import { debugLogger } from './debugLogger.js';
 
 vi.mock('./paths.js', async (importOriginal) => {
@@ -39,7 +43,7 @@ describe('UserAccountManager', () => {
     );
     (pathsHomedir as Mock).mockReturnValue(tempHomeDir);
     accountsFile = () =>
-      path.join(tempHomeDir, GEMINI_DIR, 'google_accounts.json');
+      path.join(tempHomeDir, GEMINI_DIR, GOOGLE_ACCOUNTS_FILENAME);
     userAccountManager = new UserAccountManager();
   });
 

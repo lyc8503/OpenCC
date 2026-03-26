@@ -661,7 +661,7 @@ export async function loadServerHierarchicalMemory(
 
   if (allFilePaths.length === 0) {
     debugLogger.debug(
-      '[DEBUG] [MemoryDiscovery] No unique GEMINI.md files found after deduplication by file identity.',
+      '[DEBUG] [MemoryDiscovery] No unique AGENTS.md files found after deduplication by file identity.',
     );
     return {
       memoryContent: { global: '', extension: '', project: '' },
@@ -770,7 +770,7 @@ export async function loadJitSubdirectoryMemory(
   // Resolve the target to a directory before traversing upward.
   // When the target is a file (e.g. /app/src/file.ts), start from its
   // parent directory to avoid a wasted fs.access check on a nonsensical
-  // path like /app/src/file.ts/GEMINI.md.
+  // path like /app/src/file.ts/AGENTS.md.
   let startDir = resolvedTarget;
   try {
     const stat = await fs.stat(resolvedTarget);

@@ -2,14 +2,14 @@
 
 exports[`<AppHeader /> > should not render the banner when no flags are set 1`] = `
 "
-  ▝▜▄     Gemini CLI v1.0.0
+  ▝▜▄     OpenCC v1.0.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -18,14 +18,14 @@ Tips for getting started:
 
 exports[`<AppHeader /> > should not render the default banner if shown count is 5 or more 1`] = `
 "
-  ▝▜▄     Gemini CLI v1.0.0
+  ▝▜▄     OpenCC v1.0.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -34,9 +34,9 @@ Tips for getting started:
 
 exports[`<AppHeader /> > should render the banner with default text 1`] = `
 "
-  ▝▜▄     Gemini CLI v1.0.0
+  ▝▜▄     OpenCC v1.0.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -44,7 +44,7 @@ exports[`<AppHeader /> > should render the banner with default text 1`] = `
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -53,9 +53,9 @@ Tips for getting started:
 
 exports[`<AppHeader /> > should render the banner with warning text 1`] = `
 "
-  ▝▜▄     Gemini CLI v1.0.0
+  ▝▜▄     OpenCC v1.0.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -63,7 +63,7 @@ exports[`<AppHeader /> > should render the banner with warning text 1`] = `
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results

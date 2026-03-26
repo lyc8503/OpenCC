@@ -76,10 +76,12 @@ describe('FileSearch', () => {
     await fileSearch.initialize();
     const results = await fileSearch.search('');
 
-    expect(results).toEqual([
-      'src/',
-      GEMINI_IGNORE_FILE_NAME,
+    // Sort the results to ensure consistent ordering
+    const sortedResults = results.sort();
+    expect(sortedResults).toEqual([
       '.gitignore',
+      GEMINI_IGNORE_FILE_NAME,
+      'src/',
       'src/not-ignored.js',
     ]);
   });

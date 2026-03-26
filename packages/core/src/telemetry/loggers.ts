@@ -33,7 +33,6 @@ import {
   type ContentRetryEvent,
   type ContentRetryFailureEvent,
   type NetworkRetryAttemptEvent,
-  type RipgrepFallbackEvent,
   type ToolOutputTruncatedEvent,
   type ModelRoutingEvent,
   type ExtensionDisableEvent,
@@ -212,20 +211,6 @@ export function logApiRequest(config: Config, event: ApiRequestEvent): void {
 export function logFlashFallback(
   config: Config,
   event: FlashFallbackEvent,
-): void {
-  bufferTelemetryEvent(() => {
-    const logger = logs.getLogger(SERVICE_NAME);
-    const logRecord: LogRecord = {
-      body: event.toLogBody(),
-      attributes: event.toOpenTelemetryAttributes(config),
-    };
-    logger.emit(logRecord);
-  });
-}
-
-export function logRipgrepFallback(
-  config: Config,
-  event: RipgrepFallbackEvent,
 ): void {
   bufferTelemetryEvent(() => {
     const logger = logs.getLogger(SERVICE_NAME);

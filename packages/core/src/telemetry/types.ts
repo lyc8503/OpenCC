@@ -757,30 +757,6 @@ export class FlashFallbackEvent implements BaseTelemetryEvent {
   }
 }
 
-export const EVENT_RIPGREP_FALLBACK = 'gemini_cli.ripgrep_fallback';
-export class RipgrepFallbackEvent implements BaseTelemetryEvent {
-  'event.name': 'ripgrep_fallback';
-  'event.timestamp': string;
-
-  constructor(public error?: string) {
-    this['event.name'] = 'ripgrep_fallback';
-    this['event.timestamp'] = new Date().toISOString();
-  }
-
-  toOpenTelemetryAttributes(config: Config): LogAttributes {
-    return {
-      ...getCommonAttributes(config),
-      'event.name': EVENT_RIPGREP_FALLBACK,
-      'event.timestamp': this['event.timestamp'],
-      error: this.error,
-    };
-  }
-
-  toLogBody(): string {
-    return `Switching to grep as fallback.`;
-  }
-}
-
 export enum LoopType {
   CONSECUTIVE_IDENTICAL_TOOL_CALLS = 'consecutive_identical_tool_calls',
   CHANTING_IDENTICAL_SENTENCES = 'chanting_identical_sentences',

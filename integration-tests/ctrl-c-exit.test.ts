@@ -18,9 +18,7 @@ describe('Ctrl+C exit', () => {
   afterEach(async () => await rig.cleanup());
 
   it('should exit gracefully on second Ctrl+C', async () => {
-    await rig.setup('should exit gracefully on second Ctrl+C', {
-      settings: { tools: { useRipgrep: false } },
-    });
+    await rig.setup('should exit gracefully on second Ctrl+C');
 
     const run = await rig.runInteractive();
 

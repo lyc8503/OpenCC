@@ -579,7 +579,7 @@ export async function loadCliConfig(
         );
       }
       throw new FatalConfigError(
-        'YOLO mode is disabled by administrator settings.',
+        'YOLO mode is disabled by your administrator. To enable it, please request an update to the settings at: https://goo.gle/manage-gemini-cli',
       );
     }
   } else if (approvalMode === ApprovalMode.YOLO) {
@@ -815,7 +815,6 @@ export async function loadCliConfig(
     trustedFolder,
     useBackgroundColor: settings.ui?.useBackgroundColor,
     useAlternateBuffer: settings.ui?.useAlternateBuffer,
-    useRipgrep: settings.tools?.useRipgrep,
     enableInteractiveShell: settings.tools?.shell?.enableInteractiveShell,
     shellToolInactivityTimeout: settings.tools?.shell?.inactivityTimeout,
     enableShellOutputEfficiency:

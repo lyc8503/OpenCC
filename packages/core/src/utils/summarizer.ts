@@ -39,7 +39,15 @@ export const defaultSummarizer: Summarizer = (
   result: ToolResult,
   _geminiClient: GeminiClient,
   _abortSignal: AbortSignal,
-) => Promise.resolve(JSON.stringify(result.llmContent));
+) => {
+  // If llmContent is a string, return it directly.
+  // If it's an object or array, stringify it.
+  const llmContent = result.llmContent;
+  if (typeof llmContent === 'string') {
+    return Promise.resolve(llmContent);
+  }
+  return Promise.resolve(JSON.stringify(llmContent));
+};
 
 const SUMMARIZE_TOOL_OUTPUT_PROMPT = `Summarize the following tool output to be a maximum of {maxOutputTokens} tokens. The summary should be concise and capture the main points of the tool output.
 

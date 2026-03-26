@@ -7,10 +7,10 @@
 import path from 'node:path';
 import { Storage } from './storage.js';
 
-/** Default context filename for GEMINI.md context files */
-export const DEFAULT_CONTEXT_FILENAME = 'GEMINI.md';
+/** Default context filename for AGENTS.md context files */
+export const DEFAULT_CONTEXT_FILENAME = 'AGENTS.md';
 
-// This variable will hold the currently configured filename for GEMINI.md context files.
+// This variable will hold the currently configured filename for AGENTS.md context files.
 // It defaults to DEFAULT_CONTEXT_FILENAME but can be overridden by setGeminiMdFilename.
 let currentGeminiMdFilename: string | string[] = DEFAULT_CONTEXT_FILENAME;
 

@@ -511,7 +511,8 @@ export class HookRunner {
     debugLogger.debug(`Expanding hook command: ${command} (cwd: ${input.cwd})`);
     const escapedCwd = escapeShellArg(input.cwd, shellType);
     return command
-      .replace(/\$GEMINI_PROJECT_DIR/g, () => escapedCwd)
+      .replace(/\$OPENCC_PROJECT_DIR/g, () => escapedCwd)
+      .replace(/\$GEMINI_PROJECT_DIR/g, () => escapedCwd) // For compatibility
       .replace(/\$CLAUDE_PROJECT_DIR/g, () => escapedCwd); // For compatibility
   }
 

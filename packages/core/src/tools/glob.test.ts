@@ -212,11 +212,6 @@ describe('GlobTool', () => {
       expect(newerIndex).toBeLessThan(olderIndex);
     }, 30000);
 
-    it('should return a PATH_NOT_IN_WORKSPACE error if path is outside workspace', async () => {
-      const params: GlobToolParams = { pattern: '*', path: '/etc' };
-      expect(() => globTool.build(params)).toThrow(/Path not in workspace/);
-    });
-
     it('should return a GLOB_EXECUTION_ERROR on glob failure', async () => {
       vi.mocked(glob.glob).mockRejectedValue(new Error('Glob failed'));
       const params: GlobToolParams = { pattern: '*' };

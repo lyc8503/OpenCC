@@ -126,7 +126,6 @@ export const createMockConfig = (overrides: Partial<Config> = {}): Config =>
     isSkillsSupportEnabled: vi.fn().mockReturnValue(false),
     reloadSkills: vi.fn().mockResolvedValue(undefined),
     reloadAgents: vi.fn().mockResolvedValue(undefined),
-    getUseRipgrep: vi.fn().mockReturnValue(false),
     getEnableInteractiveShell: vi.fn().mockReturnValue(false),
     getSkipNextSpeakerCheck: vi.fn().mockReturnValue(false),
     getContinueOnFailedApiCall: vi.fn().mockReturnValue(false),

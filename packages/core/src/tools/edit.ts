@@ -838,18 +838,6 @@ class EditToolInvocation
    * @returns Result of the edit operation
    */
   async execute(signal: AbortSignal): Promise<ToolResult> {
-    const validationError = this.config.validatePathAccess(this.resolvedPath);
-    if (validationError) {
-      return {
-        llmContent: validationError,
-        returnDisplay: 'Error: Path not in workspace.',
-        error: {
-          message: validationError,
-          type: ToolErrorType.PATH_NOT_IN_WORKSPACE,
-        },
-      };
-    }
-
     let editData: CalculatedEdit;
     try {
       editData = await this.calculateEdit(this.params, signal);
@@ -1032,21 +1020,6 @@ export class EditTool
       return "The 'file_path' parameter must be non-empty.";
     }
 
-    let resolvedPath: string;
-    if (!path.isAbsolute(params.file_path)) {
-      const result = correctPath(params.file_path, this.config);
-      if (result.success) {
-        resolvedPath = result.correctedPath;
-      } else {
-        resolvedPath = path.resolve(
-          this.config.getTargetDir(),
-          params.file_path,
-        );
-      }
-    } else {
-      resolvedPath = params.file_path;
-    }
-
     const newPlaceholders = detectOmissionPlaceholders(params.new_string);
     if (newPlaceholders.length > 0) {
       const oldPlaceholders = new Set(
@@ -1060,7 +1033,7 @@ export class EditTool
       }
     }
 
-    return this.config.validatePathAccess(resolvedPath);
+    return null;
   }
 
   protected createInvocation(

@@ -17,7 +17,6 @@ import {
   type PolicyUpdateOptions,
   type ToolConfirmationOutcome,
 } from './tools.js';
-import { ToolErrorType } from './tool-error.js';
 import { buildFilePathArgsPattern } from '../policy/utils.js';
 
 import type { PartListUnion } from '@google/genai';
@@ -112,21 +111,6 @@ class ReadFileToolInvocation extends BaseToolInvocation<
   }
 
   async execute(): Promise<ToolResult> {
-    const validationError = this.config.validatePathAccess(
-      this.resolvedPath,
-      'read',
-    );
-    if (validationError) {
-      return {
-        llmContent: validationError,
-        returnDisplay: 'Path not in workspace.',
-        error: {
-          message: validationError,
-          type: ToolErrorType.PATH_NOT_IN_WORKSPACE,
-        },
-      };
-    }
-
     // Convert offset/limit to start_line/end_line for processSingleFileContent
     // offset is 1-based line number to start reading from
     // offset 0 is treated as "start from beginning" (same as undefined or 1)
@@ -250,25 +234,17 @@ export class ReadFileTool extends BaseDeclarativeTool<
       return "The 'file_path' parameter must be non-empty.";
     }
 
-    const resolvedPath = path.resolve(
-      this.config.getTargetDir(),
-      params.file_path,
-    );
-
-    const validationError = this.config.validatePathAccess(
-      resolvedPath,
-      'read',
-    );
-    if (validationError) {
-      return validationError;
-    }
-
     if (params.offset !== undefined && params.offset < 0) {
       return 'offset must be at least 0';
     }
     if (params.limit !== undefined && params.limit < 1) {
       return 'limit must be at least 1';
     }
+
+    const resolvedPath = path.resolve(
+      this.config.getTargetDir(),
+      params.file_path,
+    );
 
     const fileFilteringOptions = this.config.getFileFilteringOptions();
     if (

@@ -25,7 +25,6 @@ export enum AgentTerminateMode {
   GOAL = 'GOAL',
   MAX_TURNS = 'MAX_TURNS',
   ABORTED = 'ABORTED',
-  ERROR_NO_COMPLETE_TASK_CALL = 'ERROR_NO_COMPLETE_TASK_CALL',
 }
 
 /**
@@ -44,7 +43,7 @@ export const DEFAULT_QUERY_STRING = 'Get Started!';
 /**
  * The default maximum number of conversational turns for an agent.
  */
-export const DEFAULT_MAX_TURNS = 30;
+export const DEFAULT_MAX_TURNS = 200;
 
 /**
  * The default maximum execution time for an agent in minutes.
@@ -234,7 +233,7 @@ export interface RunConfig {
   maxTimeMinutes?: number;
   /**
    * The maximum number of conversational turns.
-   * If not specified, defaults to DEFAULT_MAX_TURNS (30).
+   * If not specified, defaults to DEFAULT_MAX_TURNS (200).
    */
   maxTurns?: number;
 }

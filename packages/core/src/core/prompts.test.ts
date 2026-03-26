@@ -69,7 +69,7 @@ describe('Core System Prompt (prompts.ts)', () => {
   it('should generate a system prompt with basic structure', () => {
     const prompt = getCoreSystemPrompt(mockContext);
 
-    expect(prompt).toContain('Claude agent');
+    expect(prompt).toContain('coding agent');
     expect(prompt).toContain('software engineering tasks');
   });
 

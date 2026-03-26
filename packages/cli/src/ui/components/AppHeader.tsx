@@ -90,10 +90,10 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
             <ThemedGradient>{ICON}</ThemedGradient>
           </Box>
           <Box marginLeft={2} flexDirection="column">
-            {/* Line 1: Gemini CLI vVersion [Updating] */}
+            {/* Line 1: OpenCC vVersion [Updating] */}
             <Box>
               <Text bold color={theme.text.primary}>
-                Gemini CLI
+                OpenCC
               </Text>
               <Text color={theme.text.secondary}> v{version}</Text>
               {updateInfo && (

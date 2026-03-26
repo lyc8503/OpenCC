@@ -699,7 +699,6 @@ exports[`coreTools snapshots for specific models > Model: gemini-2.5-pro > snaps
       Exit Code: Only included if non-zero (command failed).
       Error: Only included if a process-level error occurred (e.g., spawn failure).
       Signal: Only included if process was terminated by a signal.
-      Background PIDs: Only included if background processes were started.
       Process Group PGID: Only included if available.",
   "name": "Bash",
   "parametersJsonSchema": {
@@ -1598,7 +1597,6 @@ exports[`coreTools snapshots for specific models > Model: gemini-3-pro-preview >
       Exit Code: Only included if non-zero (command failed).
       Error: Only included if a process-level error occurred (e.g., spawn failure).
       Signal: Only included if process was terminated by a signal.
-      Background PIDs: Only included if background processes were started.
       Process Group PGID: Only included if available.",
   "name": "Bash",
   "parametersJsonSchema": {

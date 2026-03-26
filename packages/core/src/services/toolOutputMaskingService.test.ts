@@ -298,7 +298,7 @@ describe('ToolOutputMaskingService', () => {
     const result = await service.mask(shellHistory, mockConfig);
     const maskedBash = getToolResponse(result.newHistory[0].parts?.[0]);
 
-    expect(maskedBash).toContain('Output: line1\nline2\nline3\nline4\nline5');
+    expect(maskedBash).toContain('line1\nline2\nline3\nline4\nline5');
     expect(maskedBash).toContain('Exit Code: 1');
     expect(maskedBash).toContain('Error: failed');
   });

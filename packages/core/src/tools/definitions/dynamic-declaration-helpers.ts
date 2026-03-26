@@ -47,7 +47,6 @@ export function getShellToolDescription(
       Exit Code: Only included if non-zero (command failed).
       Error: Only included if a process-level error occurred (e.g., spawn failure).
       Signal: Only included if process was terminated by a signal.
-      Background PIDs: Only included if background processes were started.
       Process Group PGID: Only included if available.`;
 
   if (os.platform() === 'win32') {

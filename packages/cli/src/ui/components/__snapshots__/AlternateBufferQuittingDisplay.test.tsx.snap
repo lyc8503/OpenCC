@@ -2,14 +2,14 @@
 
 exports[`AlternateBufferQuittingDisplay > renders with a tool awaiting confirmation > with_confirming_tool 1`] = `
 "
-  ▝▜▄     Gemini CLI v0.10.0
+  ▝▜▄     OpenCC v0.10.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -22,14 +22,14 @@ Action Required (was prompted):
 
 exports[`AlternateBufferQuittingDisplay > renders with active and pending tool messages > with_history_and_pending 1`] = `
 "
-  ▝▜▄     Gemini CLI v0.10.0
+  ▝▜▄     OpenCC v0.10.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -50,14 +50,14 @@ Tips for getting started:
 
 exports[`AlternateBufferQuittingDisplay > renders with empty history and no pending items > empty 1`] = `
 "
-  ▝▜▄     Gemini CLI v0.10.0
+  ▝▜▄     OpenCC v0.10.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -66,14 +66,14 @@ Tips for getting started:
 
 exports[`AlternateBufferQuittingDisplay > renders with history but no pending items > with_history_no_pending 1`] = `
 "
-  ▝▜▄     Gemini CLI v0.10.0
+  ▝▜▄     OpenCC v0.10.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -90,14 +90,14 @@ Tips for getting started:
 
 exports[`AlternateBufferQuittingDisplay > renders with pending items but no history > with_pending_no_history 1`] = `
 "
-  ▝▜▄     Gemini CLI v0.10.0
+  ▝▜▄     OpenCC v0.10.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results
@@ -110,14 +110,14 @@ Tips for getting started:
 
 exports[`AlternateBufferQuittingDisplay > renders with user and gemini messages > with_user_gemini_messages 1`] = `
 "
-  ▝▜▄     Gemini CLI v0.10.0
+  ▝▜▄     OpenCC v0.10.0
     ▝▜▄
-   ▗▟▀ 
+   ▗▟▀    No API key configured. Use /model to set one.
   ▝▀    
 
 
 Tips for getting started:
-1. Create GEMINI.md files to customize your interactions
+1. Create AGENTS.md files to customize your interactions
 2. /help for more information
 3. Ask coding questions, edit code or run commands
 4. Be specific for the best results

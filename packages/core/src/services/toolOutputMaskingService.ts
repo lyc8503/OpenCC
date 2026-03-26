@@ -303,32 +303,29 @@ export class ToolOutputMaskingService {
     }
 
     // The shell tool output is structured in shell.ts with specific section prefixes:
+    // Note: "Output" section no longer has a prefix, it's the first part of content
     const sectionRegex =
-      /^(Output|Error|Exit Code|Signal|Background PIDs|Process Group PGID): /m;
+      /^(Error|Exit Code|Signal|Background PIDs|Process Group PGID): /m;
     const parts = content.split(sectionRegex);
 
-    if (parts.length < 3) {
-      // Fallback to simple head/tail if not in expected shell.ts format
+    if (parts.length < 2) {
+      // No sections found, treat entire content as output
       return this.formatSimplePreview(content);
     }
 
     const previewParts: string[] = [];
+    // The first part is the output (no prefix)
     if (parts[0].trim()) {
       previewParts.push(this.formatSimplePreview(parts[0].trim()));
     }
 
+    // Process remaining sections (Error, Exit Code, etc.)
     for (let i = 1; i < parts.length; i += 2) {
       const name = parts[i];
       const sectionContent = parts[i + 1]?.trim() || '';
 
-      if (name === 'Output') {
-        previewParts.push(
-          `Output: ${this.formatSimplePreview(sectionContent)}`,
-        );
-      } else {
-        // Keep other sections (Error, Exit Code, etc.) in full as they are usually high-signal and small
-        previewParts.push(`${name}: ${sectionContent}`);
-      }
+      // Keep other sections (Error, Exit Code, etc.) in full as they are usually high-signal and small
+      previewParts.push(`${name}: ${sectionContent}`);
     }
 
     let preview = previewParts.join('\n');

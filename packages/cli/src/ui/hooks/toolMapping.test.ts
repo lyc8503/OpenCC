@@ -128,7 +128,7 @@ describe('toolMapping', () => {
       expect(displayTool).toEqual(
         expect.objectContaining({
           callId: 'call-1',
-          name: 'Test Tool',
+          name: 'test_tool',
           description: 'Calling test_tool with args...',
           renderOutputAsMarkdown: true,
           status: CoreToolCallStatus.Success,

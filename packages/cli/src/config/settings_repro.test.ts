@@ -143,9 +143,7 @@ describe('Settings Repro', () => {
         },
       },
       tools: {
-        useRipgrep: true,
-        shell: {
-          showColor: true,
+        shell: {          showColor: true,
           enableInteractiveShell: true,
         },
       },

@@ -265,20 +265,15 @@ describe('ShellTool', () => {
       resolveExecutionPromise(fullResult);
     };
 
-    it('should wrap command on linux and parse pgrep output', async () => {
+    it('should execute command without wrapping on linux', async () => {
       const invocation = shellTool.build({ command: 'my-command &' });
       const promise = invocation.execute(mockAbortSignal);
       resolveShellExecution({ pid: 54321 });
 
-      // Simulate pgrep output file creation by the shell command
-      const tmpFile = path.join(os.tmpdir(), 'shell_pgrep_abcdef.tmp');
-      fs.writeFileSync(tmpFile, `54321${os.EOL}54322${os.EOL}`);
-
       const result = await promise;
 
-      const wrappedCommand = `{ my-command & }; __code=$?; pgrep -g 0 >${tmpFile} 2>&1; exit $__code;`;
       expect(mockShellExecutionService).toHaveBeenCalledWith(
-        wrappedCommand,
+        'my-command &',
         tempRootDir,
         expect.any(Function),
         expect.any(AbortSignal),
@@ -289,9 +284,7 @@ describe('ShellTool', () => {
           sandboxManager: expect.any(Object),
         }),
       );
-      expect(result.llmContent).toContain('Background PIDs: 54322');
-      // The file should be deleted by the tool
-      expect(fs.existsSync(tmpFile)).toBe(false);
+      expect(result.llmContent).toContain('Process Group PGID: 54321');
     });
 
     it('should use the provided absolute directory as cwd', async () => {
@@ -304,10 +297,8 @@ describe('ShellTool', () => {
       resolveShellExecution();
       await promise;
 
-      const tmpFile = path.join(os.tmpdir(), 'shell_pgrep_abcdef.tmp');
-      const wrappedCommand = `{ ls; }; __code=$?; pgrep -g 0 >${tmpFile} 2>&1; exit $__code;`;
       expect(mockShellExecutionService).toHaveBeenCalledWith(
-        wrappedCommand,
+        'ls',
         subdir,
         expect.any(Function),
         expect.any(AbortSignal),
@@ -329,10 +320,8 @@ describe('ShellTool', () => {
       resolveShellExecution();
       await promise;
 
-      const tmpFile = path.join(os.tmpdir(), 'shell_pgrep_abcdef.tmp');
-      const wrappedCommand = `{ ls; }; __code=$?; pgrep -g 0 >${tmpFile} 2>&1; exit $__code;`;
       expect(mockShellExecutionService).toHaveBeenCalledWith(
-        wrappedCommand,
+        'ls',
         path.join(tempRootDir, 'subdir'),
         expect.any(Function),
         expect.any(AbortSignal),
@@ -493,22 +482,6 @@ describe('ShellTool', () => {
       // We can also verify that setTimeout was NOT called for the inactivity timeout.
       // However, since we don't have direct access to the internal `resetTimeout`,
       // we can infer success by the fact it didn't abort.
-    });
-
-    it('should clean up the temp file on synchronous execution error', async () => {
-      const error = new Error('sync spawn error');
-      mockShellExecutionService.mockImplementation(() => {
-        // Create the temp file before throwing to simulate it being left behind
-        const tmpFile = path.join(os.tmpdir(), 'shell_pgrep_abcdef.tmp');
-        fs.writeFileSync(tmpFile, '');
-        throw error;
-      });
-
-      const invocation = shellTool.build({ command: 'a-command' });
-      await expect(invocation.execute(mockAbortSignal)).rejects.toThrow(error);
-
-      const tmpFile = path.join(os.tmpdir(), 'shell_pgrep_abcdef.tmp');
-      expect(fs.existsSync(tmpFile)).toBe(false);
     });
 
     it('should not log "missing pgrep output" when process is backgrounded', async () => {
@@ -792,8 +765,8 @@ describe('ShellTool', () => {
       resolveShellExecution({ output: 'hello', exitCode: 0, pid: undefined });
 
       const result = await promise;
-      // Should only contain Output field
-      expect(result.llmContent).toBe('Output: hello');
+      // Should only contain the output without prefix
+      expect(result.llmContent).toBe('hello');
     });
   });
 
@@ -934,7 +907,7 @@ describe('ShellTool', () => {
       const result = await promise;
 
       // Should succeed, not timeout
-      expect(result.llmContent).toContain('Output: done');
+      expect(result.llmContent).toContain('done');
       expect(result.llmContent).not.toContain('timeout');
 
       vi.useRealTimers();

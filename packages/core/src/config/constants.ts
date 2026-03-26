@@ -31,10 +31,10 @@ export const DEFAULT_FILE_FILTERING_OPTIONS: FileFilteringOptions = {
 };
 
 // Generic exclusion file name
-export const GEMINI_IGNORE_FILE_NAME = '.geminiignore';
+export const GEMINI_IGNORE_FILE_NAME = '.openccignore';
 
 // Extension integrity constants
 export const INTEGRITY_FILENAME = 'extension_integrity.json';
 export const INTEGRITY_KEY_FILENAME = 'integrity.key';
-export const KEYCHAIN_SERVICE_NAME = 'gemini-cli-extension-integrity';
+export const KEYCHAIN_SERVICE_NAME = 'opencc-extension-integrity';
 export const SECRET_KEY_ACCOUNT = 'secret-key';

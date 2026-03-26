@@ -19,8 +19,7 @@ import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ResourceRegistry } from '../resources/resource-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { ReadFileTool } from '../tools/read-file.js';
-import { GrepTool } from '../tools/grep.js';
-import { canUseRipgrep, RipGrepTool } from '../tools/ripGrep.js';
+import { RipGrepTool } from '../tools/ripGrep.js';
 import { GlobTool } from '../tools/glob.js';
 import { ActivateSkillTool } from '../tools/activate-skill.js';
 import { EditTool } from '../tools/edit.js';
@@ -64,13 +63,11 @@ import {
   type FileSystemService,
 } from '../services/fileSystemService.js';
 import {
-  logRipgrepFallback,
   logFlashFallback,
   logApprovalModeSwitch,
   logApprovalModeDuration,
 } from '../telemetry/loggers.js';
 import {
-  RipgrepFallbackEvent,
   FlashFallbackEvent,
   ApprovalModeSwitchEvent,
   ApprovalModeDurationEvent,
@@ -116,7 +113,11 @@ import { debugLogger } from '../utils/debugLogger.js';
 import { SkillManager, type SkillDefinition } from '../skills/skillManager.js';
 import { startupProfiler } from '../telemetry/startupProfiler.js';
 import type { AgentDefinition } from '../agents/types.js';
-import { isSubpath, resolveToRealPath } from '../utils/paths.js';
+import {
+  isSubpath,
+  resolveToRealPath,
+  normalizePath,
+} from '../utils/paths.js';
 import { InjectionService } from './injectionService.js';
 import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
 import { WORKSPACE_POLICY_TIER } from '../policy/config.js';
@@ -552,7 +553,6 @@ export interface ConfigParameters {
   trustedFolder?: boolean;
   useBackgroundColor?: boolean;
   useAlternateBuffer?: boolean;
-  useRipgrep?: boolean;
   enableInteractiveShell?: boolean;
   skipNextSpeakerCheck?: boolean;
   shellExecutionConfig?: ShellExecutionConfig;
@@ -712,7 +712,6 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly ptyInfo: string;
   private readonly trustedFolder: boolean | undefined;
   private readonly directWebFetch: boolean;
-  private readonly useRipgrep: boolean;
   private readonly enableInteractiveShell: boolean;
   private readonly skipNextSpeakerCheck: boolean;
   private readonly useBackgroundColor: boolean;
@@ -967,7 +966,6 @@ export class Config implements McpContext, AgentLoopContext {
     this.ptyInfo = params.ptyInfo ?? 'child_process';
     this.trustedFolder = params.trustedFolder;
     this.directWebFetch = params.directWebFetch ?? false;
-    this.useRipgrep = params.useRipgrep ?? true;
     this.useBackgroundColor = params.useBackgroundColor ?? true;
     this.useAlternateBuffer = params.useAlternateBuffer ?? false;
     this.enableInteractiveShell = params.enableInteractiveShell ?? false;
@@ -1339,7 +1337,7 @@ export class Config implements McpContext, AgentLoopContext {
    * @param filePath The absolute path to the file that was read.
    */
   markFileAsRead(filePath: string): void {
-    this.readFiles.add(filePath);
+    this.readFiles.add(normalizePath(filePath));
   }
 
   /**
@@ -1348,7 +1346,7 @@ export class Config implements McpContext, AgentLoopContext {
    * @returns true if the file has been read, false otherwise.
    */
   hasReadFile(filePath: string): boolean {
-    return this.readFiles.has(filePath);
+    return this.readFiles.has(normalizePath(filePath));
   }
 
   getClientName(): string | undefined {
@@ -2331,10 +2329,6 @@ export class Config implements McpContext, AgentLoopContext {
     return this.interactive;
   }
 
-  getUseRipgrep(): boolean {
-    return this.useRipgrep;
-  }
-
   getUseBackgroundColor(): boolean {
     return this.useBackgroundColor;
   }
@@ -2534,29 +2528,9 @@ export class Config implements McpContext, AgentLoopContext {
       registry.registerTool(new ReadFileTool(this, this.messageBus)),
     );
 
-    if (this.getUseRipgrep()) {
-      let useRipgrep = false;
-      let errorString: undefined | string = undefined;
-      try {
-        useRipgrep = await canUseRipgrep();
-      } catch (error: unknown) {
-        errorString = String(error);
-      }
-      if (useRipgrep) {
-        maybeRegister(RipGrepTool, () =>
-          registry.registerTool(new RipGrepTool(this, this.messageBus)),
-        );
-      } else {
-        logRipgrepFallback(this, new RipgrepFallbackEvent(errorString));
-        maybeRegister(GrepTool, () =>
-          registry.registerTool(new GrepTool(this, this.messageBus)),
-        );
-      }
-    } else {
-      maybeRegister(GrepTool, () =>
-        registry.registerTool(new GrepTool(this, this.messageBus)),
-      );
-    }
+    maybeRegister(RipGrepTool, () =>
+      registry.registerTool(new RipGrepTool(this, this.messageBus)),
+    );
 
     maybeRegister(GlobTool, () =>
       registry.registerTool(new GlobTool(this, this.messageBus)),

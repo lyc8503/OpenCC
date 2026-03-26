@@ -66,22 +66,22 @@ export async function enrichWithAutoContext(
   matchesByFile: Record<string, GrepMatch[]>,
   matchCount: number,
   params: {
-    names_only?: boolean;
     output_mode?: 'content' | 'files_with_matches' | 'count';
     context?: number;
-    before?: number;
-    after?: number;
+    '-C'?: number;
+    '-B'?: number;
+    '-A'?: number;
   },
 ): Promise<void> {
-  const { output_mode, context, before, after } = params;
-  // Support both new (output_mode) and legacy (names_only) parameters
-  const names_only = output_mode === 'files_with_matches' || params.names_only;
+  const { output_mode, context, '-C': contextAlias, '-B': before, '-A': after } = params;
+  const names_only = output_mode === 'files_with_matches';
+  const actualContext = context ?? contextAlias;
 
   if (
     matchCount >= 1 &&
     matchCount <= 3 &&
     !names_only &&
-    context === undefined &&
+    actualContext === undefined &&
     before === undefined &&
     after === undefined
   ) {
@@ -142,25 +142,24 @@ export async function formatGrepResults(
   allMatches: GrepMatch[],
   params: {
     pattern: string;
-    names_only?: boolean;
     output_mode?: 'content' | 'files_with_matches' | 'count';
-    include_pattern?: string;
     glob?: string;
     // Context params to determine if auto-context should be skipped
     context?: number;
-    before?: number;
-    after?: number;
+    '-C'?: number;
+    '-B'?: number;
+    '-A'?: number;
   },
   searchLocationDescription: string,
   totalMaxMatches: number,
 ): Promise<{ llmContent: string; returnDisplay: string }> {
-  const { pattern, output_mode } = params;
-  // Support both new (output_mode) and legacy (names_only) parameters
-  const names_only = output_mode === 'files_with_matches' || params.names_only;
-  const include_pattern = params.glob || params.include_pattern;
+  const { pattern, output_mode, glob } = params;
+  // Default to 'files_with_matches' per tool schema definition
+  const actualOutputMode = output_mode ?? 'files_with_matches';
+  const names_only = actualOutputMode === 'files_with_matches';
 
   if (allMatches.length === 0) {
-    const noMatchMsg = `No matches found for pattern "${pattern}" ${searchLocationDescription}${include_pattern ? ` (filter: "${include_pattern}")` : ''}.`;
+    const noMatchMsg = `No matches found for pattern "${pattern}" ${searchLocationDescription}${glob ? ` (filter: "${glob}")` : ''}.`;
     return { llmContent: noMatchMsg, returnDisplay: `No matches found` };
   }
 
@@ -180,7 +179,7 @@ export async function formatGrepResults(
   if (names_only) {
     const filePaths = Object.keys(matchesByFile).sort();
     let llmContent = `Found ${filePaths.length} files with matches for pattern "${pattern}" ${searchLocationDescription}${
-      include_pattern ? ` (filter: "${include_pattern}")` : ''
+      glob ? ` (filter: "${glob}")` : ''
     }${
       wasTruncated
         ? ` (results limited to ${totalMaxMatches} matches for performance)`
@@ -193,7 +192,7 @@ export async function formatGrepResults(
     };
   }
 
-  let llmContent = `Found ${matchCount} ${matchTerm} for pattern "${pattern}" ${searchLocationDescription}${include_pattern ? ` (filter: "${include_pattern}")` : ''}`;
+  let llmContent = `Found ${matchCount} ${matchTerm} for pattern "${pattern}" ${searchLocationDescription}${glob ? ` (filter: "${glob}")` : ''}`;
 
   if (wasTruncated) {
     llmContent += ` (results limited to ${totalMaxMatches} matches for performance)`;

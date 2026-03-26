@@ -120,17 +120,17 @@ export class Storage {
 
   private static getSystemConfigDir(): string {
     if (os.platform() === 'darwin') {
-      return '/Library/Application Support/GeminiCli';
+      return '/Library/Application Support/OpenCC';
     } else if (os.platform() === 'win32') {
-      return 'C:\\ProgramData\\gemini-cli';
+      return 'C:\\ProgramData\\opencc';
     } else {
-      return '/etc/gemini-cli';
+      return '/etc/opencc';
     }
   }
 
   static getSystemSettingsPath(): string {
-    if (process.env['GEMINI_CLI_SYSTEM_SETTINGS_PATH']) {
-      return process.env['GEMINI_CLI_SYSTEM_SETTINGS_PATH'];
+    if (process.env['OPENCC_SYSTEM_SETTINGS_PATH']) {
+      return process.env['OPENCC_SYSTEM_SETTINGS_PATH'];
     }
     return path.join(Storage.getSystemConfigDir(), 'settings.json');
   }

@@ -143,7 +143,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter on first item (Model Name) to start editing
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -155,7 +155,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter to commit
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -180,7 +180,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter to start editing
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -192,7 +192,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter to commit
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -221,7 +221,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter to start editing
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -233,7 +233,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter to commit
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -249,7 +249,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter on first item (Model Name) to start editing
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -261,7 +261,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter to commit
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -278,7 +278,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter on first item to start editing
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 
@@ -290,7 +290,7 @@ describe('<ModelDialog />', () => {
 
     // Press Enter to commit
     await act(async () => {
-      stdin.write('');
+      stdin.write('');
     });
     await waitUntilReady();
 

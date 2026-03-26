@@ -1648,7 +1648,6 @@ describe('SettingsDialog', () => {
           },
           tools: {
             enableInteractiveShell: true,
-            useRipgrep: true,
           },
           security: {
             folderTrust: {
@@ -1743,7 +1742,6 @@ describe('SettingsDialog', () => {
         userSettings: {
           tools: {
             enableInteractiveShell: true,
-            useRipgrep: true,
             truncateToolOutputThreshold: 25000,
           },
           security: {
@@ -1793,7 +1791,6 @@ describe('SettingsDialog', () => {
           },
           tools: {
             enableInteractiveShell: false,
-            useRipgrep: false,
           },
           security: {
             folderTrust: {

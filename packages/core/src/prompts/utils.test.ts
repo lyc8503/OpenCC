@@ -12,6 +12,7 @@ import {
 } from './utils.js';
 import type { Config } from '../config/config.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
+import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 vi.mock('../utils/paths.js', () => ({
   homedir: vi.fn().mockReturnValue('/mock/home'),
@@ -197,56 +198,54 @@ describe('isSectionEnabled', () => {
 });
 
 describe('applySubstitutions', () => {
-  let mockConfig: Config;
+  let mockContext: AgentLoopContext;
 
   beforeEach(() => {
-    mockConfig = {
-      get config() {
-        return this;
-      },
-      toolRegistry: {
-        getAllToolNames: vi.fn().mockReturnValue([]),
-        getAllTools: vi.fn().mockReturnValue([]),
-      },
+    const mockConfig = {
       getAgentRegistry: vi.fn().mockReturnValue({
         getAllDefinitions: vi.fn().mockReturnValue([]),
       }),
-      getToolRegistry: vi.fn().mockReturnValue({
-        getAllToolNames: vi.fn().mockReturnValue([]),
-      }),
     } as unknown as Config;
+
+    mockContext = {
+      config: mockConfig,
+      toolRegistry: {
+        getAllToolNames: vi.fn().mockReturnValue([]),
+        getAllTools: vi.fn().mockReturnValue([]),
+      } as unknown as ToolRegistry,
+    } as unknown as AgentLoopContext;
   });
 
-  it('should replace ${SubAgents} with rendered sub-agents content', () => {
-    const result = applySubstitutions('Agents: ${SubAgents}', mockConfig, '');
-    // Since no sub-agents are defined, the placeholder should be removed
-    expect(result).toBe('Agents: ');
+  it('should not replace ${SubAgents} when no sub-agents are defined', () => {
+    const result = applySubstitutions('Agents: ${SubAgents}', mockContext, '');
+    // Since no sub-agents are defined, the placeholder remains unchanged
+    expect(result).toBe('Agents: ${SubAgents}');
   });
 
   it('should render sub-agents when available', () => {
     (
-      mockConfig as unknown as { getAgentRegistry: ReturnType<typeof vi.fn> }
+      mockContext.config as unknown as { getAgentRegistry: ReturnType<typeof vi.fn> }
     ).getAgentRegistry = vi.fn().mockReturnValue({
       getAllDefinitions: vi.fn().mockReturnValue([
         { name: 'test-agent', description: 'A test agent' },
       ]),
     });
 
-    const result = applySubstitutions('Agents: ${SubAgents}', mockConfig, '');
+    const result = applySubstitutions('Agents: ${SubAgents}', mockContext, '');
     expect(result).toContain('# Available Sub-Agents');
     expect(result).toContain('test-agent');
     expect(result).toContain('A test agent');
   });
 
   it('should replace ${AvailableTools} with tool names list', () => {
-    (mockConfig as unknown as { toolRegistry: ToolRegistry }).toolRegistry = {
+    (mockContext as unknown as { toolRegistry: ToolRegistry }).toolRegistry = {
       getAllToolNames: vi.fn().mockReturnValue(['read_file', 'write_file']),
       getAllTools: vi.fn().mockReturnValue([]),
     } as unknown as ToolRegistry;
 
     const result = applySubstitutions(
       'Tools: ${AvailableTools}',
-      mockConfig,
+      mockContext,
       '',
     );
     expect(result).toContain('- read_file');
@@ -256,21 +255,21 @@ describe('applySubstitutions', () => {
   it('should show no tools message when no tools available', () => {
     const result = applySubstitutions(
       'Tools: ${AvailableTools}',
-      mockConfig,
+      mockContext,
       '',
     );
     expect(result).toContain('No tools are currently available.');
   });
 
   it('should replace tool-specific ${toolName_ToolName} variables', () => {
-    (mockConfig as unknown as { toolRegistry: ToolRegistry }).toolRegistry = {
+    (mockContext as unknown as { toolRegistry: ToolRegistry }).toolRegistry = {
       getAllToolNames: vi.fn().mockReturnValue(['read_file']),
       getAllTools: vi.fn().mockReturnValue([]),
     } as unknown as ToolRegistry;
 
     const result = applySubstitutions(
       'Use ${read_file_ToolName} to read',
-      mockConfig,
+      mockContext,
       '',
     );
     expect(result).toBe('Use read_file to read');
@@ -279,7 +278,7 @@ describe('applySubstitutions', () => {
   it('should handle a prompt with no substitution placeholders', () => {
     const result = applySubstitutions(
       'A plain prompt with no variables.',
-      mockConfig,
+      mockContext,
       '',
     );
     expect(result).toBe('A plain prompt with no variables.');

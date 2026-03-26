@@ -983,11 +983,6 @@ their corresponding top-level category object in your `settings.json` file.
   - **Default:** `undefined`
   - **Requires restart:** Yes
 
-- **`tools.useRipgrep`** (boolean):
-  - **Description:** Use ripgrep for file content search instead of the fallback
-    implementation. Provides faster search performance.
-  - **Default:** `true`
-
 - **`tools.truncateToolOutputThreshold`** (number):
   - **Description:** Maximum characters to show when truncating large tool
     outputs. Set to 0 or negative to disable truncation.

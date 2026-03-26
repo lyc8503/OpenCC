@@ -200,18 +200,6 @@ class WriteFileToolInvocation extends BaseToolInvocation<
   }
 
   async execute(abortSignal: AbortSignal): Promise<ToolResult> {
-    const validationError = this.config.validatePathAccess(this.resolvedPath);
-    if (validationError) {
-      return {
-        llmContent: validationError,
-        returnDisplay: 'Error: Path not in workspace.',
-        error: {
-          message: validationError,
-          type: ToolErrorType.PATH_NOT_IN_WORKSPACE,
-        },
-      };
-    }
-
     const { content, ai_proposed_content, modified_by_user } = this.params;
 
     // Read existing file content
@@ -437,11 +425,6 @@ export class WriteFileTool
     }
 
     const resolvedPath = path.resolve(this.config.getTargetDir(), filePath);
-
-    const validationError = this.config.validatePathAccess(resolvedPath);
-    if (validationError) {
-      return validationError;
-    }
 
     try {
       if (fs.existsSync(resolvedPath)) {

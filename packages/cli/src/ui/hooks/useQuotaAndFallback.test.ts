@@ -20,7 +20,6 @@ import {
   type Config,
   type FallbackModelHandler,
   type FallbackIntent,
-  UserTierId,
   AuthType,
   TerminalQuotaError,
   makeFakeConfig,
@@ -35,11 +34,18 @@ import {
   shouldShowOverageMenu,
   shouldShowEmptyWalletMenu,
   logBillingEvent,
-  G1_CREDIT_TYPE,
 } from '@google/gemini-cli-core';
 import { useQuotaAndFallback } from './useQuotaAndFallback.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { MessageType } from '../types.js';
+
+// Define constants locally for testing
+const UserTierId = {
+  FREE: 'FREE',
+  STANDARD: 'STANDARD',
+} as const;
+
+const G1_CREDIT_TYPE = 'g1';
 
 // Use a type alias for SpyInstance as it's not directly exported
 type SpyInstance = ReturnType<typeof vi.spyOn>;
