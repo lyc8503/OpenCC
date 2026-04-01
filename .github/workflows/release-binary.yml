@@ -1,0 +1,192 @@
+name: 'Release Binary'
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v0.1.0)'
+        required: true
+        type: 'string'
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        type: 'boolean'
+        default: true
+
+permissions:
+  contents: 'write'
+
+defaults:
+  run:
+    shell: 'bash'
+
+jobs:
+  build:
+    name: 'Build (${{ matrix.platform_name }})'
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: 'ubuntu-latest'
+            platform_name: 'linux-x64'
+            arch: 'x64'
+          - os: 'windows-latest'
+            platform_name: 'win32-x64'
+            arch: 'x64'
+          - os: 'macos-latest'
+            platform_name: 'darwin-arm64'
+            arch: 'arm64'
+          - os: 'macos-latest'
+            platform_name: 'darwin-x64'
+            arch: 'x64'
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
+
+      - name: 'Optimize Windows Performance'
+        if: "matrix.os == 'windows-latest'"
+        run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true
+          Stop-Service -Name "wsearch" -Force -ErrorAction SilentlyContinue
+          Set-Service -Name "SysMain" -StartupType Disabled
+        shell: 'powershell'
+
+      - name: 'Set up Node.js'
+        uses: 'actions/setup-node@v4'
+        with:
+          node-version-file: '.nvmrc'
+          architecture: '${{ matrix.arch }}'
+          cache: 'npm'
+
+      - name: 'Install dependencies'
+        run: 'npm ci'
+
+      - name: 'Check Secrets'
+        id: 'check_secrets'
+        run: |
+          echo "has_win_cert=${{ secrets.WINDOWS_PFX_BASE64 != '' }}" >> "$GITHUB_OUTPUT"
+          echo "has_mac_cert=${{ secrets.MACOS_CERT_P12_BASE64 != '' }}" >> "$GITHUB_OUTPUT"
+
+      # macOS 签名设置（如果配置了 secrets）
+      - name: 'Setup macOS Keychain'
+        if: "startsWith(matrix.os, 'macos') && steps.check_secrets.outputs.has_mac_cert == 'true'"
+        env:
+          BUILD_CERTIFICATE_BASE64: '${{ secrets.MACOS_CERT_P12_BASE64 }}'
+          P12_PASSWORD: '${{ secrets.MACOS_CERT_PASSWORD }}'
+          KEYCHAIN_PASSWORD: 'temp-password'
+        run: |
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          echo "APPLE_IDENTITY=${{ secrets.MACOS_CERT_IDENTITY }}" >> "$GITHUB_ENV"
+
+      # Windows 签名设置（如果配置了 secrets）
+      - name: 'Setup Windows Certificate'
+        if: "matrix.os == 'windows-latest' && steps.check_secrets.outputs.has_win_cert == 'true'"
+        env:
+          PFX_BASE64: '${{ secrets.WINDOWS_PFX_BASE64 }}'
+          PFX_PASSWORD: '${{ secrets.WINDOWS_PFX_PASSWORD }}'
+        run: |
+          $pfx_cert_byte = [System.Convert]::FromBase64String("$env:PFX_BASE64")
+          $certPath = Join-Path (Get-Location) "cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, $pfx_cert_byte)
+          echo "WINDOWS_PFX_FILE=$certPath" >> $env:GITHUB_ENV
+          echo "WINDOWS_PFX_PASSWORD=$env:PFX_PASSWORD" >> $env:GITHUB_ENV
+        shell: 'pwsh'
+
+      - name: 'Build Binary'
+        run: 'npm run build:binary'
+
+      - name: 'Smoke Test'
+        run: |
+          if [ -f "dist/${{ matrix.platform_name }}/gemini.exe" ]; then
+            "./dist/${{ matrix.platform_name }}/gemini.exe" --version
+          else
+            "./dist/${{ matrix.platform_name }}/gemini" --version
+          fi
+
+      - name: 'Package Binary (Unix)'
+        if: "matrix.os != 'windows-latest'"
+        run: |
+          cd dist/${{ matrix.platform_name }}
+
+          # 重命名 gemini 为 opencc
+          if [ -f "gemini" ]; then
+            mv gemini opencc
+          fi
+
+          cd ..
+
+          # 打包
+          tar -czf "opencc-cli-${{ matrix.platform_name }}.tar.gz" "${{ matrix.platform_name }}"
+
+      - name: 'Package Binary (Windows)'
+        if: "matrix.os == 'windows-latest'"
+        run: |
+          cd dist/${{ matrix.platform_name }}
+
+          # 重命名 gemini.exe 为 opencc.exe
+          if (Test-Path "gemini.exe") {
+            Move-Item "gemini.exe" "opencc.exe" -Force
+          }
+
+          cd ..
+
+          # 打包为 zip
+          Compress-Archive -Path "${{ matrix.platform_name }}" -DestinationPath "opencc-cli-${{ matrix.platform_name }}.zip" -Force
+        shell: 'pwsh'
+
+      - name: 'Upload Artifact'
+        uses: 'actions/upload-artifact@v4'
+        with:
+          name: 'binary-${{ matrix.platform_name }}'
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          retention-days: 30
+
+  release:
+    name: 'Create GitHub Release'
+    needs: 'build'
+    runs-on: 'ubuntu-latest'
+    if: "github.event.inputs.version"
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v4'
+
+      - name: 'Download All Artifacts'
+        uses: 'actions/download-artifact@v4'
+        with:
+          path: 'artifacts'
+
+      - name: 'Prepare Release Assets'
+        run: |
+          mkdir -p release-assets
+          find artifacts -name '*.zip' -o -name '*.tar.gz' | while read file; do
+            cp "$file" release-assets/
+          done
+          ls -lh release-assets/
+
+      - name: 'Get Version'
+        id: 'version'
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: 'Create GitHub Release'
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+        run: |
+          gh release create "${{ steps.version.outputs.VERSION }}" \
+            release-assets/* \
+            --title "Release ${{ steps.version.outputs.VERSION }}" \
+            --generate-notes \
+            --draft
