@@ -15,13 +15,28 @@ const crypto = require('node:crypto');
 // --- Helper Functions ---
 
 /**
- * Strips the "ghost" argument that Node SEA sometimes injects (argv[2] == argv[0]).
+ * Strips the "ghost" argument that Node SEA sometimes injects.
+ * Node SEA can inject a ghost argument at argv[1] (the executable name or path)
+ * and occasionally at argv[2] (the full executable path).
  * @param {string[]} argv
  * @param {string} execPath
  * @param {function} resolveFn
+ * @param {function} basenameFn
  * @returns {boolean} True if an argument was removed.
  */
-function sanitizeArgv(argv, execPath, resolveFn = path.resolve) {
+function sanitizeArgv(argv, execPath, resolveFn = path.resolve, basenameFn = path.basename) {
+  // Check for ghost at argv[1] (common pattern: argv[1] == execPath or basename(execPath))
+  if (argv.length > 1) {
+    const arg1 = argv[1];
+    const execBasename = basenameFn(execPath);
+    // Remove argv[1] if it matches execPath or just the basename
+    if (arg1 === execPath || arg1 === execBasename) {
+      argv.splice(1, 1);
+      return true;
+    }
+  }
+  
+  // Check for ghost at argv[2] (less common, but possible)
   if (argv.length > 2) {
     const binaryAbs = execPath;
     const arg2Abs = resolveFn(argv[2]);

@@ -103,29 +103,52 @@ describe('sea-launch', () => {
   });
 
   describe('sanitizeArgv', () => {
+    it('removes ghost argument when argv[1] matches execPath', () => {
+      const execPath = '/usr/local/bin/opencc';
+      const argv = ['/usr/local/bin/opencc', '/usr/local/bin/opencc'];
+      const resolveFn = (p) => p;
+      const basenameFn = (p) => p.split('/').pop();
+      const removed = sanitizeArgv(argv, execPath, resolveFn, basenameFn);
+      expect(removed).toBe(true);
+      expect(argv).toEqual(['/usr/local/bin/opencc']);
+    });
+
+    it('removes ghost argument when argv[1] matches basename of execPath', () => {
+      const execPath = '/usr/local/bin/opencc';
+      const argv = ['/usr/local/bin/opencc', 'opencc'];
+      const resolveFn = (p) => p;
+      const basenameFn = (p) => p.split('/').pop();
+      const removed = sanitizeArgv(argv, execPath, resolveFn, basenameFn);
+      expect(removed).toBe(true);
+      expect(argv).toEqual(['/usr/local/bin/opencc']);
+    });
+
     it('removes ghost argument when argv[2] matches execPath', () => {
       const execPath = '/bin/node';
       const argv = ['/bin/node', '/app/script.js', '/bin/node', 'arg1'];
       const resolveFn = (p) => p;
-      const removed = sanitizeArgv(argv, execPath, resolveFn);
+      const basenameFn = (p) => p.split('/').pop();
+      const removed = sanitizeArgv(argv, execPath, resolveFn, basenameFn);
       expect(removed).toBe(true);
       expect(argv).toEqual(['/bin/node', '/app/script.js', 'arg1']);
     });
 
-    it('does nothing if argv[2] does not match execPath', () => {
+    it('does nothing if no ghost argument is present', () => {
       const execPath = '/bin/node';
       const argv = ['/bin/node', '/app/script.js', 'command', 'arg1'];
       const resolveFn = (p) => p;
-      const removed = sanitizeArgv(argv, execPath, resolveFn);
+      const basenameFn = (p) => p.split('/').pop();
+      const removed = sanitizeArgv(argv, execPath, resolveFn, basenameFn);
       expect(removed).toBe(false);
       expect(argv).toHaveLength(4);
     });
 
-    it('handles resolving relative paths', () => {
+    it('handles resolving relative paths for argv[2]', () => {
       const execPath = '/bin/node';
       const argv = ['/bin/node', '/app/script.js', './node', 'arg1'];
       const resolveFn = (p) => (p === './node' ? '/bin/node' : p);
-      const removed = sanitizeArgv(argv, execPath, resolveFn);
+      const basenameFn = (p) => p.split('/').pop();
+      const removed = sanitizeArgv(argv, execPath, resolveFn, basenameFn);
       expect(removed).toBe(true);
     });
   });

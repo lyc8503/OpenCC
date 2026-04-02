@@ -77,7 +77,7 @@
     "minimatch": "^10.2.2"
   },
   "bin": {
-    "gemini": "bundle/gemini.js"
+    "opencc": "bundle/gemini.js"
   },
   "files": [
     "bundle/",

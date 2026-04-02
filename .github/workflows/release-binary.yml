@@ -34,9 +34,9 @@ jobs:
           - os: 'ubuntu-latest'
             platform_name: 'linux-x64'
             arch: 'x64'
-          - os: 'windows-latest'
-            platform_name: 'win32-x64'
-            arch: 'x64'
+          # - os: 'windows-latest'
+          #   platform_name: 'win32-x64'
+          #   arch: 'x64'
           - os: 'macos-latest'
             platform_name: 'darwin-arm64'
             arch: 'arm64'
@@ -107,40 +107,22 @@ jobs:
 
       - name: 'Smoke Test'
         run: |
-          if [ -f "dist/${{ matrix.platform_name }}/gemini.exe" ]; then
-            "./dist/${{ matrix.platform_name }}/gemini.exe" --version
+          if [ -f "dist/${{ matrix.platform_name }}/opencc.exe" ]; then
+            "./dist/${{ matrix.platform_name }}/opencc.exe" --version
           else
-            "./dist/${{ matrix.platform_name }}/gemini" --version
+            "./dist/${{ matrix.platform_name }}/opencc" --version
           fi
 
       - name: 'Package Binary (Unix)'
         if: "matrix.os != 'windows-latest'"
         run: |
-          cd dist/${{ matrix.platform_name }}
-
-          # 重命名 gemini 为 opencc
-          if [ -f "gemini" ]; then
-            mv gemini opencc
-          fi
-
-          cd ..
-
-          # 打包
+          cd dist
           tar -czf "opencc-cli-${{ matrix.platform_name }}.tar.gz" "${{ matrix.platform_name }}"
 
       - name: 'Package Binary (Windows)'
         if: "matrix.os == 'windows-latest'"
         run: |
-          cd dist/${{ matrix.platform_name }}
-
-          # 重命名 gemini.exe 为 opencc.exe
-          if (Test-Path "gemini.exe") {
-            Move-Item "gemini.exe" "opencc.exe" -Force
-          }
-
-          cd ..
-
-          # 打包为 zip
+          cd dist
           Compress-Archive -Path "${{ matrix.platform_name }}" -DestinationPath "opencc-cli-${{ matrix.platform_name }}.zip" -Force
         shell: 'pwsh'
 

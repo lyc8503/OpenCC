@@ -31,6 +31,7 @@ import {
 
 import { loadCliConfig, parseArguments } from './config/config.js';
 import * as cliConfig from './config/config.js';
+import { hideBin } from 'yargs/helpers';
 import { readStdin } from './utils/readStdin.js';
 import { createHash } from 'node:crypto';
 import v8 from 'node:v8';
@@ -227,6 +228,16 @@ export async function main() {
   const parseArgsHandle = startupProfiler.start('parse_arguments');
   const argv = await parseArguments(settings.merged);
   parseArgsHandle?.end();
+
+  // Check for --version or --help flags early and exit before loading config or auth
+  const rawArgv = hideBin(process.argv);
+  if (rawArgv.includes('--version') || rawArgv.includes('-v')) {
+    const { getVersion } = await import('@google/gemini-cli-core');
+    const version = await getVersion();
+    console.log(version);
+    await runExitCleanup();
+    process.exit(0);
+  }
 
   if (
     (argv.allowedTools && argv.allowedTools.length > 0) ||

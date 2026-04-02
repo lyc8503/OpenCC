@@ -17,7 +17,25 @@ This is a Gemini CLI fork designed to align with the Claude Code tool design, ai
 
 ## Quickstart
 
-WIP
+### Manual
+
+Download from [releases](https://github.com/lyc8503/OpenCC/releases), untar it, put the standalone executable `opencc` in your PATH.
+
+### One-line script (for Linux)
+
+`curl | bash` is bad practice. Let's see what we run:
+
+```
+mkdir -p ~/.local/bin/ && wget -O /tmp/opencc.tar.gz https://github.com/lyc8503/OpenCC/releases/download/v0.1.0/opencc-cli-linux-x64.tar.gz && tar zxvf /tmp/opencc.tar.gz -C /tmp/ && mv /tmp/linux-x64/opencc ~/.local/bin/ && chmod 755 ~/.local/bin/opencc && rm -rf /tmp/linux-x64 /tmp/opencc.tar.gz && echo "OpenCC Installed. Make sure ~/.local/bin is in your PATH and run opencc to get started."
+```
+
+After installation, run `opencc` and use `/model` to specify a OpenAI-compatible endpoint to start using it.
+
+Use `Ctrl+Y` to enable YOLO mode (skip tool confirmation).
+
+## Some screenshots
+
+![](docs/assets/demo.png)
 
 ## TODOs
 
